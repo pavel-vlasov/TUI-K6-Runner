@@ -1,0 +1,57 @@
+# ui_components.py
+import json
+from textual.widgets import Label, Switch, Select, Input, TextArea
+from textual.containers import Horizontal, Vertical
+
+def get_valid_id(key_path, prefix="input"):
+    safe_path = key_path.replace('.', '__')
+    return f"{prefix}___{safe_path}"
+
+def build_config_fields(data, parent_path):
+    items = []
+    for k, v in data.items():
+        multiline_keys = ["headers", "body", "query", "thresholds"]
+        
+        if isinstance(v, dict) and k not in multiline_keys:
+            continue
+        
+        full_key = f"{parent_path}.{k}"
+        
+        if k in multiline_keys:
+            val_str = json.dumps(v, indent=2, ensure_ascii=False) if isinstance(v, (dict, list)) else str(v)
+            
+            ta_widget = TextArea(
+                val_str, 
+                id=get_valid_id(full_key, "input"), 
+                language="json",
+                soft_wrap=True
+            )
+            
+            ta_widget.show_line_numbers = False
+            ta_widget.highlight_cursor_line = False
+
+            items.append(Vertical(
+                Label(f"{k}:"),
+                ta_widget,
+                classes="field-row-multiline"
+            ))
+
+            
+        elif isinstance(v, bool):
+            label = Label(f"{k}:", classes="field-label")
+            widget = Switch(v, id=get_valid_id(full_key, "bool"))
+            items.append(Horizontal(label, widget, classes="field-row"))
+            
+        elif k == "method" or (k == "level" and parent_path == "k6.logging"):
+            label = Label(f"{k}:", classes="field-label")
+            options = ["GET", "POST", "PUT", "PATCH"] if k == "method" else ["all", "failed"]
+            widget = Select([(o, o) for o in options], value=v, id=get_valid_id(full_key, "select"))
+            items.append(Horizontal(label, widget, classes="field-row"))
+            
+        else:
+            label = Label(f"{k}:", classes="field-label")
+            val_str = str(v)
+            widget = Input(val_str, id=get_valid_id(full_key, "input"))
+            items.append(Horizontal(label, widget, classes="field-row"))
+            
+    return items

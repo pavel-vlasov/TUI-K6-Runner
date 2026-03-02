@@ -1,0 +1,129 @@
+ToastRack {
+    dock: top;
+    align: center top;
+    height: auto;
+    width: 100%;
+    margin-top: 1;
+    padding: 0 2;
+}
+
+Toast {
+    margin: 1 0 0 0;
+    width: auto;
+    max-width: 60%;
+    background: $accent 10%;
+    border: tall $accent;
+    padding: 1 2;
+}
+
+Toast.title {
+    text-style: bold;
+    color: $accent;
+}
+
+Toast.-information {
+    border: tall $accent;
+    background: $accent 10%;
+}
+
+Toast.-warning {
+    border: tall $warning;
+    background: $warning 15%;
+}
+
+Toast.-error {
+    border: tall $error;
+    background: $error 15%;
+}
+
+#main_tabs { height: 1fr; }
+.tab-container { padding: 1 2; }
+.field-row { height: auto; align: left middle; margin-bottom: 1; }
+.field-label { width: 24; }
+.switch-group { width: auto; height: auto; margin-right: 4; align: left middle; }
+.switch-group Label { width: auto; margin-right: 2; text-style: italic; }
+.field-row-multiline {
+    height: auto;
+    min-height: 4;
+    max-height: 50vh;
+}
+
+.field-row-multiline Label {
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+}
+TextArea {
+    height: auto;
+    min-height: 3;
+
+background: $surface;
+color: $text;
+}
+Input, Select { width: 1fr; }
+#log_view_container { height: 1fr; layout: vertical; }
+#status_bar {
+    background: $surface; color: $text; content-align: center middle;
+    text-style: bold; height: 5.5; width: 100%; margin: 0 1;
+    border: solid $primary; padding: 0 1;
+}
+#output_log { height: 1fr; margin: 0 1 1 1; border: solid $secondary; background: $surface; padding: 1; }
+#button_row { height: auto; padding: 1; background: $surface-darken-1; align: right middle; }
+#button_row Button { margin-left: 1; }
+#vu_input {
+    width: 15;
+    margin-right: 1;
+    height: 3;
+}
+
+#button_row { 
+    height: auto; 
+    padding: 1; 
+    background: $surface-darken-1; 
+    align: right middle; 
+}
+Button {
+ 
+    border: solid $primary; 
+    background: $primary;
+    text-style: none;
+    height: 3;
+    padding: 0 2;
+    margin: 0 1;
+    tint: white 0%; 
+    transition: background 200ms;
+}
+
+
+Button.-success { border: solid $success; background: $success; }
+Button.-error   { border: solid $error;   background: $error; }
+Button.-primary { border: solid $primary; background: $primary; }
+
+Button:hover {
+ 
+    border: solid yellow;
+    background: $primary-lighten-1;
+    text-style: none;
+    color: white !important;
+    tint: white 0%;
+}
+
+
+Button.-success:hover, Button.-error:hover, Button.-primary:hover {
+    border: solid yellow;
+    text-style: none !important;
+    color: white; 
+}
+
+Button:focus {
+
+    border: solid yellow;
+    text-style: none;
+}
+
+Button.-active {
+    text-style: none !important;
+    color: white !important;
+    border: solid white;
+    background: $accent;
+}
