@@ -8,15 +8,12 @@ class ConfigHandler:
     def update_from_ui(app, current_config: dict) -> dict:
         new_config = copy.deepcopy(current_config)
 
+        def is_int_key(part: str) -> bool:
+            return part.isdigit()
+
         def set_by_path(d, path, value):
-            keys = path.split('__') 
-            for key in keys[:-1]:
-                if key not in d or not isinstance(d[key], dict):
-                    d[key] = {}
-                d = d[key]
-            
-            last_key = keys[-1]
-            
+            keys = path.split('__')
+
             if isinstance(value, str):
                 value = "".join(ch for ch in value if ch.isprintable() or ch in "\n\r\t")
                 stripped = value.strip()
@@ -29,8 +26,38 @@ class ConfigHandler:
                         value = int(stripped)
                 except:
                     pass
-            
-            d[last_key] = value
+
+            current = d
+            for i, key in enumerate(keys):
+                last = i == len(keys) - 1
+                next_key = keys[i + 1] if not last else None
+
+                if isinstance(current, list):
+                    if not is_int_key(key):
+                        return
+                    idx = int(key)
+                    while len(current) <= idx:
+                        current.append({})
+
+                    if last:
+                        current[idx] = value
+                        return
+
+                    if not isinstance(current[idx], (dict, list)):
+                        current[idx] = [] if is_int_key(next_key) else {}
+                    current = current[idx]
+                    continue
+
+                if not isinstance(current, dict):
+                    return
+
+                if last:
+                    current[key] = value
+                    return
+
+                if key not in current or not isinstance(current[key], (dict, list)):
+                    current[key] = [] if is_int_key(next_key) else {}
+                current = current[key]
 
 
         for widget in app.query("Input, Switch, Select, TextArea"):

@@ -47,16 +47,42 @@ function encodingBase64(str) {
 }
 
 // --- options ---
-export let options = {
-  thresholds: k6cfg.thresholds || { 'http_req_duration': ['p(95)<5000'] },
-  scenarios: {
+const executionType = k6cfg.executionType || 'external executor';
+const spikeStages = Array.isArray(k6cfg.spikeStages) ? k6cfg.spikeStages : [];
+
+function buildScenarios() {
+  if (executionType === 'Spike Tests') {
+    const stages = spikeStages
+      .map((stage) => ({
+        duration: String(stage?.duration || '').trim(),
+        target: Number(stage?.target),
+      }))
+      .filter((stage) => stage.duration && Number.isFinite(stage.target) && stage.target >= 0)
+      .map((stage) => ({ duration: stage.duration, target: Math.floor(stage.target) }));
+
+    return {
+      spike_test: {
+        executor: 'ramping-vus',
+        startVUs: 0,
+        stages: stages.length ? stages : [{ duration: '30s', target: 10 }],
+        gracefulRampDown: '0s',
+      },
+    };
+  }
+
+  return {
     default: {
       executor: 'externally-controlled',
       vus: k6cfg.vus || 1,
       maxVUs: k6cfg.maxVUs || 50,
       duration: k6cfg.duration || '60s',
     },
-  },
+  };
+}
+
+export let options = {
+  thresholds: k6cfg.thresholds || { 'http_req_duration': ['p(95)<5000'] },
+  scenarios: buildScenarios(),
 };
 
 let lastWasError = false;

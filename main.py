@@ -30,14 +30,15 @@ from config_handler import ConfigHandler
 from constants import DEFAULT_CONFIG, AUTH_MAP
 from ui_components import build_config_fields, get_valid_id
 
+
 def get_resource_path(relative_path):
     base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
 
+
 class K6TestApp(App):
     TITLE = "K6 Executor"
-    CSS_PATH = get_resource_path("style.tcss") 
-
+    CSS_PATH = get_resource_path("style.tcss")
 
     def __init__(self):
         super().__init__()
@@ -55,7 +56,34 @@ class K6TestApp(App):
         except Exception:
             self.full_config = DEFAULT_CONFIG.copy()
 
+    def get_spike_stages(self):
+        stages = self.full_config.get("k6", {}).get("spikeStages", [])
+        if not isinstance(stages, list) or not stages:
+            return [{"duration": "30s", "target": 10}]
+        normalized = []
+        for stage in stages:
+            if not isinstance(stage, dict):
+                continue
+            normalized.append({
+                "duration": stage.get("duration", ""),
+                "target": stage.get("target", ""),
+            })
+        return normalized or [{"duration": "30s", "target": 10}]
 
+    def build_spike_stage_row(self, index: int, stage: dict) -> Horizontal:
+        return Horizontal(
+            Label(f"stage {index + 1}:", classes="field-label"),
+            Input(str(stage.get("duration", "")), id=f"input___k6__spikeStages__{index}__duration", placeholder="duration (e.g. 30s)"),
+            Input(str(stage.get("target", "")), id=f"input___k6__spikeStages__{index}__target", placeholder="target VUs"),
+            classes="field-row spike-stage-row",
+            id=f"spike_stage_row_{index}"
+        )
+
+    def add_spike_stage(self):
+        container = self.query_one("#spike_stages_container", Vertical)
+        stage_idx = len(container.children)
+        row = self.build_spike_stage_row(stage_idx, {"duration": "", "target": ""})
+        container.mount(row)
 
     def set_run_ui_state(self, running: bool) -> None:
         """Disable/enable controls while k6 is running."""
@@ -75,10 +103,14 @@ class K6TestApp(App):
     def toggle_execution_type_fields(self) -> None:
         execution_select = self.query_one("#select___k6__executionType", Select)
         show_external_fields = execution_select.value == "external executor"
+        show_spike_fields = execution_select.value == "Spike Tests"
 
         for row_id in ["#k6_vus_row", "#k6_maxvus_row", "#k6_duration_row"]:
             row = self.query_one(row_id)
             row.styles.display = "block" if show_external_fields else "none"
+
+        spike_group = self.query_one("#spike_stages_group", Vertical)
+        spike_group.styles.display = "block" if show_spike_fields else "none"
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -86,7 +118,7 @@ class K6TestApp(App):
             # --- Settings tab ---
             with TabPane("Settings", id="tab_settings"):
                 with TabbedContent(id="settings_subtabs"):
-                    
+
                     # 1. Auth tab
                     with TabPane("Auth", id="tab_auth"):
                         auth_data = self.full_config.get("auth", {})
@@ -96,14 +128,14 @@ class K6TestApp(App):
                             full_key = f"auth.{k}"
                             if isinstance(v, bool):
                                 switches_list.append(Horizontal(
-                                    Label(k), 
-                                    Switch(v, id=get_valid_id(full_key, "bool")), 
+                                    Label(k),
+                                    Switch(v, id=get_valid_id(full_key, "bool")),
                                     classes="switch-group"
                                 ))
                             else:
                                 inputs_list.append(Horizontal(
-                                    Label(f"{k}:", classes="field-label"), 
-                                    Input(str(v), id=get_valid_id(full_key, "input")), 
+                                    Label(f"{k}:", classes="field-label"),
+                                    Input(str(v), id=get_valid_id(full_key, "input")),
                                     classes="field-row"
                                 ))
                         yield ScrollableContainer(
@@ -116,11 +148,11 @@ class K6TestApp(App):
                     with TabPane("Request", id="tab_req"):
                         yield ScrollableContainer(
                             Horizontal(
-                                Label("baseURL:", classes="field-label"), 
-                                Input(self.full_config.get("baseURL", ""), id="input_baseURL"), 
+                                Label("baseURL:", classes="field-label"),
+                                Input(self.full_config.get("baseURL", ""), id="input_baseURL"),
                                 classes="field-row"
                             ),
-                            
+
                             *build_config_fields(self.full_config.get("request", {}), "request"),
                             classes="tab-container"
                         )
@@ -129,18 +161,18 @@ class K6TestApp(App):
                     with TabPane("K6", id="tab_k6"):
                         k6_config = self.full_config.get("k6", {})
                         execution_type = k6_config.get("executionType", "external executor")
-                        if execution_type != "external executor":
+                        if execution_type not in ["external executor", "Spike Tests"]:
                             execution_type = "external executor"
                         k6_other_data = {
                             k: v for k, v in k6_config.items()
-                            if k not in ["logging", "executionType", "vus", "maxVUs", "duration"]
+                            if k not in ["logging", "executionType", "vus", "maxVUs", "duration", "spikeStages"]
                         }
 
                         yield ScrollableContainer(
                             Horizontal(
                                 Label("execution type:", classes="field-label"),
                                 Select(
-                                    [("external executor", "external executor")],
+                                    [("external executor", "external executor"), ("Spike Tests", "Spike Tests")],
                                     value=execution_type,
                                     id="select___k6__executionType"
                                 ),
@@ -164,6 +196,18 @@ class K6TestApp(App):
                                 classes="field-row",
                                 id="k6_duration_row"
                             ),
+                            Vertical(
+                                Vertical(
+                                    *[self.build_spike_stage_row(i, stage) for i, stage in enumerate(self.get_spike_stages())],
+                                    id="spike_stages_container"
+                                ),
+                                Horizontal(
+                                    Label("", classes="field-label"),
+                                    Button("+", id="add_spike_stage_btn", variant="primary"),
+                                    classes="field-row"
+                                ),
+                                id="spike_stages_group"
+                            ),
                             *build_config_fields(k6_other_data, "k6"),
                             classes="tab-container"
                         )
@@ -172,25 +216,24 @@ class K6TestApp(App):
                     with TabPane("Logging", id="tab_logging"):
                         log_data = self.full_config.get("k6", {}).get("logging", {})
                         yield ScrollableContainer(
-                            *build_config_fields(log_data, "k6.logging"), 
+                            *build_config_fields(log_data, "k6.logging"),
                             classes="tab-container"
                         )
-            
+
             # --- Logging tab---
             with TabPane("Logs", id="tab_logs"):
                 with Vertical(id="log_view_container"):
                     yield Static("Waiting...\nPrepare to run", id="status_bar")
                     yield RichLog(id="output_log", markup=True, wrap=True)
-                
+
                 with Horizontal(id="button_row"):
                     yield Input(placeholder="VUs...", id="vu_input")
                     yield Button("✅ Apply", id="apply_vu_btn", variant="primary")
                     yield Button("📋 Copy All Logs", id="copy_btn", variant="primary")
                     yield Button("Stop k6", id="stop_btn", variant="error")
                     yield Button("Save & Run k6 Test", id="run_btn", variant="success")
-        
-        yield Footer()
 
+        yield Footer()
 
     def on_switch_changed(self, event: Switch.Changed):
 
@@ -207,8 +250,11 @@ class K6TestApp(App):
         if event.select.id == "select___k6__executionType":
             self.toggle_execution_type_fields()
 
-
     async def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "add_spike_stage_btn":
+            self.add_spike_stage()
+            return
+
         log_view = self.query_one("#output_log", RichLog)
         status_bar = self.query_one("#status_bar", Static)
 
@@ -221,7 +267,7 @@ class K6TestApp(App):
             self.action_save_config()
             log_view.clear()
             self.notify("Running K6 execution...")
-            
+
             output_ui = self.full_config.get("k6", {}).get("logging", {}).get("outputToUI", True)
 
             # disable controls while running
@@ -231,7 +277,7 @@ class K6TestApp(App):
                 self.k6_logic.run_k6_process(
                     log_view.write,
                     status_bar.update,
-                    output_ui    
+                    output_ui
                 )
             )
 
@@ -256,10 +302,9 @@ class K6TestApp(App):
                 await self.k6_logic.set_vus(int(vu_input.value), log_view.write)
                 vu_input.value = ""
 
-
     def action_save_config(self):
         self.full_config = ConfigHandler.update_from_ui(self, self.full_config)
-        
+
         try:
             ConfigHandler.save_to_file(self.full_config)
             self.notify("Configuration saved successfully!", severity="information")
