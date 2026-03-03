@@ -86,9 +86,14 @@ class K6Logic:
 
                         is_running_line = "running (" in clean_text and "VUs" in clean_text
                         is_default_line = "default" in clean_text and "%" in clean_text
-                        if is_running_line or is_default_line:
-                            if is_running_line: self.status_running = clean_text
-                            if is_default_line: self.status_default = clean_text
+                        is_scenario_progress_line = bool(
+                            re.search(r"^\s*[A-Za-z0-9_-]+\s+\[\s*\d+%\s*\]\s+\d+/\d+\s+VUs\s+\S+/\S+", clean_text)
+                        )
+                        if is_running_line or is_default_line or is_scenario_progress_line:
+                            if is_running_line:
+                                self.status_running = clean_text
+                            if is_default_line or is_scenario_progress_line:
+                                self.status_default = clean_text
                             if time.time() - self.last_update_time > 0.1:
                                 self._update_ui(on_status)
                                 self.last_update_time = time.time()

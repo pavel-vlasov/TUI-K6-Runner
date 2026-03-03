@@ -16,6 +16,9 @@ DEFAULT_CONFIG = {
     "k6": {
         "executionType": "external executor",
         "vus": 1, "maxVUs": 10, "duration": "10s",
+        "spikeStages": [
+            {"duration": "30s", "target": 10}
+        ],
         "thresholds": {
             "http_req_duration": [{"threshold": "p(99) < 2000", "abortOnFail": False, "delayAbortEval": "2s"}]
         },
