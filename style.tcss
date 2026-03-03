@@ -134,6 +134,16 @@ Button.-active {
     padding-right: 1;
 }
 
+#ramping_arrival_scroll_group {
+    height: 18;
+    overflow-y: auto;
+    padding-right: 1;
+}
+
+#arrival_stages_container {
+    padding-right: 1;
+}
+
 .spike-stage-row Input {
     min-width: 20;
 }

@@ -98,13 +98,12 @@ class K6TestApp(App):
             Label(f"stage {index + 1}:", classes="field-label"),
             Input(str(stage.get("duration", "")), id=f"input___k6__rampingArrivalStages__{index}__duration", placeholder="duration (e.g. 30s)"),
             Input(str(stage.get("target", "")), id=f"input___k6__rampingArrivalStages__{index}__target", placeholder="target rate"),
-            Button("-", id=f"remove_arrival_stage_btn_{index}", variant="error"),
             classes="field-row spike-stage-row",
             id=f"arrival_stage_row_{index}"
         )
 
     def _read_spike_stages_from_ui(self):
-        container = self.query_one("#spike_stages_container", Vertical)
+        container = self.query_one("#spike_stages_container", ScrollableContainer)
         stages = []
         for index, _ in enumerate(container.children):
             duration_input = self.query_one(f"#input___k6__spikeStages__{index}__duration", Input)
@@ -113,7 +112,7 @@ class K6TestApp(App):
         return stages
 
     def _remount_spike_rows(self, stages):
-        container = self.query_one("#spike_stages_container", Vertical)
+        container = self.query_one("#spike_stages_container", ScrollableContainer)
         for child in list(container.children):
             child.remove()
 
@@ -144,28 +143,30 @@ class K6TestApp(App):
             container.mount(self.build_arrival_stage_row(index, stage))
 
     def add_spike_stage(self):
-        container = self.query_one("#spike_stages_container", Vertical)
+        container = self.query_one("#spike_stages_container", ScrollableContainer)
         stage_idx = len(container.children)
         row = self.build_spike_stage_row(stage_idx, {"duration": "", "target": ""})
         container.mount(row)
 
     def remove_last_spike_stage(self):
-        container = self.query_one("#spike_stages_container", Vertical)
+        container = self.query_one("#spike_stages_container", ScrollableContainer)
         if len(container.children) <= 1:
             return
         last_row = list(container.children)[-1]
         last_row.remove()
 
     def add_arrival_stage(self):
-        stages = self._read_arrival_stages_from_ui()
-        stages.append({"duration": "", "target": ""})
-        self._remount_arrival_rows(stages)
+        container = self.query_one("#arrival_stages_container", Vertical)
+        stage_idx = len(container.children)
+        row = self.build_arrival_stage_row(stage_idx, {"duration": "", "target": ""})
+        container.mount(row)
 
-    def remove_arrival_stage(self, remove_index: int):
-        stages = self._read_arrival_stages_from_ui()
-        if 0 <= remove_index < len(stages):
-            stages.pop(remove_index)
-        self._remount_arrival_rows(stages)
+    def remove_last_arrival_stage(self):
+        container = self.query_one("#arrival_stages_container", Vertical)
+        if len(container.children) <= 1:
+            return
+        last_row = list(container.children)[-1]
+        last_row.remove()
 
     def set_run_ui_state(self, running: bool) -> None:
         """Disable/enable controls while k6 is running."""
@@ -198,6 +199,9 @@ class K6TestApp(App):
 
         duration_row = self.query_one("#k6_duration_row")
         duration_row.styles.display = "block" if (show_external_fields or show_constant_vus_fields or show_constant_arrival_fields) else "none"
+
+        ramping_arrival_scroll_group = self.query_one("#ramping_arrival_scroll_group", ScrollableContainer)
+        ramping_arrival_scroll_group.styles.display = "block" if (show_constant_arrival_fields or show_ramping_arrival_fields) else "none"
 
         for row_id in ["#k6_rate_row", "#k6_timeunit_row", "#k6_preallocated_row"]:
             row = self.query_one(row_id)
@@ -302,32 +306,48 @@ class K6TestApp(App):
                                 classes="field-row",
                                 id="k6_duration_row"
                             ),
-                            Horizontal(
-                                Label("rate:", classes="field-label"),
-                                Input(str(k6_config.get("rate", "")), id="input___k6__rate"),
-                                classes="field-row",
-                                id="k6_rate_row"
-                            ),
-                            Horizontal(
-                                Label("timeUnit:", classes="field-label"),
-                                Input(str(k6_config.get("timeUnit", "")), id="input___k6__timeUnit"),
-                                classes="field-row",
-                                id="k6_timeunit_row"
-                            ),
-                            Horizontal(
-                                Label("preAllocatedVUs:", classes="field-label"),
-                                Input(str(k6_config.get("preAllocatedVUs", "")), id="input___k6__preAllocatedVUs"),
-                                classes="field-row",
-                                id="k6_preallocated_row"
-                            ),
-                            Horizontal(
-                                Label("startRate:", classes="field-label"),
-                                Input(str(k6_config.get("startRate", "")), id="input___k6__startRate"),
-                                classes="field-row",
-                                id="k6_start_rate_row"
+                            ScrollableContainer(
+                                Horizontal(
+                                    Label("rate:", classes="field-label"),
+                                    Input(str(k6_config.get("rate", "")), id="input___k6__rate"),
+                                    classes="field-row",
+                                    id="k6_rate_row"
+                                ),
+                                Horizontal(
+                                    Label("timeUnit:", classes="field-label"),
+                                    Input(str(k6_config.get("timeUnit", "")), id="input___k6__timeUnit"),
+                                    classes="field-row",
+                                    id="k6_timeunit_row"
+                                ),
+                                Horizontal(
+                                    Label("preAllocatedVUs:", classes="field-label"),
+                                    Input(str(k6_config.get("preAllocatedVUs", "")), id="input___k6__preAllocatedVUs"),
+                                    classes="field-row",
+                                    id="k6_preallocated_row"
+                                ),
+                                Horizontal(
+                                    Label("startRate:", classes="field-label"),
+                                    Input(str(k6_config.get("startRate", "")), id="input___k6__startRate"),
+                                    classes="field-row",
+                                    id="k6_start_rate_row"
+                                ),
+                                Vertical(
+                                    Vertical(
+                                        *[self.build_arrival_stage_row(i, stage) for i, stage in enumerate(self.get_ramping_arrival_stages())],
+                                        id="arrival_stages_container"
+                                    ),
+                                    Horizontal(
+                                        Label("", classes="field-label"),
+                                        Button("+", id="add_arrival_stage_btn", variant="primary"),
+                                        Button("-", id="remove_last_arrival_stage_btn", variant="error"),
+                                        classes="field-row"
+                                    ),
+                                    id="arrival_stages_group"
+                                ),
+                                id="ramping_arrival_scroll_group"
                             ),
                             Vertical(
-                                Vertical(
+                                ScrollableContainer(
                                     *[self.build_spike_stage_row(i, stage) for i, stage in enumerate(self.get_spike_stages())],
                                     id="spike_stages_container"
                                 ),
@@ -338,18 +358,6 @@ class K6TestApp(App):
                                     classes="field-row"
                                 ),
                                 id="spike_stages_group"
-                            ),
-                            Vertical(
-                                Vertical(
-                                    *[self.build_arrival_stage_row(i, stage) for i, stage in enumerate(self.get_ramping_arrival_stages())],
-                                    id="arrival_stages_container"
-                                ),
-                                Horizontal(
-                                    Label("", classes="field-label"),
-                                    Button("+", id="add_arrival_stage_btn", variant="primary"),
-                                    classes="field-row"
-                                ),
-                                id="arrival_stages_group"
                             ),
                             *build_config_fields(k6_other_data, "k6"),
                             classes="tab-container"
@@ -406,9 +414,8 @@ class K6TestApp(App):
             self.add_arrival_stage()
             return
 
-        if event.button.id and event.button.id.startswith("remove_arrival_stage_btn_"):
-            remove_index = int(event.button.id.rsplit("_", 1)[-1])
-            self.remove_arrival_stage(remove_index)
+        if event.button.id == "remove_last_arrival_stage_btn":
+            self.remove_last_arrival_stage()
             return
 
         log_view = self.query_one("#output_log", RichLog)
@@ -461,9 +468,13 @@ class K6TestApp(App):
     def action_save_config(self):
         # Keep spikeStages length in sync with currently visible rows before generic UI-path mapping.
         # Without this reset, removed rows can remain in config because indexed writes only overwrite existing items.
-        spike_container = self.query_one("#spike_stages_container", Vertical)
+        spike_container = self.query_one("#spike_stages_container", ScrollableContainer)
         spike_rows_count = len(spike_container.children)
         self.full_config.setdefault("k6", {})["spikeStages"] = [{} for _ in range(spike_rows_count)]
+
+        arrival_container = self.query_one("#arrival_stages_container", Vertical)
+        arrival_rows_count = len(arrival_container.children)
+        self.full_config.setdefault("k6", {})["rampingArrivalStages"] = [{} for _ in range(arrival_rows_count)]
 
         self.full_config = ConfigHandler.update_from_ui(self, self.full_config)
 
