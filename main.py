@@ -98,7 +98,6 @@ class K6TestApp(App):
             Label(f"stage {index + 1}:", classes="field-label"),
             Input(str(stage.get("duration", "")), id=f"input___k6__rampingArrivalStages__{index}__duration", placeholder="duration (e.g. 30s)"),
             Input(str(stage.get("target", "")), id=f"input___k6__rampingArrivalStages__{index}__target", placeholder="target rate"),
-            Button("-", id=f"remove_arrival_stage_btn_{index}", variant="error"),
             classes="field-row spike-stage-row",
             id=f"arrival_stage_row_{index}"
         )
@@ -157,15 +156,17 @@ class K6TestApp(App):
         last_row.remove()
 
     def add_arrival_stage(self):
-        stages = self._read_arrival_stages_from_ui()
-        stages.append({"duration": "", "target": ""})
-        self._remount_arrival_rows(stages)
+        container = self.query_one("#arrival_stages_container", Vertical)
+        stage_idx = len(container.children)
+        row = self.build_arrival_stage_row(stage_idx, {"duration": "", "target": ""})
+        container.mount(row)
 
-    def remove_arrival_stage(self, remove_index: int):
-        stages = self._read_arrival_stages_from_ui()
-        if 0 <= remove_index < len(stages):
-            stages.pop(remove_index)
-        self._remount_arrival_rows(stages)
+    def remove_last_arrival_stage(self):
+        container = self.query_one("#arrival_stages_container", Vertical)
+        if len(container.children) <= 1:
+            return
+        last_row = list(container.children)[-1]
+        last_row.remove()
 
     def set_run_ui_state(self, running: bool) -> None:
         """Disable/enable controls while k6 is running."""
@@ -347,6 +348,7 @@ class K6TestApp(App):
                                 Horizontal(
                                     Label("", classes="field-label"),
                                     Button("+", id="add_arrival_stage_btn", variant="primary"),
+                                    Button("-", id="remove_last_arrival_stage_btn", variant="error"),
                                     classes="field-row"
                                 ),
                                 id="arrival_stages_group"
@@ -406,9 +408,8 @@ class K6TestApp(App):
             self.add_arrival_stage()
             return
 
-        if event.button.id and event.button.id.startswith("remove_arrival_stage_btn_"):
-            remove_index = int(event.button.id.rsplit("_", 1)[-1])
-            self.remove_arrival_stage(remove_index)
+        if event.button.id == "remove_last_arrival_stage_btn":
+            self.remove_last_arrival_stage()
             return
 
         log_view = self.query_one("#output_log", RichLog)
@@ -464,6 +465,10 @@ class K6TestApp(App):
         spike_container = self.query_one("#spike_stages_container", Vertical)
         spike_rows_count = len(spike_container.children)
         self.full_config.setdefault("k6", {})["spikeStages"] = [{} for _ in range(spike_rows_count)]
+
+        arrival_container = self.query_one("#arrival_stages_container", Vertical)
+        arrival_rows_count = len(arrival_container.children)
+        self.full_config.setdefault("k6", {})["rampingArrivalStages"] = [{} for _ in range(arrival_rows_count)]
 
         self.full_config = ConfigHandler.update_from_ui(self, self.full_config)
 
