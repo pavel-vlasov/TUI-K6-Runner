@@ -14,6 +14,7 @@ DEFAULT_CONFIG = {
         "body": {"sample": "payload2"}, "query": {}
     },
     "k6": {
+        "executionType": "external executor",
         "vus": 1, "maxVUs": 10, "duration": "10s",
         "thresholds": {
             "http_req_duration": [{"threshold": "p(99) < 2000", "abortOnFail": False, "delayAbortEval": "2s"}]
