@@ -16,7 +16,14 @@ DEFAULT_CONFIG = {
     "k6": {
         "executionType": "external executor",
         "vus": 1, "maxVUs": 10, "duration": "10s",
+        "rate": 10,
+        "timeUnit": "1s",
+        "preAllocatedVUs": 10,
+        "startRate": 1,
         "spikeStages": [
+            {"duration": "30s", "target": 10}
+        ],
+        "rampingArrivalStages": [
             {"duration": "30s", "target": 10}
         ],
         "thresholds": {

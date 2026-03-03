@@ -70,6 +70,20 @@ class K6TestApp(App):
             })
         return normalized or [{"duration": "30s", "target": 10}]
 
+    def get_ramping_arrival_stages(self):
+        stages = self.full_config.get("k6", {}).get("rampingArrivalStages", [])
+        if not isinstance(stages, list) or not stages:
+            return [{"duration": "30s", "target": 10}]
+        normalized = []
+        for stage in stages:
+            if not isinstance(stage, dict):
+                continue
+            normalized.append({
+                "duration": stage.get("duration", ""),
+                "target": stage.get("target", ""),
+            })
+        return normalized or [{"duration": "30s", "target": 10}]
+
     def build_spike_stage_row(self, index: int, stage: dict) -> Horizontal:
         return Horizontal(
             Label(f"stage {index + 1}:", classes="field-label"),
@@ -78,6 +92,56 @@ class K6TestApp(App):
             classes="field-row spike-stage-row",
             id=f"spike_stage_row_{index}"
         )
+
+    def build_arrival_stage_row(self, index: int, stage: dict) -> Horizontal:
+        return Horizontal(
+            Label(f"stage {index + 1}:", classes="field-label"),
+            Input(str(stage.get("duration", "")), id=f"input___k6__rampingArrivalStages__{index}__duration", placeholder="duration (e.g. 30s)"),
+            Input(str(stage.get("target", "")), id=f"input___k6__rampingArrivalStages__{index}__target", placeholder="target rate"),
+            Button("-", id=f"remove_arrival_stage_btn_{index}", variant="error"),
+            classes="field-row spike-stage-row",
+            id=f"arrival_stage_row_{index}"
+        )
+
+    def _read_spike_stages_from_ui(self):
+        container = self.query_one("#spike_stages_container", Vertical)
+        stages = []
+        for index, _ in enumerate(container.children):
+            duration_input = self.query_one(f"#input___k6__spikeStages__{index}__duration", Input)
+            target_input = self.query_one(f"#input___k6__spikeStages__{index}__target", Input)
+            stages.append({"duration": duration_input.value, "target": target_input.value})
+        return stages
+
+    def _remount_spike_rows(self, stages):
+        container = self.query_one("#spike_stages_container", Vertical)
+        for child in list(container.children):
+            child.remove()
+
+        if not stages:
+            stages = [{"duration": "", "target": ""}]
+
+        for index, stage in enumerate(stages):
+            container.mount(self.build_spike_stage_row(index, stage))
+
+    def _read_arrival_stages_from_ui(self):
+        container = self.query_one("#arrival_stages_container", Vertical)
+        stages = []
+        for index, _ in enumerate(container.children):
+            duration_input = self.query_one(f"#input___k6__rampingArrivalStages__{index}__duration", Input)
+            target_input = self.query_one(f"#input___k6__rampingArrivalStages__{index}__target", Input)
+            stages.append({"duration": duration_input.value, "target": target_input.value})
+        return stages
+
+    def _remount_arrival_rows(self, stages):
+        container = self.query_one("#arrival_stages_container", Vertical)
+        for child in list(container.children):
+            child.remove()
+
+        if not stages:
+            stages = [{"duration": "", "target": ""}]
+
+        for index, stage in enumerate(stages):
+            container.mount(self.build_arrival_stage_row(index, stage))
 
     def add_spike_stage(self):
         container = self.query_one("#spike_stages_container", Vertical)
@@ -91,6 +155,17 @@ class K6TestApp(App):
             return
         last_row = list(container.children)[-1]
         last_row.remove()
+
+    def add_arrival_stage(self):
+        stages = self._read_arrival_stages_from_ui()
+        stages.append({"duration": "", "target": ""})
+        self._remount_arrival_rows(stages)
+
+    def remove_arrival_stage(self, remove_index: int):
+        stages = self._read_arrival_stages_from_ui()
+        if 0 <= remove_index < len(stages):
+            stages.pop(remove_index)
+        self._remount_arrival_rows(stages)
 
     def set_run_ui_state(self, running: bool) -> None:
         """Disable/enable controls while k6 is running."""
@@ -111,13 +186,31 @@ class K6TestApp(App):
         execution_select = self.query_one("#select___k6__executionType", Select)
         show_external_fields = execution_select.value == "external executor"
         show_spike_fields = execution_select.value == "Spike Tests"
+        show_constant_vus_fields = execution_select.value == "Constant VUs"
+        show_constant_arrival_fields = execution_select.value == "Constant Arrival Rate"
+        show_ramping_arrival_fields = execution_select.value == "Ramping Arrival Rate"
 
-        for row_id in ["#k6_vus_row", "#k6_maxvus_row", "#k6_duration_row"]:
+        vus_row = self.query_one("#k6_vus_row")
+        vus_row.styles.display = "block" if (show_external_fields or show_constant_vus_fields) else "none"
+
+        max_vus_row = self.query_one("#k6_maxvus_row")
+        max_vus_row.styles.display = "block" if (show_external_fields or show_constant_arrival_fields or show_ramping_arrival_fields) else "none"
+
+        duration_row = self.query_one("#k6_duration_row")
+        duration_row.styles.display = "block" if (show_external_fields or show_constant_vus_fields or show_constant_arrival_fields) else "none"
+
+        for row_id in ["#k6_rate_row", "#k6_timeunit_row", "#k6_preallocated_row"]:
             row = self.query_one(row_id)
-            row.styles.display = "block" if show_external_fields else "none"
+            row.styles.display = "block" if (show_constant_arrival_fields or show_ramping_arrival_fields) else "none"
+
+        start_rate_row = self.query_one("#k6_start_rate_row")
+        start_rate_row.styles.display = "block" if show_ramping_arrival_fields else "none"
 
         spike_group = self.query_one("#spike_stages_group", Vertical)
         spike_group.styles.display = "block" if show_spike_fields else "none"
+
+        arrival_group = self.query_one("#arrival_stages_group", Vertical)
+        arrival_group.styles.display = "block" if show_ramping_arrival_fields else "none"
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -168,18 +261,24 @@ class K6TestApp(App):
                     with TabPane("K6", id="tab_k6"):
                         k6_config = self.full_config.get("k6", {})
                         execution_type = k6_config.get("executionType", "external executor")
-                        if execution_type not in ["external executor", "Spike Tests"]:
+                        if execution_type not in ["external executor", "Spike Tests", "Constant VUs", "Constant Arrival Rate", "Ramping Arrival Rate"]:
                             execution_type = "external executor"
                         k6_other_data = {
                             k: v for k, v in k6_config.items()
-                            if k not in ["logging", "executionType", "vus", "maxVUs", "duration", "spikeStages"]
+                            if k not in ["logging", "executionType", "vus", "maxVUs", "duration", "spikeStages", "rate", "timeUnit", "preAllocatedVUs", "startRate", "rampingArrivalStages"]
                         }
 
                         yield ScrollableContainer(
                             Horizontal(
                                 Label("execution type:", classes="field-label"),
                                 Select(
-                                    [("external executor", "external executor"), ("Spike Tests", "Spike Tests")],
+                                    [
+                                        ("external executor", "external executor"),
+                                        ("Spike Tests", "Spike Tests"),
+                                        ("Constant VUs", "Constant VUs"),
+                                        ("Constant Arrival Rate", "Constant Arrival Rate"),
+                                        ("Ramping Arrival Rate", "Ramping Arrival Rate"),
+                                    ],
                                     value=execution_type,
                                     id="select___k6__executionType"
                                 ),
@@ -203,6 +302,30 @@ class K6TestApp(App):
                                 classes="field-row",
                                 id="k6_duration_row"
                             ),
+                            Horizontal(
+                                Label("rate:", classes="field-label"),
+                                Input(str(k6_config.get("rate", "")), id="input___k6__rate"),
+                                classes="field-row",
+                                id="k6_rate_row"
+                            ),
+                            Horizontal(
+                                Label("timeUnit:", classes="field-label"),
+                                Input(str(k6_config.get("timeUnit", "")), id="input___k6__timeUnit"),
+                                classes="field-row",
+                                id="k6_timeunit_row"
+                            ),
+                            Horizontal(
+                                Label("preAllocatedVUs:", classes="field-label"),
+                                Input(str(k6_config.get("preAllocatedVUs", "")), id="input___k6__preAllocatedVUs"),
+                                classes="field-row",
+                                id="k6_preallocated_row"
+                            ),
+                            Horizontal(
+                                Label("startRate:", classes="field-label"),
+                                Input(str(k6_config.get("startRate", "")), id="input___k6__startRate"),
+                                classes="field-row",
+                                id="k6_start_rate_row"
+                            ),
                             Vertical(
                                 Vertical(
                                     *[self.build_spike_stage_row(i, stage) for i, stage in enumerate(self.get_spike_stages())],
@@ -215,6 +338,18 @@ class K6TestApp(App):
                                     classes="field-row"
                                 ),
                                 id="spike_stages_group"
+                            ),
+                            Vertical(
+                                Vertical(
+                                    *[self.build_arrival_stage_row(i, stage) for i, stage in enumerate(self.get_ramping_arrival_stages())],
+                                    id="arrival_stages_container"
+                                ),
+                                Horizontal(
+                                    Label("", classes="field-label"),
+                                    Button("+", id="add_arrival_stage_btn", variant="primary"),
+                                    classes="field-row"
+                                ),
+                                id="arrival_stages_group"
                             ),
                             *build_config_fields(k6_other_data, "k6"),
                             classes="tab-container"
@@ -265,6 +400,15 @@ class K6TestApp(App):
 
         if event.button.id == "remove_last_spike_stage_btn":
             self.remove_last_spike_stage()
+            return
+
+        if event.button.id == "add_arrival_stage_btn":
+            self.add_arrival_stage()
+            return
+
+        if event.button.id and event.button.id.startswith("remove_arrival_stage_btn_"):
+            remove_index = int(event.button.id.rsplit("_", 1)[-1])
+            self.remove_arrival_stage(remove_index)
             return
 
         log_view = self.query_one("#output_log", RichLog)
