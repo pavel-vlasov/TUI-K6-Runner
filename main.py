@@ -315,6 +315,12 @@ class K6TestApp(App):
                 vu_input.value = ""
 
     def action_save_config(self):
+        # Keep spikeStages length in sync with currently visible rows before generic UI-path mapping.
+        # Without this reset, removed rows can remain in config because indexed writes only overwrite existing items.
+        spike_container = self.query_one("#spike_stages_container", Vertical)
+        spike_rows_count = len(spike_container.children)
+        self.full_config.setdefault("k6", {})["spikeStages"] = [{} for _ in range(spike_rows_count)]
+
         self.full_config = ConfigHandler.update_from_ui(self, self.full_config)
 
         try:
