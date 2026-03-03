@@ -200,7 +200,7 @@ class K6TestApp(App):
         duration_row = self.query_one("#k6_duration_row")
         duration_row.styles.display = "block" if (show_external_fields or show_constant_vus_fields or show_constant_arrival_fields) else "none"
 
-        ramping_arrival_scroll_group = self.query_one("#ramping_arrival_scroll_group", Vertical)
+        ramping_arrival_scroll_group = self.query_one("#ramping_arrival_scroll_group", ScrollableContainer)
         ramping_arrival_scroll_group.styles.display = "block" if (show_constant_arrival_fields or show_ramping_arrival_fields) else "none"
 
         for row_id in ["#k6_rate_row", "#k6_timeunit_row", "#k6_preallocated_row"]:
@@ -306,7 +306,7 @@ class K6TestApp(App):
                                 classes="field-row",
                                 id="k6_duration_row"
                             ),
-                            Vertical(
+                            ScrollableContainer(
                                 Horizontal(
                                     Label("rate:", classes="field-label"),
                                     Input(str(k6_config.get("rate", "")), id="input___k6__rate"),
@@ -358,19 +358,6 @@ class K6TestApp(App):
                                     classes="field-row"
                                 ),
                                 id="spike_stages_group"
-                            ),
-                            Vertical(
-                                Vertical(
-                                    *[self.build_arrival_stage_row(i, stage) for i, stage in enumerate(self.get_ramping_arrival_stages())],
-                                    id="arrival_stages_container"
-                                ),
-                                Horizontal(
-                                    Label("", classes="field-label"),
-                                    Button("+", id="add_arrival_stage_btn", variant="primary"),
-                                    Button("-", id="remove_last_arrival_stage_btn", variant="error"),
-                                    classes="field-row"
-                                ),
-                                id="arrival_stages_group"
                             ),
                             *build_config_fields(k6_other_data, "k6"),
                             classes="tab-container"
