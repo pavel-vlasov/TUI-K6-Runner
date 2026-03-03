@@ -359,6 +359,19 @@ class K6TestApp(App):
                                 ),
                                 id="spike_stages_group"
                             ),
+                            Vertical(
+                                Vertical(
+                                    *[self.build_arrival_stage_row(i, stage) for i, stage in enumerate(self.get_ramping_arrival_stages())],
+                                    id="arrival_stages_container"
+                                ),
+                                Horizontal(
+                                    Label("", classes="field-label"),
+                                    Button("+", id="add_arrival_stage_btn", variant="primary"),
+                                    Button("-", id="remove_last_arrival_stage_btn", variant="error"),
+                                    classes="field-row"
+                                ),
+                                id="arrival_stages_group"
+                            ),
                             *build_config_fields(k6_other_data, "k6"),
                             classes="tab-container"
                         )
