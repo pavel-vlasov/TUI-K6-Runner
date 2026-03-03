@@ -89,7 +89,6 @@ class K6TestApp(App):
             Label(f"stage {index + 1}:", classes="field-label"),
             Input(str(stage.get("duration", "")), id=f"input___k6__spikeStages__{index}__duration", placeholder="duration (e.g. 30s)"),
             Input(str(stage.get("target", "")), id=f"input___k6__spikeStages__{index}__target", placeholder="target VUs"),
-            Button("-", id=f"remove_spike_stage_btn_{index}", variant="error"),
             classes="field-row spike-stage-row",
             id=f"spike_stage_row_{index}"
         )
@@ -145,15 +144,17 @@ class K6TestApp(App):
             container.mount(self.build_arrival_stage_row(index, stage))
 
     def add_spike_stage(self):
-        stages = self._read_spike_stages_from_ui()
-        stages.append({"duration": "", "target": ""})
-        self._remount_spike_rows(stages)
+        container = self.query_one("#spike_stages_container", Vertical)
+        stage_idx = len(container.children)
+        row = self.build_spike_stage_row(stage_idx, {"duration": "", "target": ""})
+        container.mount(row)
 
-    def remove_spike_stage(self, remove_index: int):
-        stages = self._read_spike_stages_from_ui()
-        if 0 <= remove_index < len(stages):
-            stages.pop(remove_index)
-        self._remount_spike_rows(stages)
+    def remove_last_spike_stage(self):
+        container = self.query_one("#spike_stages_container", Vertical)
+        if len(container.children) <= 1:
+            return
+        last_row = list(container.children)[-1]
+        last_row.remove()
 
     def add_arrival_stage(self):
         stages = self._read_arrival_stages_from_ui()
@@ -333,6 +334,7 @@ class K6TestApp(App):
                                 Horizontal(
                                     Label("", classes="field-label"),
                                     Button("+", id="add_spike_stage_btn", variant="primary"),
+                                    Button("-", id="remove_last_spike_stage_btn", variant="error"),
                                     classes="field-row"
                                 ),
                                 id="spike_stages_group"
@@ -396,13 +398,12 @@ class K6TestApp(App):
             self.add_spike_stage()
             return
 
-        if event.button.id == "add_arrival_stage_btn":
-            self.add_arrival_stage()
+        if event.button.id == "remove_last_spike_stage_btn":
+            self.remove_last_spike_stage()
             return
 
-        if event.button.id and event.button.id.startswith("remove_spike_stage_btn_"):
-            remove_index = int(event.button.id.rsplit("_", 1)[-1])
-            self.remove_spike_stage(remove_index)
+        if event.button.id == "add_arrival_stage_btn":
+            self.add_arrival_stage()
             return
 
         if event.button.id and event.button.id.startswith("remove_arrival_stage_btn_"):
@@ -458,6 +459,12 @@ class K6TestApp(App):
                 vu_input.value = ""
 
     def action_save_config(self):
+        # Keep spikeStages length in sync with currently visible rows before generic UI-path mapping.
+        # Without this reset, removed rows can remain in config because indexed writes only overwrite existing items.
+        spike_container = self.query_one("#spike_stages_container", Vertical)
+        spike_rows_count = len(spike_container.children)
+        self.full_config.setdefault("k6", {})["spikeStages"] = [{} for _ in range(spike_rows_count)]
+
         self.full_config = ConfigHandler.update_from_ui(self, self.full_config)
 
         try:
