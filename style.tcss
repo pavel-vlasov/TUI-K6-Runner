@@ -135,11 +135,15 @@ Button.-active {
 }
 
 #ramping_arrival_scroll_group {
+    height: auto;
+    max-height: 26;
+    overflow-y: auto;
     padding-right: 1;
 }
 
 #arrival_stages_container {
-    max-height: 16;
+    height: auto;
+    max-height: 6;
     overflow-y: auto;
     padding-right: 1;
 }
