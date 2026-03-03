@@ -14,6 +14,7 @@
 ## How to use
 
  - install Python
+ - install K6
  - run App as follows:
  
 	    python main.py
