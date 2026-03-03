@@ -123,7 +123,7 @@ class K6TestApp(App):
             container.mount(self.build_spike_stage_row(index, stage))
 
     def _read_arrival_stages_from_ui(self):
-        container = self.query_one("#arrival_stages_container", Vertical)
+        container = self.query_one("#arrival_stages_container", ScrollableContainer)
         stages = []
         for index, _ in enumerate(container.children):
             duration_input = self.query_one(f"#input___k6__rampingArrivalStages__{index}__duration", Input)
@@ -132,7 +132,7 @@ class K6TestApp(App):
         return stages
 
     def _remount_arrival_rows(self, stages):
-        container = self.query_one("#arrival_stages_container", Vertical)
+        container = self.query_one("#arrival_stages_container", ScrollableContainer)
         for child in list(container.children):
             child.remove()
 
