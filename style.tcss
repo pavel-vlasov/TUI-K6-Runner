@@ -135,8 +135,6 @@ Button.-active {
 }
 
 #ramping_arrival_scroll_group {
-    height: 18;
-    overflow-y: auto;
     padding-right: 1;
 }
 
