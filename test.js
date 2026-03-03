@@ -70,6 +70,50 @@ function buildScenarios() {
     };
   }
 
+  if (executionType === 'Constant VUs') {
+    return {
+      constant_vus: {
+        executor: 'constant-vus',
+        vus: Number(k6cfg.vus) || 1,
+        duration: String(k6cfg.duration || '60s'),
+      },
+    };
+  }
+
+  if (executionType === 'Constant Arrival Rate') {
+    return {
+      constant_arrival: {
+        executor: 'constant-arrival-rate',
+        rate: Number(k6cfg.rate) || 10,
+        timeUnit: String(k6cfg.timeUnit || '1s'),
+        duration: String(k6cfg.duration || '60s'),
+        preAllocatedVUs: Number(k6cfg.preAllocatedVUs) || 10,
+        maxVUs: Number(k6cfg.maxVUs) || 50,
+      },
+    };
+  }
+
+  if (executionType === 'Ramping Arrival Rate') {
+    const stages = (Array.isArray(k6cfg.rampingArrivalStages) ? k6cfg.rampingArrivalStages : [])
+      .map((stage) => ({
+        duration: String((stage && stage.duration) || '').trim(),
+        target: Number(stage && stage.target),
+      }))
+      .filter((stage) => stage.duration && Number.isFinite(stage.target) && stage.target >= 0)
+      .map((stage) => ({ duration: stage.duration, target: Math.floor(stage.target) }));
+
+    return {
+      ramping_arrival: {
+        executor: 'ramping-arrival-rate',
+        startRate: Number(k6cfg.startRate) || 1,
+        timeUnit: String(k6cfg.timeUnit || '1s'),
+        preAllocatedVUs: Number(k6cfg.preAllocatedVUs) || 10,
+        maxVUs: Number(k6cfg.maxVUs) || 50,
+        stages: stages.length ? stages : [{ duration: '30s', target: 10 }],
+      },
+    };
+  }
+
   return {
     default: {
       executor: 'externally-controlled',
