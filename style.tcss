@@ -127,3 +127,13 @@ Button.-active {
     border: solid white;
     background: $accent;
 }
+
+#spike_stages_container {
+    max-height: 16;
+    overflow-y: auto;
+    padding-right: 1;
+}
+
+.spike-stage-row Input {
+    min-width: 20;
+}
