@@ -75,41 +75,22 @@ class K6TestApp(App):
             Label(f"stage {index + 1}:", classes="field-label"),
             Input(str(stage.get("duration", "")), id=f"input___k6__spikeStages__{index}__duration", placeholder="duration (e.g. 30s)"),
             Input(str(stage.get("target", "")), id=f"input___k6__spikeStages__{index}__target", placeholder="target VUs"),
-            Button("-", id=f"remove_spike_stage_btn_{index}", variant="error"),
             classes="field-row spike-stage-row",
             id=f"spike_stage_row_{index}"
         )
 
-    def _read_spike_stages_from_ui(self):
-        container = self.query_one("#spike_stages_container", Vertical)
-        stages = []
-        for index, _ in enumerate(container.children):
-            duration_input = self.query_one(f"#input___k6__spikeStages__{index}__duration", Input)
-            target_input = self.query_one(f"#input___k6__spikeStages__{index}__target", Input)
-            stages.append({"duration": duration_input.value, "target": target_input.value})
-        return stages
-
-    def _remount_spike_rows(self, stages):
-        container = self.query_one("#spike_stages_container", Vertical)
-        for child in list(container.children):
-            child.remove()
-
-        if not stages:
-            stages = [{"duration": "", "target": ""}]
-
-        for index, stage in enumerate(stages):
-            container.mount(self.build_spike_stage_row(index, stage))
-
     def add_spike_stage(self):
-        stages = self._read_spike_stages_from_ui()
-        stages.append({"duration": "", "target": ""})
-        self._remount_spike_rows(stages)
+        container = self.query_one("#spike_stages_container", Vertical)
+        stage_idx = len(container.children)
+        row = self.build_spike_stage_row(stage_idx, {"duration": "", "target": ""})
+        container.mount(row)
 
-    def remove_spike_stage(self, remove_index: int):
-        stages = self._read_spike_stages_from_ui()
-        if 0 <= remove_index < len(stages):
-            stages.pop(remove_index)
-        self._remount_spike_rows(stages)
+    def remove_last_spike_stage(self):
+        container = self.query_one("#spike_stages_container", Vertical)
+        if len(container.children) <= 1:
+            return
+        last_row = list(container.children)[-1]
+        last_row.remove()
 
     def set_run_ui_state(self, running: bool) -> None:
         """Disable/enable controls while k6 is running."""
@@ -230,6 +211,7 @@ class K6TestApp(App):
                                 Horizontal(
                                     Label("", classes="field-label"),
                                     Button("+", id="add_spike_stage_btn", variant="primary"),
+                                    Button("-", id="remove_last_spike_stage_btn", variant="error"),
                                     classes="field-row"
                                 ),
                                 id="spike_stages_group"
@@ -281,9 +263,8 @@ class K6TestApp(App):
             self.add_spike_stage()
             return
 
-        if event.button.id and event.button.id.startswith("remove_spike_stage_btn_"):
-            remove_index = int(event.button.id.rsplit("_", 1)[-1])
-            self.remove_spike_stage(remove_index)
+        if event.button.id == "remove_last_spike_stage_btn":
+            self.remove_last_spike_stage()
             return
 
         log_view = self.query_one("#output_log", RichLog)
