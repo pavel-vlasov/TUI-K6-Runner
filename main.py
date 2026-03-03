@@ -70,6 +70,15 @@ class K6TestApp(App):
     def on_mount(self) -> None:
         # initial state: nothing running
         self.set_run_ui_state(False)
+        self.toggle_execution_type_fields()
+
+    def toggle_execution_type_fields(self) -> None:
+        execution_select = self.query_one("#select___k6__executionType", Select)
+        show_external_fields = execution_select.value == "external executor"
+
+        for row_id in ["#k6_vus_row", "#k6_maxvus_row", "#k6_duration_row"]:
+            row = self.query_one(row_id)
+            row.styles.display = "block" if show_external_fields else "none"
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -118,9 +127,44 @@ class K6TestApp(App):
 
                     # 3. K6 tab
                     with TabPane("K6", id="tab_k6"):
-                        k6_main_data = {k: v for k, v in self.full_config.get("k6", {}).items() if k != "logging"}
+                        k6_config = self.full_config.get("k6", {})
+                        execution_type = k6_config.get("executionType", "external executor")
+                        if execution_type != "external executor":
+                            execution_type = "external executor"
+                        k6_other_data = {
+                            k: v for k, v in k6_config.items()
+                            if k not in ["logging", "executionType", "vus", "maxVUs", "duration"]
+                        }
+
                         yield ScrollableContainer(
-                            *build_config_fields(k6_main_data, "k6"), 
+                            Horizontal(
+                                Label("execution type:", classes="field-label"),
+                                Select(
+                                    [("external executor", "external executor")],
+                                    value=execution_type,
+                                    id="select___k6__executionType"
+                                ),
+                                classes="field-row"
+                            ),
+                            Horizontal(
+                                Label("vus:", classes="field-label"),
+                                Input(str(k6_config.get("vus", "")), id="input___k6__vus"),
+                                classes="field-row",
+                                id="k6_vus_row"
+                            ),
+                            Horizontal(
+                                Label("maxVUs:", classes="field-label"),
+                                Input(str(k6_config.get("maxVUs", "")), id="input___k6__maxVUs"),
+                                classes="field-row",
+                                id="k6_maxvus_row"
+                            ),
+                            Horizontal(
+                                Label("duration:", classes="field-label"),
+                                Input(str(k6_config.get("duration", "")), id="input___k6__duration"),
+                                classes="field-row",
+                                id="k6_duration_row"
+                            ),
+                            *build_config_fields(k6_other_data, "k6"),
                             classes="tab-container"
                         )
 
@@ -158,6 +202,10 @@ class K6TestApp(App):
                 if sw_id != event.switch.id:
                     other_switch = self.query_one(f"#{sw_id}", Switch)
                     other_switch.value = False
+
+    def on_select_changed(self, event: Select.Changed):
+        if event.select.id == "select___k6__executionType":
+            self.toggle_execution_type_fields()
 
 
     async def on_button_pressed(self, event: Button.Pressed):
