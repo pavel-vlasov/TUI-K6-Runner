@@ -54,8 +54,8 @@ function buildScenarios() {
   if (executionType === 'Spike Tests') {
     const stages = spikeStages
       .map((stage) => ({
-        duration: String(stage?.duration || '').trim(),
-        target: Number(stage?.target),
+        duration: String((stage && stage.duration) || '').trim(),
+        target: Number(stage && stage.target),
       }))
       .filter((stage) => stage.duration && Number.isFinite(stage.target) && stage.target >= 0)
       .map((stage) => ({ duration: stage.duration, target: Math.floor(stage.target) }));
