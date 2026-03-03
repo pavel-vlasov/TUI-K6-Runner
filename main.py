@@ -103,7 +103,7 @@ class K6TestApp(App):
         )
 
     def _read_spike_stages_from_ui(self):
-        container = self.query_one("#spike_stages_container", Vertical)
+        container = self.query_one("#spike_stages_container", ScrollableContainer)
         stages = []
         for index, _ in enumerate(container.children):
             duration_input = self.query_one(f"#input___k6__spikeStages__{index}__duration", Input)
@@ -112,7 +112,7 @@ class K6TestApp(App):
         return stages
 
     def _remount_spike_rows(self, stages):
-        container = self.query_one("#spike_stages_container", Vertical)
+        container = self.query_one("#spike_stages_container", ScrollableContainer)
         for child in list(container.children):
             child.remove()
 
@@ -123,7 +123,7 @@ class K6TestApp(App):
             container.mount(self.build_spike_stage_row(index, stage))
 
     def _read_arrival_stages_from_ui(self):
-        container = self.query_one("#arrival_stages_container", Vertical)
+        container = self.query_one("#arrival_stages_container", ScrollableContainer)
         stages = []
         for index, _ in enumerate(container.children):
             duration_input = self.query_one(f"#input___k6__rampingArrivalStages__{index}__duration", Input)
@@ -132,7 +132,7 @@ class K6TestApp(App):
         return stages
 
     def _remount_arrival_rows(self, stages):
-        container = self.query_one("#arrival_stages_container", Vertical)
+        container = self.query_one("#arrival_stages_container", ScrollableContainer)
         for child in list(container.children):
             child.remove()
 
@@ -143,26 +143,26 @@ class K6TestApp(App):
             container.mount(self.build_arrival_stage_row(index, stage))
 
     def add_spike_stage(self):
-        container = self.query_one("#spike_stages_container", Vertical)
+        container = self.query_one("#spike_stages_container", ScrollableContainer)
         stage_idx = len(container.children)
         row = self.build_spike_stage_row(stage_idx, {"duration": "", "target": ""})
         container.mount(row)
 
     def remove_last_spike_stage(self):
-        container = self.query_one("#spike_stages_container", Vertical)
+        container = self.query_one("#spike_stages_container", ScrollableContainer)
         if len(container.children) <= 1:
             return
         last_row = list(container.children)[-1]
         last_row.remove()
 
     def add_arrival_stage(self):
-        container = self.query_one("#arrival_stages_container", Vertical)
+        container = self.query_one("#arrival_stages_container", ScrollableContainer)
         stage_idx = len(container.children)
         row = self.build_arrival_stage_row(stage_idx, {"duration": "", "target": ""})
         container.mount(row)
 
     def remove_last_arrival_stage(self):
-        container = self.query_one("#arrival_stages_container", Vertical)
+        container = self.query_one("#arrival_stages_container", ScrollableContainer)
         if len(container.children) <= 1:
             return
         last_row = list(container.children)[-1]
@@ -332,7 +332,7 @@ class K6TestApp(App):
                                     id="k6_start_rate_row"
                                 ),
                                 Vertical(
-                                    Vertical(
+                                    ScrollableContainer(
                                         *[self.build_arrival_stage_row(i, stage) for i, stage in enumerate(self.get_ramping_arrival_stages())],
                                         id="arrival_stages_container"
                                     ),
@@ -347,7 +347,7 @@ class K6TestApp(App):
                                 id="ramping_arrival_scroll_group"
                             ),
                             Vertical(
-                                Vertical(
+                                ScrollableContainer(
                                     *[self.build_spike_stage_row(i, stage) for i, stage in enumerate(self.get_spike_stages())],
                                     id="spike_stages_container"
                                 ),
@@ -468,11 +468,11 @@ class K6TestApp(App):
     def action_save_config(self):
         # Keep spikeStages length in sync with currently visible rows before generic UI-path mapping.
         # Without this reset, removed rows can remain in config because indexed writes only overwrite existing items.
-        spike_container = self.query_one("#spike_stages_container", Vertical)
+        spike_container = self.query_one("#spike_stages_container", ScrollableContainer)
         spike_rows_count = len(spike_container.children)
         self.full_config.setdefault("k6", {})["spikeStages"] = [{} for _ in range(spike_rows_count)]
 
-        arrival_container = self.query_one("#arrival_stages_container", Vertical)
+        arrival_container = self.query_one("#arrival_stages_container", ScrollableContainer)
         arrival_rows_count = len(arrival_container.children)
         self.full_config.setdefault("k6", {})["rampingArrivalStages"] = [{} for _ in range(arrival_rows_count)]
 
