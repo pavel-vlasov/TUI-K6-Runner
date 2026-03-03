@@ -139,6 +139,8 @@ Button.-active {
 }
 
 #arrival_stages_container {
+    max-height: 16;
+    overflow-y: auto;
     padding-right: 1;
 }
 

@@ -156,13 +156,13 @@ class K6TestApp(App):
         last_row.remove()
 
     def add_arrival_stage(self):
-        container = self.query_one("#arrival_stages_container", Vertical)
+        container = self.query_one("#arrival_stages_container", ScrollableContainer)
         stage_idx = len(container.children)
         row = self.build_arrival_stage_row(stage_idx, {"duration": "", "target": ""})
         container.mount(row)
 
     def remove_last_arrival_stage(self):
-        container = self.query_one("#arrival_stages_container", Vertical)
+        container = self.query_one("#arrival_stages_container", ScrollableContainer)
         if len(container.children) <= 1:
             return
         last_row = list(container.children)[-1]
@@ -332,7 +332,7 @@ class K6TestApp(App):
                                     id="k6_start_rate_row"
                                 ),
                                 Vertical(
-                                    Vertical(
+                                    ScrollableContainer(
                                         *[self.build_arrival_stage_row(i, stage) for i, stage in enumerate(self.get_ramping_arrival_stages())],
                                         id="arrival_stages_container"
                                     ),
@@ -472,7 +472,7 @@ class K6TestApp(App):
         spike_rows_count = len(spike_container.children)
         self.full_config.setdefault("k6", {})["spikeStages"] = [{} for _ in range(spike_rows_count)]
 
-        arrival_container = self.query_one("#arrival_stages_container", Vertical)
+        arrival_container = self.query_one("#arrival_stages_container", ScrollableContainer)
         arrival_rows_count = len(arrival_container.children)
         self.full_config.setdefault("k6", {})["rampingArrivalStages"] = [{} for _ in range(arrival_rows_count)]
 
