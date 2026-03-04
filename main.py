@@ -178,19 +178,22 @@ class K6TestApp(App):
         stop_btn.disabled = not running
         apply_btn.disabled = not running
 
-    def on_mount(self) -> None:
+    def _get_request_tab_panes(self) -> list[TabPane]:
+        request_subtabs = self.query_one("#request_subtabs", TabbedContent)
+        return list(request_subtabs.query(TabPane))
+
+    async def on_mount(self) -> None:
         # initial state: nothing running
         self.set_run_ui_state(False)
         self.toggle_execution_type_fields()
 
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
-        existing_request_tabs = [child for child in request_subtabs.children if isinstance(child, TabPane)]
-        if existing_request_tabs:
+        if self._get_request_tab_panes():
             return
 
         request_endpoints = self.get_request_endpoints()
         for index, request_data in enumerate(request_endpoints):
-            request_subtabs.add_pane(self.build_request_subtab(index, request_data))
+            await request_subtabs.add_pane(self.build_request_subtab(index, request_data))
 
     def get_request_endpoints(self):
         requests = self.full_config.get("requestEndpoints")
@@ -226,9 +229,9 @@ class K6TestApp(App):
             id=f"tab_req_endpoint_{index}"
         )
 
-    def add_request_endpoint_tab(self):
+    async def add_request_endpoint_tab(self):
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
-        existing_tabs = [child for child in request_subtabs.children if isinstance(child, TabPane)]
+        existing_tabs = self._get_request_tab_panes()
 
         if len(existing_tabs) >= 5:
             self.notify("Максимум 5 эндпоинтов", severity="warning")
@@ -238,12 +241,12 @@ class K6TestApp(App):
         new_endpoint = DEFAULT_CONFIG["request"].copy()
         new_endpoint["name"] = f"Endpoint {endpoint_index + 1}"
 
-        request_subtabs.add_pane(self.build_request_subtab(endpoint_index, new_endpoint))
+        await request_subtabs.add_pane(self.build_request_subtab(endpoint_index, new_endpoint))
         request_subtabs.active = f"tab_req_endpoint_{endpoint_index}"
 
     def remove_last_request_endpoint_tab(self):
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
-        existing_tabs = [child for child in request_subtabs.children if isinstance(child, TabPane)]
+        existing_tabs = self._get_request_tab_panes()
 
         if len(existing_tabs) <= 1:
             self.notify("Должен остаться минимум 1 эндпоинт", severity="warning")
@@ -493,7 +496,7 @@ class K6TestApp(App):
 
     async def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "add_request_endpoint_btn":
-            self.add_request_endpoint_tab()
+            await self.add_request_endpoint_tab()
             return
 
         if event.button.id == "remove_request_endpoint_btn":
@@ -574,8 +577,7 @@ class K6TestApp(App):
         arrival_rows_count = len(arrival_container.children)
         self.full_config.setdefault("k6", {})["rampingArrivalStages"] = [{} for _ in range(arrival_rows_count)]
 
-        request_subtabs = self.query_one("#request_subtabs", TabbedContent)
-        request_tabs_count = len([child for child in request_subtabs.children if isinstance(child, TabPane)])
+        request_tabs_count = len(self._get_request_tab_panes())
         self.full_config["requestEndpoints"] = [{} for _ in range(request_tabs_count)]
 
         self.full_config = ConfigHandler.update_from_ui(self, self.full_config)
