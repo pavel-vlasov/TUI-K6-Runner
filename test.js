@@ -232,14 +232,13 @@ function buildScenarios() {
 
   requestEndpoints.forEach((endpoint, index) => {
     const scenarioName = `endpoint_${index + 1}`;
-    scenarios[scenarioName] = {
-      ...base,
-      exec: 'endpointScenario',
-      env: {
-        ENDPOINT_INDEX: String(index),
-        ENDPOINT_NAME: endpoint.name,
-      },
+    const scenario = Object.assign({}, base);
+    scenario.exec = 'endpointScenario';
+    scenario.env = {
+      ENDPOINT_INDEX: String(index),
+      ENDPOINT_NAME: endpoint.name,
     };
+    scenarios[scenarioName] = scenario;
   });
 
   return scenarios;
