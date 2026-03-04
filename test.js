@@ -147,7 +147,7 @@ function logRequestResult(req, res, ok, correlationId) {
   }
 
   if (ok) {
-    console.log(`\x1b[1A\x1b[2KProcessed request [${req.name}]: ${res.status} ✅`);
+    console.log(`\x1b[1A\x1b[2KProcessed request: ${res.status} ✅`);
   } else {
     console.log(`❌ Non-200 Response (${req.name}) | Correlation-Id: ${correlationId} | Status: ${res.status}`);
   }
