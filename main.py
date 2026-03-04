@@ -327,7 +327,7 @@ class K6TestApp(App):
                         yield ScrollableContainer(
                             Horizontal(
                                 Label("baseURL:", classes="field-label"),
-                                Input(self.full_config.get("baseURL", ""), id="input_baseURL"),
+                                Input(self.full_config.get("baseURL", ""), id="input___baseURL"),
                                 classes="field-row"
                             ),
                             Horizontal(
