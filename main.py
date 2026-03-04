@@ -209,11 +209,11 @@ class K6TestApp(App):
     def build_request_subtab(self, index: int, request_data: dict) -> TabPane:
         endpoint_name = str(request_data.get("name", "")).strip() or f"Endpoint {index + 1}"
         return TabPane(
-            endpoint_name,
             ScrollableContainer(
                 *build_config_fields(request_data, f"requestEndpoints.{index}"),
                 classes="tab-container"
             ),
+            title=endpoint_name,
             id=f"tab_req_endpoint_{index}"
         )
 
