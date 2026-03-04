@@ -1,6 +1,5 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import exec from 'k6/execution';
 import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 
@@ -11,7 +10,6 @@ const reqConfig = config.request || {};
 const requestEndpointsRaw = Array.isArray(config.requestEndpoints) ? config.requestEndpoints : [];
 const authConfig = config.auth || {};
 const k6cfg = config.k6 || {};
-const requestMode = (k6cfg.requestMode || 'batch').toLowerCase();
 let logConfig = k6cfg.logging || { enabled: false, level: 'off' };
 
 // --- Normalize & validate logging config ---
@@ -149,7 +147,7 @@ function logRequestResult(req, res, ok, correlationId) {
   }
 
   if (ok) {
-    console.log(`\x1b[1A\x1b[2KProcessed request [${req.name}]: ${res.status} ✅`);
+    console.log(`\x1b[1A\x1b[2KProcessed request: ${res.status} ✅`);
   } else {
     console.log(`❌ Non-200 Response (${req.name}) | Correlation-Id: ${correlationId} | Status: ${res.status}`);
   }
@@ -222,32 +220,9 @@ function buildBaseScenario() {
   };
 }
 
-function buildScenarios() {
-  if (requestMode !== 'scenarios' || requestEndpoints.length <= 1) {
-    return { default: buildBaseScenario() };
-  }
-
-  const base = buildBaseScenario();
-  const scenarios = {};
-
-  requestEndpoints.forEach((endpoint, index) => {
-    const scenarioName = `endpoint_${index + 1}`;
-    scenarios[scenarioName] = {
-      ...base,
-      exec: 'endpointScenario',
-      env: {
-        ENDPOINT_INDEX: String(index),
-        ENDPOINT_NAME: endpoint.name,
-      },
-    };
-  });
-
-  return scenarios;
-}
-
 export let options = {
   thresholds: k6cfg.thresholds || { 'http_req_duration': ['p(95)<5000'] },
-  scenarios: buildScenarios(),
+  scenarios: { default: buildBaseScenario() },
 };
 
 // --- setup ---
@@ -300,23 +275,6 @@ export default function (data) {
     logRequestResult(req, res, ok, correlationId);
   });
 
-  sleep(Math.random() * 0.4 + 0.1);
-}
-
-export function endpointScenario(data) {
-  if (!requestEndpoints.length) throw new Error('❌ No request endpoints configured.');
-
-  const endpointIndex = Number(exec.scenario.env.ENDPOINT_INDEX || 0);
-  const endpoint = requestEndpoints[endpointIndex] || requestEndpoints[0];
-  const correlationId = uuidv4();
-  const req = buildSingleRequest(endpoint, data, correlationId);
-  const res = http.request(req.method, req.url, req.body, req.params);
-
-  const ok = check(res, {
-    [`${req.name} status 200`]: (r) => r.status === 200,
-  });
-
-  logRequestResult(req, res, ok, correlationId);
   sleep(Math.random() * 0.4 + 0.1);
 }
 
