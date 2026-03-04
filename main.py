@@ -336,18 +336,6 @@ class K6TestApp(App):
                                 Button("-", id="remove_request_endpoint_btn", variant="error"),
                                 classes="field-row"
                             ),
-                            Horizontal(
-                                Label("run mode:", classes="field-label"),
-                                Select(
-                                    [
-                                        ("single group (http.batch)", "batch"),
-                                        ("separate scenarios", "scenarios"),
-                                    ],
-                                    value=self.full_config.get("k6", {}).get("requestMode", "batch"),
-                                    id="select___k6__requestMode"
-                                ),
-                                classes="field-row"
-                            ),
                             TabbedContent(
                                 id="request_subtabs"
                             ),
