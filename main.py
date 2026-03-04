@@ -184,8 +184,11 @@ class K6TestApp(App):
         self.toggle_execution_type_fields()
 
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
-        request_endpoints = self.get_request_endpoints()
+        existing_request_tabs = [child for child in request_subtabs.children if isinstance(child, TabPane)]
+        if existing_request_tabs:
+            return
 
+        request_endpoints = self.get_request_endpoints()
         for index, request_data in enumerate(request_endpoints):
             request_subtabs.add_pane(self.build_request_subtab(index, request_data))
 
