@@ -37,6 +37,7 @@ Toast.-error {
 }
 
 #main_tabs { height: 1fr; }
+#request_subtabs { height: auto; min-height: 22; }
 .tab-container { padding: 1 2; }
 .field-row { height: auto; align: left middle; margin-bottom: 1; }
 .field-label { width: 24; }
