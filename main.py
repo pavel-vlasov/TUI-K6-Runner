@@ -183,6 +183,12 @@ class K6TestApp(App):
         self.set_run_ui_state(False)
         self.toggle_execution_type_fields()
 
+        request_subtabs = self.query_one("#request_subtabs", TabbedContent)
+        request_endpoints = self.get_request_endpoints()
+
+        for index, request_data in enumerate(request_endpoints):
+            request_subtabs.add_pane(self.build_request_subtab(index, request_data))
+
     def get_request_endpoints(self):
         requests = self.full_config.get("requestEndpoints")
         if isinstance(requests, list) and requests:
@@ -337,7 +343,6 @@ class K6TestApp(App):
                                 classes="field-row"
                             ),
                             TabbedContent(
-                                *[self.build_request_subtab(i, request_data) for i, request_data in enumerate(request_endpoints)],
                                 id="request_subtabs"
                             ),
                             classes="tab-container"
