@@ -8,8 +8,9 @@ from app_mixins.events_mixin import EventsMixin
 from app_mixins.request_mixin import RequestMixin
 from app_mixins.stage_mixin import StageMixin
 from app_mixins.ui_mixin import UIMixin
+from application import RunController
 from constants import DEFAULT_CONFIG
-from k6_logic import K6Logic
+from k6.service import K6Service
 
 
 class K6TestApp(EventsMixin, UIMixin, RequestMixin, StageMixin, App):
@@ -18,7 +19,7 @@ class K6TestApp(EventsMixin, UIMixin, RequestMixin, StageMixin, App):
 
     def __init__(self):
         super().__init__()
-        self.k6_logic = K6Logic()
+        self.run_controller = RunController(K6Service())
         self.full_config = {}
         self.load_config_safely()
 

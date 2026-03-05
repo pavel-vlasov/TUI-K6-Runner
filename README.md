@@ -10,6 +10,12 @@
 
 - install Python
 - install K6
+- install project dependencies:
+
+  ```bash
+  pip install -r requirements.txt
+  ```
+
 - run app using the only supported entrypoint:
 
   ```bash
