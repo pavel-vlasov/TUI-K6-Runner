@@ -37,6 +37,7 @@ Toast.-error {
 }
 
 #main_tabs { height: 1fr; }
+#request_subtabs { height: auto; min-height: 22; }
 .tab-container { padding: 1 2; }
 .field-row { height: auto; align: left middle; margin-bottom: 1; }
 .field-label { width: 24; }
@@ -126,4 +127,28 @@ Button.-active {
     color: white !important;
     border: solid white;
     background: $accent;
+}
+
+#spike_stages_container {
+    max-height: 16;
+    overflow-y: auto;
+    padding-right: 1;
+}
+
+#ramping_arrival_scroll_group {
+    height: auto;
+    max-height: 26;
+    overflow-y: auto;
+    padding-right: 1;
+}
+
+#arrival_stages_container {
+    height: auto;
+    max-height: 6;
+    overflow-y: auto;
+    padding-right: 1;
+}
+
+.spike-stage-row Input {
+    min-width: 20;
 }

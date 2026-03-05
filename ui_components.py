@@ -9,7 +9,14 @@ def get_valid_id(key_path, prefix="input"):
 
 def build_config_fields(data, parent_path):
     items = []
-    for k, v in data.items():
+
+    ordered_items = list(data.items())
+    if parent_path.startswith("requestEndpoints."):
+        priority = {"name": 0, "method": 1}
+        position = {key: idx for idx, key in enumerate(data.keys())}
+        ordered_items.sort(key=lambda item: (priority.get(item[0], 2), position[item[0]]))
+
+    for k, v in ordered_items:
         multiline_keys = ["headers", "body", "query", "thresholds"]
         
         if isinstance(v, dict) and k not in multiline_keys:
