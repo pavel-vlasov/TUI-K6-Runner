@@ -1,9 +1,8 @@
-import asyncio
-
 import pyperclip
 from textual.containers import ScrollableContainer
-from textual.widgets import Button, Input, RichLog, Select, Static, Switch
+from textual.widgets import Button, Input, RichLog, Select, Static, Switch, TextArea
 
+from application import RunCallbacks
 from config_handler import ConfigHandler
 from constants import AUTH_MAP
 
@@ -46,22 +45,22 @@ class EventsMixin:
         status_bar = self.query_one("#status_bar", Static)
 
         if event.button.id == "run_btn":
-            if self.k6_logic.is_running:
+            if self.run_controller.is_running:
                 self.notify("⛔ Тест уже выполняется. Дождитесь завершения.", severity="warning")
                 return
 
             self.action_save_config()
             log_view.clear()
             self.notify("Running K6 execution...")
-            output_ui = self.full_config.get("k6", {}).get("logging", {}).get("outputToUI", True)
-            self.set_run_ui_state(True)
 
-            task = asyncio.create_task(
-                self.k6_logic.run_k6_process(log_view.write, status_bar.update, output_ui)
+            callbacks = RunCallbacks(
+                on_log=log_view.write,
+                on_status=status_bar.update,
+                on_run_state_changed=self.set_run_ui_state,
             )
-            task.add_done_callback(lambda _: self.set_run_ui_state(False))
+            await self.run_controller.start_run(self.full_config, callbacks)
         elif event.button.id == "stop_btn":
-            await self.k6_logic.stop_k6_process()
+            await self.run_controller.stop_run()
             self.notify("Stop command sent", severity="warning")
         elif event.button.id == "copy_btn":
             pyperclip.copy("\n".join([str(line.text) for line in log_view.lines]))
@@ -69,8 +68,19 @@ class EventsMixin:
         elif event.button.id == "apply_vu_btn":
             vu_input = self.query_one("#vu_input", Input)
             if vu_input.value.isdigit():
-                await self.k6_logic.set_vus(int(vu_input.value), log_view.write)
+                await self.run_controller.scale(int(vu_input.value), log_view.write)
                 vu_input.value = ""
+
+    def _collect_ui_field_values(self) -> dict[str, object]:
+        field_values: dict[str, object] = {}
+        for widget in self.query("Input, Switch, Select, TextArea"):
+            if not widget.id or "___" not in widget.id:
+                continue
+            if isinstance(widget, TextArea):
+                field_values[widget.id] = widget.text
+            else:
+                field_values[widget.id] = widget.value
+        return field_values
 
     def action_save_config(self):
         spike_rows_count = len(self.query_one("#spike_stages_container", ScrollableContainer).children)
@@ -82,12 +92,12 @@ class EventsMixin:
         request_tabs_count = len(self._get_request_tab_panes())
         self.full_config["requestEndpoints"] = [{} for _ in range(request_tabs_count)]
 
-        self.full_config = ConfigHandler.update_from_ui(self, self.full_config)
+        self.full_config = ConfigHandler.update_from_fields(self.full_config, self._collect_ui_field_values())
         if self.full_config.get("requestEndpoints"):
             self.full_config["request"] = self.full_config["requestEndpoints"][0]
 
         try:
-            ConfigHandler.save_to_file(self.full_config)
+            self.run_controller.save_config(self.full_config)
             self.notify("Configuration saved successfully!", severity="information")
         except Exception as e:
             self.notify(f"Error while saving configuration file: {e}", severity="error")

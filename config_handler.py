@@ -1,33 +1,41 @@
+import copy
 import json
 import os
-import copy
-from textual.widgets import TextArea
+from collections.abc import Mapping
+
 
 class ConfigHandler:
     @staticmethod
-    def update_from_ui(app, current_config: dict) -> dict:
+    def update_from_fields(current_config: dict, field_values: Mapping[str, object]) -> dict:
         new_config = copy.deepcopy(current_config)
 
         def is_int_key(part: str) -> bool:
             return part.isdigit()
 
-        def set_by_path(d, path, value):
-            keys = path.split('__')
+        def normalize_value(value: object) -> object:
+            if not isinstance(value, str):
+                return value
 
-            if isinstance(value, str):
-                value = "".join(ch for ch in value if ch.isprintable() or ch in "\n\r\t")
-                stripped = value.strip()
-                
-                try:
-                    if (stripped.startswith('{') and stripped.endswith('}')) or \
-                       (stripped.startswith('[') and stripped.endswith(']')):
-                        value = json.loads(stripped)
-                    elif stripped.isdigit():
-                        value = int(stripped)
-                except:
-                    pass
+            cleaned = "".join(ch for ch in value if ch.isprintable() or ch in "\n\r\t")
+            stripped = cleaned.strip()
 
-            current = d
+            try:
+                if (stripped.startswith("{") and stripped.endswith("}")) or (
+                    stripped.startswith("[") and stripped.endswith("]")
+                ):
+                    return json.loads(stripped)
+                if stripped.isdigit():
+                    return int(stripped)
+            except Exception:
+                pass
+
+            return cleaned
+
+        def set_by_path(data: dict, path: str, value: object) -> None:
+            keys = path.split("__")
+            current = data
+            normalized = normalize_value(value)
+
             for i, key in enumerate(keys):
                 last = i == len(keys) - 1
                 next_key = keys[i + 1] if not last else None
@@ -35,12 +43,13 @@ class ConfigHandler:
                 if isinstance(current, list):
                     if not is_int_key(key):
                         return
+
                     idx = int(key)
                     while len(current) <= idx:
                         current.append({})
 
                     if last:
-                        current[idx] = value
+                        current[idx] = normalized
                         return
 
                     if not isinstance(current[idx], (dict, list)):
@@ -52,43 +61,36 @@ class ConfigHandler:
                     return
 
                 if last:
-                    current[key] = value
+                    current[key] = normalized
                     return
 
                 if key not in current or not isinstance(current[key], (dict, list)):
                     current[key] = [] if is_int_key(next_key) else {}
                 current = current[key]
 
-
-        for widget in app.query("Input, Switch, Select, TextArea"):
-            if not widget.id or "___" not in widget.id:
+        for widget_id, widget_value in field_values.items():
+            if "___" not in widget_id:
                 continue
-            
-            prefix, path = widget.id.split("___", 1)
-            
+
+            _, path = widget_id.split("___", 1)
             if not path or path == "vu_input":
                 continue
 
-            if isinstance(widget, TextArea):
-                current_value = widget.text
-            else:
-                current_value = widget.value
+            set_by_path(new_config, path, widget_value)
 
-            set_by_path(new_config, path, current_value)
-            
         return new_config
 
     @staticmethod
-    def save_to_file(config, filename="test_config.json"):
+    def save_to_file(config: dict, filename: str = "test_config.json") -> None:
         try:
             data = json.dumps(config, indent=4, ensure_ascii=False)
-            
+
             with open(filename, "w", encoding="utf-8") as f:
                 f.write(data)
                 f.flush()
                 try:
                     os.fsync(f.fileno())
-                except:
+                except Exception:
                     pass
         except Exception as e:
             print(f"Error while saving file: {e}")
