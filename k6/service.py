@@ -72,7 +72,9 @@ class K6Service:
                         if not clean_text.strip():
                             continue
 
-                        self._handle_status_lines(clean_text, on_status)
+                        if self._handle_status_lines(clean_text, on_status):
+                            continue
+
                         if self._handle_counter_lines(clean_text, on_status):
                             continue
 
@@ -107,7 +109,7 @@ class K6Service:
             self.state.is_running = False
             self.process_manager.clear_process()
 
-    def _handle_status_lines(self, clean_text: str, on_status) -> None:
+    def _handle_status_lines(self, clean_text: str, on_status) -> bool:
         running = is_running_line(clean_text)
         default = is_default_line(clean_text)
         scenario = is_scenario_progress_line(clean_text)
@@ -117,9 +119,12 @@ class K6Service:
         if default or scenario:
             self.state.status_default = clean_text
 
-        if (running or default or scenario) and (time.time() - self.last_update_time > 0.1):
+        handled = running or default or scenario
+        if handled and (time.time() - self.last_update_time > 0.1):
             self._update_ui(on_status)
             self.last_update_time = time.time()
+
+        return handled
 
     def _handle_counter_lines(self, clean_text: str, on_status) -> bool:
         if is_success_line(clean_text):
