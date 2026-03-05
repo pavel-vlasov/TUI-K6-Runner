@@ -25,7 +25,7 @@ from textual.app import App, ComposeResult
 from textual.widgets import Button, Switch, Input, Label, Footer, Header, RichLog, Select, TabbedContent, TabPane, Static
 from textual.containers import Horizontal, Vertical, ScrollableContainer
 
-from k6_logic import K6Logic
+from k6.service import K6Service
 from config_handler import ConfigHandler
 from constants import DEFAULT_CONFIG, AUTH_MAP
 from ui_components import build_config_fields, get_valid_id
@@ -42,7 +42,7 @@ class K6TestApp(App):
 
     def __init__(self):
         super().__init__()
-        self.k6_logic = K6Logic()
+        self.k6_logic = K6Service()
         self.full_config = {}
         self.load_config_safely()
 
