@@ -1,10 +1,6 @@
-import os
-import sys
-import subprocess
-import importlib.util
-import json
-import asyncio
+from app_bootstrap import ensure_runtime_dependencies
 
+ensure_runtime_dependencies()
 
 def install_package(package: str):
     print(f"Installing {package}...")
