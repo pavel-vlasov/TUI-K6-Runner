@@ -1,19 +1,10 @@
-from app_bootstrap import ensure_runtime_dependencies
+import asyncio
+import json
+import os
+
+from app_bootstrap import ensure_runtime_dependencies, get_resource_path
 
 ensure_runtime_dependencies()
-
-def install_package(package: str):
-    print(f"Installing {package}...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", package])
-
-
-try:
-    import textual
-    import pyperclip
-except ImportError:
-    install_package("textual")
-    install_package("pyperclip")
-    os.execl(sys.executable, sys.executable, *sys.argv)
 
 
 import pyperclip
@@ -25,13 +16,6 @@ from k6.service import K6Service
 from config_handler import ConfigHandler
 from constants import DEFAULT_CONFIG, AUTH_MAP
 from ui_components import build_config_fields, get_valid_id
-
-
-def get_resource_path(relative_path):
-    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base_path, relative_path)
-
-
 class K6TestApp(App):
     TITLE = "K6 Executor"
     CSS_PATH = get_resource_path("style.tcss")
