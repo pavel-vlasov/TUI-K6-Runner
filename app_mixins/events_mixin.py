@@ -83,6 +83,13 @@ class EventsMixin:
                 on_run_state_changed=self.set_run_ui_state,
             )
             await self.run_controller.start_run(self.full_config, callbacks)
+
+            logging_config = self.full_config.get("k6", {}).get("logging", {})
+            if logging_config.get("webDashboard", False):
+                web_dashboard_url = logging_config.get("webDashboardUrl", "http://localhost:5665")
+                refreshed_url = self._with_cache_busting_query(web_dashboard_url)
+                webbrowser.open(refreshed_url, new=2)
+                self.notify(f"Live Web Dashboard refreshed: {refreshed_url}")
         elif event.button.id == "stop_btn":
             await self.run_controller.stop_run()
             self.notify("Stop command sent", severity="warning")
