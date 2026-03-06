@@ -63,10 +63,12 @@ class EventsMixin:
 
         if event.button.id == "run_btn":
             if self.run_controller.is_running:
-                self.notify("⛔ Тест уже выполняется. Дождитесь завершения.", severity="warning")
+                self.notify("⛔ Test is already running. Please wait until it finishes.", severity="warning")
                 return
 
-            self.action_save_config()
+            if not self.action_save_config():
+                return
+
             self.set_run_ui_state(self.run_controller.is_running)
             log_view.clear()
             self.notify("Running K6 execution...")
@@ -82,7 +84,7 @@ class EventsMixin:
             self.notify("Stop command sent", severity="warning")
         elif event.button.id == "copy_btn":
             pyperclip.copy("\n".join([str(line.text) for line in log_view.lines]))
-            self.notify("Logs is copied")
+            self.notify("Logs copied")
         elif event.button.id == "apply_vu_btn":
             vu_input = self.query_one("#vu_input", Input)
             if vu_input.value.isdigit():
@@ -100,7 +102,7 @@ class EventsMixin:
                 field_values[widget.id] = widget.value
         return field_values
 
-    def action_save_config(self):
+    def action_save_config(self) -> bool:
         spike_rows_count = len(self.query_one("#spike_stages_container", ScrollableContainer).children)
         self.full_config.setdefault("k6", {})["spikeStages"] = [{} for _ in range(spike_rows_count)]
 
@@ -111,11 +113,21 @@ class EventsMixin:
         self.full_config["requestEndpoints"] = [{} for _ in range(request_tabs_count)]
 
         self.full_config = ConfigHandler.update_from_fields(self.full_config, self._collect_ui_field_values())
-        if self.full_config.get("requestEndpoints"):
-            self.full_config["request"] = self.full_config["requestEndpoints"][0]
+
+        runtime_config = ConfigHandler.build_runtime_config(self.full_config)
+        errors = ConfigHandler.validate_runtime_config(runtime_config)
+        if errors:
+            self.notify("Configuration validation failed:", severity="error")
+            for error in errors:
+                self.notify(f"• {error}", severity="error")
+            return False
+
+        self.full_config = runtime_config
 
         try:
             self.run_controller.save_config(self.full_config)
             self.notify("Configuration saved successfully!", severity="information")
+            return True
         except Exception as e:
             self.notify(f"Error while saving configuration file: {e}", severity="error")
+            return False

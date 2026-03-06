@@ -27,8 +27,8 @@ class RunController:
 
     async def start_run(self, config: dict, callbacks: RunCallbacks):
         if self.is_running:
-            callbacks.on_status("[bold red]⛔ k6 уже выполняется. Дождитесь завершения текущего запуска.[/bold red]")
-            callbacks.on_log("[bold red]⛔ Повторный запуск заблокирован: тест уже идёт.[/bold red]\n")
+            callbacks.on_status("[bold red]⛔ k6 is already running. Wait for the current run to finish.[/bold red]")
+            callbacks.on_log("[bold red]⛔ Re-run blocked: test is already in progress.[/bold red]\n")
             return
 
         callbacks.on_run_state_changed(True)
