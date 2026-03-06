@@ -268,6 +268,7 @@ class UIMixin:
                     with TabPane("Metrics", id="tab_logs_metrics"):
                         with ScrollableContainer(classes="tab-container"):
                             yield Static("Metrics are disabled.\nEnable k6.logging.metricsEnabled in Settings → Logging.", id="metrics_view")
+                            
 
         with Horizontal(id="button_row"):
             yield Input(placeholder="VUs...", id="vu_input")
