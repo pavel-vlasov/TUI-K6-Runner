@@ -30,6 +30,8 @@ class K6ProcessManager:
             command.extend(["--out", "web-dashboard=period=1s&open=false"])
             env["K6_WEB_DASHBOARD_EXPORT"] = "artifacts/dashboard.html"
             env["K6_WEB_DASHBOARD_OPEN"] = "false"
+            env.pop("K6_WEB_DASHBOARD_HOST", None)
+            env.pop("K6_WEB_DASHBOARD_PORT", None)
             self._apply_web_dashboard_binding(env, web_dashboard_url)
         if enable_html_summary and summary_json_path:
             summary_dir = Path(summary_json_path).parent

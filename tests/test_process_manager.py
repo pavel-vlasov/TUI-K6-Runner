@@ -121,6 +121,33 @@ def test_start_run_sets_dashboard_port_from_local_url_without_forcing_host(monke
 
 
 
+
+
+def test_start_run_clears_stale_dashboard_host_env_for_local_url(monkeypatch):
+    captured = {}
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+
+        class DummyProcess:
+            returncode = None
+            pid = 1
+
+        return DummyProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+    monkeypatch.setenv("K6_WEB_DASHBOARD_HOST", "0.0.0.0")
+    monkeypatch.setenv("K6_WEB_DASHBOARD_PORT", "9999")
+
+    manager = K6ProcessManager()
+    asyncio.run(manager.start_run(enable_web_dashboard=True, web_dashboard_url="http://localhost:5665"))
+
+    env = captured["kwargs"].get("env")
+    assert env is not None
+    assert "K6_WEB_DASHBOARD_HOST" not in env
+    assert env["K6_WEB_DASHBOARD_PORT"] == "5665"
+
 def test_start_run_sets_dashboard_host_for_non_local_url(monkeypatch):
     captured = {}
 
