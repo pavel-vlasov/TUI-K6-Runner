@@ -43,7 +43,6 @@ DEFAULT_CONFIG = {
             "enabled": False,
             "level": "failed",
             "outputToUI": True,
-            "metricsEnabled": False,
         }
     }
 }

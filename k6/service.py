@@ -12,7 +12,7 @@ from k6.output_parser import (
     is_scenario_progress_line,
     is_success_line,
 )
-from k6.metrics import extract_snapshot, format_metrics_snapshot
+from k6.metrics import extract_snapshot, format_final_metrics_summary, format_metrics_snapshot
 from k6.presenters import (
     format_done_status,
     format_run_summary,
@@ -41,7 +41,7 @@ class K6Service:
     async def stop_k6_process(self):
         return await self.process_manager.stop()
 
-    async def run_k6_process(self, on_log, on_status, output_to_ui: bool = True, on_metrics=None, metrics_enabled=False):
+    async def run_k6_process(self, on_log, on_status, output_to_ui: bool = True, on_metrics=None):
         if self.state.is_running:
             try:
                 on_status("[bold red]⛔ k6 уже выполняется. Дождитесь завершения текущего запуска.[/bold red]")
@@ -64,12 +64,14 @@ class K6Service:
                 process = await self.process_manager.start_run()
 
                 async def poll_metrics():
-                    if not on_metrics or not metrics_enabled:
+                    if not on_metrics:
                         return
 
                     last_error = ""
                     metric_types: dict[str, str] = {}
                     ordered_metric_names: list[str] = []
+                    req_rate_history: list[float | int] = []
+                    max_history = 90
                     on_metrics("[bold yellow]Collecting metrics from SSE stream /events...[/bold yellow]")
 
                     def aggregate_names(metric_type: str) -> list[str]:
@@ -116,7 +118,7 @@ class K6Service:
                                             metric_type = metric_info.get("type")
                                             if isinstance(metric_type, str):
                                                 metric_types[metric_name] = metric_type
-                                    ordered_metric_names = sorted(metric_types.keys())
+                                    ordered_metric_names = list(metric_types.keys())
                                     continue
 
                                 if event_name == "metric" and isinstance(payload, list):
@@ -127,13 +129,19 @@ class K6Service:
                                         metric_type = metric_info.get("type")
                                         if isinstance(metric_name, str) and isinstance(metric_type, str):
                                             metric_types[metric_name] = metric_type
-                                    ordered_metric_names = sorted(metric_types.keys())
+                                    ordered_metric_names = list(metric_types.keys())
                                     continue
 
                                 if event_name in {"snapshot", "cumulative", "start", "stop"}:
                                     if isinstance(payload, dict):
                                         snapshot = extract_snapshot(payload)
-                                        on_metrics(format_metrics_snapshot(snapshot))
+                                        req_rate = snapshot.get("http_reqs_rate")
+                                        if isinstance(req_rate, (int, float)):
+                                            req_rate_history.append(req_rate)
+                                            if len(req_rate_history) > max_history:
+                                                req_rate_history = req_rate_history[-max_history:]
+                                        self.state.last_metrics_snapshot = snapshot
+                                        on_metrics(format_metrics_snapshot(snapshot, req_rate_history))
                                         last_error = ""
                                         continue
 
@@ -141,7 +149,13 @@ class K6Service:
                                         metrics_payload = parse_aggregates_matrix(payload)
                                         if metrics_payload:
                                             snapshot = extract_snapshot(metrics_payload)
-                                            on_metrics(format_metrics_snapshot(snapshot))
+                                            req_rate = snapshot.get("http_reqs_rate")
+                                            if isinstance(req_rate, (int, float)):
+                                                req_rate_history.append(req_rate)
+                                                if len(req_rate_history) > max_history:
+                                                    req_rate_history = req_rate_history[-max_history:]
+                                            self.state.last_metrics_snapshot = snapshot
+                                            on_metrics(format_metrics_snapshot(snapshot, req_rate_history))
                                             last_error = ""
                             except json.JSONDecodeError:
                                 current_error = "metrics SSE event is not valid JSON"
@@ -163,6 +177,8 @@ class K6Service:
                             continue
 
                         if self._handle_status_lines(clean_text, on_status):
+                            if "100%" in clean_text:
+                                on_log(f"[{color}]{clean_text}[/{color}]")
                             continue
 
                         if self._handle_counter_lines(clean_text, on_status):
@@ -177,6 +193,8 @@ class K6Service:
                 )
 
                 await process.wait()
+                if isinstance(getattr(self.state, "last_metrics_snapshot", None), dict):
+                    on_log(format_final_metrics_summary(self.state.last_metrics_snapshot))
                 on_log(format_run_summary(self.state.success_count, self.state.fail_count))
                 on_log("\n[bold green]✅ Test finished.[/bold green]")
                 on_status(format_done_status(self.state.last_counter))

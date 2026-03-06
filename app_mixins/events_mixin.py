@@ -61,12 +61,7 @@ class EventsMixin:
                 on_metrics=metrics_view.update,
             )
 
-            if not self.full_config.get("k6", {}).get("logging", {}).get("metricsEnabled", False):
-                metrics_view.update(
-                    "Metrics are disabled.\nEnable k6.logging.metricsEnabled in Settings → Logging."
-                )
-            else:
-                metrics_view.update("[bold yellow]Collecting metrics...[/bold yellow]")
+            metrics_view.update("[bold yellow]Collecting metrics...[/bold yellow]")
 
             await self.run_controller.start_run(self.full_config, callbacks)
         elif event.button.id == "stop_btn":

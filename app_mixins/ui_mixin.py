@@ -260,7 +260,7 @@ class UIMixin:
 
                     with TabPane("Logging", id="tab_logging"):
                         log_data = self.full_config.get("k6", {}).get("logging", {}).copy()
-                        log_data.setdefault("metricsEnabled", False)
+                        log_data.pop("metricsEnabled", None)
                         yield ScrollableContainer(*build_config_fields(log_data, "k6.logging"), classes="tab-container")
 
             with TabPane("Logs", id="tab_logs"):
@@ -272,7 +272,7 @@ class UIMixin:
 
                     with TabPane("Metrics", id="tab_logs_metrics"):
                         with ScrollableContainer(classes="tab-container"):
-                            yield Static("Metrics are disabled.\nEnable k6.logging.metricsEnabled in Settings → Logging.", id="metrics_view")
+                            yield Static("Metrics will appear when test starts.", id="metrics_view")
 
         with Horizontal(id="button_row"):
             yield Input(placeholder="VUs...", id="vu_input")
