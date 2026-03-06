@@ -22,18 +22,29 @@ class K6ProcessManager:
             extra_args["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
 
         command = ["k6", "run", "test.js", "--no-color"]
+        process_env = os.environ.copy()
         if enable_web_dashboard:
             command.extend(["--out", "web-dashboard=period=1s&open=false"])
+            # Without export, k6 web dashboard can keep the process alive waiting
+            # for manual interruption after execution is complete.
+            process_env.setdefault("K6_WEB_DASHBOARD_EXPORT", "artifacts/web-dashboard.html")
         if enable_html_summary and summary_json_path:
             summary_dir = Path(summary_json_path).parent
             if str(summary_dir) not in {"", "."}:
                 summary_dir.mkdir(parents=True, exist_ok=True)
             command.extend(["--summary-export", summary_json_path])
 
+        dashboard_export = process_env.get("K6_WEB_DASHBOARD_EXPORT")
+        if dashboard_export:
+            export_dir = Path(dashboard_export).parent
+            if str(export_dir) not in {"", "."}:
+                export_dir.mkdir(parents=True, exist_ok=True)
+
         self.process = await asyncio.create_subprocess_exec(
             *command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=process_env,
             **extra_args,
         )
         return self.process

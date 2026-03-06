@@ -75,11 +75,31 @@ def _count_checks_in_group(group: dict[str, Any]) -> tuple[int, int]:
     passes = 0
     fails = 0
 
-    for check in group.get("checks", []) or []:
+    checks = group.get("checks", []) or []
+    if isinstance(checks, dict):
+        checks_iterable = checks.values()
+    elif isinstance(checks, list):
+        checks_iterable = checks
+    else:
+        checks_iterable = []
+
+    for check in checks_iterable:
+        if not isinstance(check, dict):
+            continue
         passes += int(check.get("passes", 0) or 0)
         fails += int(check.get("fails", 0) or 0)
 
-    for subgroup in group.get("groups", []) or []:
+    groups = group.get("groups", []) or []
+    if isinstance(groups, dict):
+        groups_iterable = groups.values()
+    elif isinstance(groups, list):
+        groups_iterable = groups
+    else:
+        groups_iterable = []
+
+    for subgroup in groups_iterable:
+        if not isinstance(subgroup, dict):
+            continue
         sub_passes, sub_fails = _count_checks_in_group(subgroup)
         passes += sub_passes
         fails += sub_fails

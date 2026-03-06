@@ -94,3 +94,25 @@ def test_start_run_creates_summary_directory_when_needed(monkeypatch, tmp_path):
     )
 
     assert summary_file.parent.exists()
+
+
+def test_start_run_sets_dashboard_export_env_when_enabled(monkeypatch):
+    captured = {}
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+
+        class DummyProcess:
+            returncode = None
+            pid = 1
+
+        return DummyProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+
+    manager = K6ProcessManager()
+    asyncio.run(manager.start_run(enable_web_dashboard=True))
+
+    env = captured["kwargs"].get("env") or {}
+    assert env.get("K6_WEB_DASHBOARD_EXPORT") == "artifacts/web-dashboard.html"

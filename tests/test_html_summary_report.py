@@ -110,3 +110,26 @@ def test_build_html_summary_handles_boolean_threshold_values():
     assert "Threshold failures" in html
     assert ">1<" in html
     assert "p(99)&lt;100: failed" in html
+
+
+def test_build_html_summary_handles_dict_checks_and_groups_shapes():
+    summary_json = {
+        "metrics": {},
+        "root_group": {
+            "checks": {
+                "status 200": {"passes": 2, "fails": 1},
+                "raw": "unexpected",
+            },
+            "groups": {
+                "nested": {
+                    "checks": {"latency": {"passes": 3, "fails": 0}},
+                    "groups": [],
+                }
+            },
+        },
+    }
+
+    html = build_html_summary(summary_json)
+
+    assert "Check passes" in html and ">5<" in html
+    assert "Check failures" in html and ">1<" in html
