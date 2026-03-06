@@ -259,7 +259,8 @@ class UIMixin:
                         )
 
                     with TabPane("Logging", id="tab_logging"):
-                        log_data = self.full_config.get("k6", {}).get("logging", {})
+                        log_data = self.full_config.setdefault("k6", {}).setdefault("logging", {})
+                        log_data.setdefault("htmlSummaryReport", False)
                         yield ScrollableContainer(*build_config_fields(log_data, "k6.logging"), classes="tab-container")
 
             with TabPane("Logs", id="tab_logs"):
@@ -267,12 +268,12 @@ class UIMixin:
                     yield Static("Waiting...\nPrepare to run", id="status_bar")
                     yield RichLog(id="output_log", markup=True, wrap=True)
 
-                with Horizontal(id="button_row"):
-                    yield Button("🌐 Web Dashboard", id="web_dashboard_btn", variant="primary")
-                    yield Input(placeholder="VUs...", id="vu_input")
-                    yield Button("✅ Apply", id="apply_vu_btn", variant="primary")
-                    yield Button("📋 Copy All Logs", id="copy_btn", variant="primary")
-                    yield Button("Stop k6", id="stop_btn", variant="error")
-                    yield Button("Save & Run k6 Test", id="run_btn", variant="success")
+        with Horizontal(id="button_row"):
+            yield Button("🌐 Web Dashboard", id="web_dashboard_btn", variant="primary")
+            yield Input(placeholder="VUs...", id="vu_input")
+            yield Button("✅ Apply", id="apply_vu_btn", variant="primary")
+            yield Button("📋 Copy All Logs", id="copy_btn", variant="primary")
+            yield Button("Stop k6", id="stop_btn", variant="error")
+            yield Button("Save & Run k6 Test", id="run_btn", variant="success")
 
         yield Footer()

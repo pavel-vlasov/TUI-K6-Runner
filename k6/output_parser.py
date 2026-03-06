@@ -5,6 +5,7 @@ RUNNING_LINE_PATTERN = re.compile(r"running \(.*\),\s*\d+/\d+\s*VUs")
 SCENARIO_PROGRESS_PATTERN = re.compile(
     r"^\s*[A-Za-z0-9_-]+\s+\[\s*\d+%\s*\]\s+\d+/\d+\s+VUs\s+\S+/\S+"
 )
+RUN_COMPLETE_PATTERN = re.compile(r"^\s*[A-Za-z0-9_-]+\s+\[\s*100%\s*\]\s+")
 
 
 def clean_cursor_sequences(line: str) -> str:
@@ -36,3 +37,7 @@ def is_success_line(text: str) -> bool:
 
 def is_fail_line(text: str) -> bool:
     return 'msg="❌' in text or "Non-200" in text
+
+
+def is_run_complete_line(text: str) -> bool:
+    return bool(RUN_COMPLETE_PATTERN.search(text))

@@ -11,6 +11,7 @@ from k6.output_parser import (
     is_default_line,
     is_fail_line,
     is_running_line,
+    is_run_complete_line,
     is_scenario_progress_line,
     is_success_line,
 )
@@ -62,6 +63,7 @@ class K6Service:
         self.state.fail_count = 0
         self.state.last_counter = "requests: ✅ 0  [bold white]│[/bold white]  ❌ 0"
         self.last_update_time = 0.0
+        run_result_reported = False
 
         try:
             if output_to_ui:
@@ -80,6 +82,7 @@ class K6Service:
                 )
 
                 async def read_stream(stream, color):
+                    nonlocal run_result_reported
                     while True:
                         line = await stream.readline()
                         if not line:
@@ -96,6 +99,13 @@ class K6Service:
                         if self._handle_counter_lines(clean_text, on_status):
                             continue
 
+                        if is_run_complete_line(clean_text) and not run_result_reported:
+                            run_result_reported = True
+                            if enable_html_summary:
+                                self._generate_html_summary_report(summary_json_path, summary_html_path, on_log)
+                            on_log("\n[bold green]✅ Test finished.[/bold green]")
+                            on_status(format_done_status(self.state.last_counter))
+
                         on_log(f"[{color}]{clean_text}[/{color}]")
 
                 await asyncio.gather(
@@ -105,11 +115,12 @@ class K6Service:
 
                 await process.wait()
 
-                if enable_html_summary:
-                    self._generate_html_summary_report(summary_json_path, summary_html_path, on_log)
+                if not run_result_reported:
+                    if enable_html_summary:
+                        self._generate_html_summary_report(summary_json_path, summary_html_path, on_log)
 
-                on_log("\n[bold green]✅ Test finished.[/bold green]")
-                on_status(format_done_status(self.state.last_counter))
+                    on_log("\n[bold green]✅ Test finished.[/bold green]")
+                    on_status(format_done_status(self.state.last_counter))
             else:
                 on_log("📤 k6 starting in external terminal.\n")
 
