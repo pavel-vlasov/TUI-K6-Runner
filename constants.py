@@ -45,6 +45,7 @@ DEFAULT_CONFIG = {
             "outputToUI": True,
             "webDashboard": False,
             "webDashboardUrl": "http://localhost:5665",
+            "htmlSummaryReport": False,
         }
     }
 }
