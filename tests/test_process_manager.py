@@ -3,7 +3,7 @@ import asyncio
 from k6.process_manager import K6ProcessManager
 
 
-def test_start_run_includes_web_dashboard_output_when_enabled(monkeypatch):
+def test_start_run_enables_web_dashboard_env_when_enabled(monkeypatch):
     captured = {}
 
     async def fake_create_subprocess_exec(*args, **kwargs):
@@ -21,8 +21,9 @@ def test_start_run_includes_web_dashboard_output_when_enabled(monkeypatch):
     manager = K6ProcessManager()
     asyncio.run(manager.start_run(enable_web_dashboard=True))
 
-    assert "--out" in captured["args"]
-    assert "web-dashboard=period=1s&open=false" in captured["args"]
+    env = captured["kwargs"].get("env")
+    assert env is not None
+    assert env["K6_WEB_DASHBOARD"] == "true"
 
 
 def test_start_run_sets_web_dashboard_export_env_when_enabled(monkeypatch):
@@ -48,7 +49,7 @@ def test_start_run_sets_web_dashboard_export_env_when_enabled(monkeypatch):
     assert env.get("K6_WEB_DASHBOARD_EXPORT")
 
 
-def test_start_run_does_not_include_web_dashboard_output_when_disabled(monkeypatch):
+def test_start_run_does_not_enable_web_dashboard_env_when_disabled(monkeypatch):
     captured = {}
 
     async def fake_create_subprocess_exec(*args, **kwargs):
@@ -66,8 +67,9 @@ def test_start_run_does_not_include_web_dashboard_output_when_disabled(monkeypat
     manager = K6ProcessManager()
     asyncio.run(manager.start_run(enable_web_dashboard=False))
 
-    assert "--out" not in captured["args"]
-    assert "web-dashboard" not in captured["args"]
+    env = captured["kwargs"].get("env")
+    assert env is not None
+    assert "K6_WEB_DASHBOARD" not in env
 
 
 def test_start_run_overwrites_dashboard_export_env_when_enabled(monkeypatch):
