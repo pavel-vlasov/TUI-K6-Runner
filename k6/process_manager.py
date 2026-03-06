@@ -27,7 +27,7 @@ class K6ProcessManager:
 
         command = ["k6", "run", "test.js", "--no-color"]
         if enable_web_dashboard:
-            command.extend(["--out", "web-dashboard=period=1s&open=false"])
+            command.extend(["--out", "web-dashboard=period=5s&open=false"])
             env["K6_WEB_DASHBOARD_EXPORT"] = "artifacts/dashboard.html"
             env["K6_WEB_DASHBOARD_OPEN"] = "false"
             self._apply_web_dashboard_binding(env, web_dashboard_url)
