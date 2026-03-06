@@ -1,4 +1,5 @@
 import asyncio
+import ipaddress
 import os
 import platform
 import signal
@@ -52,12 +53,23 @@ class K6ProcessManager:
         if not web_dashboard_url:
             return
 
-        parsed = urlparse(web_dashboard_url)
+        candidate = web_dashboard_url if "://" in web_dashboard_url else f"//{web_dashboard_url}"
+        parsed = urlparse(candidate)
         host = parsed.hostname
-        if host and host not in {"localhost", "127.0.0.1", "::1"}:
+        if host and not self._is_loopback_host(host):
             env["K6_WEB_DASHBOARD_HOST"] = host
         if parsed.port:
             env["K6_WEB_DASHBOARD_PORT"] = str(parsed.port)
+
+    @staticmethod
+    def _is_loopback_host(host: str) -> bool:
+        if host.lower() == "localhost":
+            return True
+
+        try:
+            return ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            return False
 
     async def stop(self) -> bool:
         if self.process and self.process.returncode is None:
