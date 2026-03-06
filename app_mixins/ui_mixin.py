@@ -268,12 +268,13 @@ class UIMixin:
                     with TabPane("Metrics", id="tab_logs_metrics"):
                         with ScrollableContainer(classes="tab-container"):
                             yield Static("Metrics are disabled.\nEnable k6.logging.metricsEnabled in Settings → Logging.", id="metrics_view")
+                            
 
-                with Horizontal(id="button_row"):
-                    yield Input(placeholder="VUs...", id="vu_input")
-                    yield Button("✅ Apply", id="apply_vu_btn", variant="primary")
-                    yield Button("📋 Copy All Logs", id="copy_btn", variant="primary")
-                    yield Button("Stop k6", id="stop_btn", variant="error")
-                    yield Button("Save & Run k6 Test", id="run_btn", variant="success")
+        with Horizontal(id="button_row"):
+            yield Input(placeholder="VUs...", id="vu_input")
+            yield Button("✅ Apply", id="apply_vu_btn", variant="primary")
+            yield Button("📋 Copy All Logs", id="copy_btn", variant="primary")
+            yield Button("Stop k6", id="stop_btn", variant="error")
+            yield Button("Save & Run k6 Test", id="run_btn", variant="success")
 
         yield Footer()
