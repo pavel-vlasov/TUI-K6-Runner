@@ -32,3 +32,5 @@ class K6TestApp(EventsMixin, UIMixin, RequestMixin, StageMixin, App):
                 self.full_config = DEFAULT_CONFIG.copy()
         except Exception:
             self.full_config = DEFAULT_CONFIG.copy()
+
+        self.full_config.setdefault("k6", {}).setdefault("logging", {}).setdefault("metricsViewer", False)

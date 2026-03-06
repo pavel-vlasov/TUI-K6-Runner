@@ -17,6 +17,9 @@ class EventsMixin:
                 if sw_id != event.switch.id:
                     self.query_one(f"#{sw_id}", Switch).value = False
 
+        if event.switch.id == "bool___k6__logging__metricsViewer":
+            self.toggle_metrics_tab_availability()
+
     def on_select_changed(self, event: Select.Changed):
         if event.select.id == "select___k6__executionType":
             self.toggle_execution_type_fields()
@@ -42,7 +45,9 @@ class EventsMixin:
             return
 
         log_view = self.query_one("#output_log", RichLog)
+        metrics_log_view = self.query_one("#metrics_log", RichLog)
         status_bar = self.query_one("#status_bar", Static)
+        metrics_status = self.query_one("#metrics_status", Static)
 
         if event.button.id == "run_btn":
             if self.run_controller.is_running:
@@ -53,9 +58,12 @@ class EventsMixin:
             log_view.clear()
             self.notify("Running K6 execution...")
 
+            metrics_log_view.clear()
             callbacks = RunCallbacks(
                 on_log=log_view.write,
                 on_status=status_bar.update,
+                on_metrics_log=metrics_log_view.write,
+                on_metrics_status=metrics_status.update,
                 on_run_state_changed=self.set_run_ui_state,
             )
             await self.run_controller.start_run(self.full_config, callbacks)

@@ -10,6 +10,8 @@ from k6.service import K6Service
 class RunCallbacks:
     on_log: Callable[[str], None]
     on_status: Callable[[str], None]
+    on_metrics_log: Callable[[str], None]
+    on_metrics_status: Callable[[str], None]
     on_run_state_changed: Callable[[bool], None]
 
 
@@ -38,6 +40,9 @@ class RunController:
             self.k6_service.run_k6_process(
                 on_log=callbacks.on_log,
                 on_status=callbacks.on_status,
+                on_metrics_log=callbacks.on_metrics_log,
+                on_metrics_status=callbacks.on_metrics_status,
+                enable_metrics=config.get("k6", {}).get("logging", {}).get("metricsViewer", False),
                 output_to_ui=output_ui,
             )
         )
