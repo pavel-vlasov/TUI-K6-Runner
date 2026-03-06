@@ -275,6 +275,14 @@ class UIMixin:
                             yield Static("Waiting for test run to start...", id="metrics_status")
                             yield RichLog(id="metrics_log", markup=False, wrap=False)
 
+        yield Horizontal(
+            Input("", id="vu_input", placeholder="Set VUs"),
+            Button("Apply VU", id="apply_vu_btn", variant="primary"),
+            Button("Run", id="run_btn", variant="success"),
+            Button("Stop", id="stop_btn", variant="error"),
+            Button("Copy Logs", id="copy_btn", variant="primary"),
+            id="button_row",
+        )
 
 
         yield Footer()
