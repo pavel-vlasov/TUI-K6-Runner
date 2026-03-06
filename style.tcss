@@ -69,9 +69,8 @@ Input, Select { width: 1fr; }
     border: solid $primary; padding: 0 1;
 }
 #output_log { height: 1fr; margin: 0 1 1 1; border: solid $secondary; background: $surface; padding: 1; }
-#button_row { height: auto; padding: 1; background: $surface-darken-1; align: left middle; dock: bottom; }
+#button_row { height: auto; padding: 1; background: $surface-darken-1; align: right middle; }
 #button_row Button { margin-left: 1; }
-#web_dashboard_btn { margin-left: 0; }
 #vu_input {
     width: 15;
     margin-right: 1;
@@ -82,8 +81,7 @@ Input, Select { width: 1fr; }
     height: auto; 
     padding: 1; 
     background: $surface-darken-1; 
-    align: left middle; 
-    dock: bottom;
+    align: right middle; 
 }
 Button {
  
