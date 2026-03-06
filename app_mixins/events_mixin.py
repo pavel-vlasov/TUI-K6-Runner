@@ -1,4 +1,7 @@
+import time
 import webbrowser
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
 import pyperclip
 from textual.containers import ScrollableContainer
 from textual.widgets import Button, Input, RichLog, Select, Static, Switch, TextArea
@@ -36,8 +39,9 @@ class EventsMixin:
                 return
 
             web_dashboard_url = logging_config.get("webDashboardUrl", "http://localhost:5665")
-            webbrowser.open(web_dashboard_url)
-            self.notify(f"Opening Web Dashboard: {web_dashboard_url}")
+            refreshed_url = self._with_cache_busting_query(web_dashboard_url)
+            webbrowser.open(refreshed_url)
+            self.notify(f"Opening Web Dashboard: {refreshed_url}")
             return
         if event.button.id == "add_request_endpoint_btn":
             await self.add_request_endpoint_tab()
@@ -79,6 +83,7 @@ class EventsMixin:
                 on_run_state_changed=self.set_run_ui_state,
             )
             await self.run_controller.start_run(self.full_config, callbacks)
+
         elif event.button.id == "stop_btn":
             await self.run_controller.stop_run()
             self.notify("Stop command sent", severity="warning")
@@ -90,6 +95,13 @@ class EventsMixin:
             if vu_input.value.isdigit():
                 await self.run_controller.scale(int(vu_input.value), log_view.write)
                 vu_input.value = ""
+
+    def _with_cache_busting_query(self, url: str) -> str:
+        parsed = urlparse(url)
+        query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        query["run"] = str(int(time.time() * 1000))
+        new_query = urlencode(query)
+        return urlunparse(parsed._replace(query=new_query))
 
     def _collect_ui_field_values(self) -> dict[str, object]:
         field_values: dict[str, object] = {}

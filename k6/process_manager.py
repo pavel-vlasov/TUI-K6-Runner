@@ -5,6 +5,7 @@ import signal
 import subprocess
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 
 class K6ProcessManager:
@@ -14,6 +15,7 @@ class K6ProcessManager:
     async def start_run(
         self,
         enable_web_dashboard: bool = False,
+        web_dashboard_url: str | None = None,
         summary_json_path: str | None = None,
         enable_html_summary: bool = False,
     ) -> asyncio.subprocess.Process:
@@ -26,7 +28,9 @@ class K6ProcessManager:
         command = ["k6", "run", "test.js", "--no-color"]
         if enable_web_dashboard:
             command.extend(["--out", "web-dashboard=period=1s&open=false"])
-            env.setdefault("K6_WEB_DASHBOARD_EXPORT", "artifacts/dashboard.html")
+            env["K6_WEB_DASHBOARD_EXPORT"] = "artifacts/dashboard.html"
+            env["K6_WEB_DASHBOARD_OPEN"] = "false"
+            self._apply_web_dashboard_binding(env, web_dashboard_url)
         if enable_html_summary and summary_json_path:
             summary_dir = Path(summary_json_path).parent
             if str(summary_dir) not in {"", "."}:
@@ -41,6 +45,17 @@ class K6ProcessManager:
             **extra_args,
         )
         return self.process
+
+    def _apply_web_dashboard_binding(self, env: dict[str, str], web_dashboard_url: str | None) -> None:
+        if not web_dashboard_url:
+            return
+
+        parsed = urlparse(web_dashboard_url)
+        host = parsed.hostname
+        if host and host not in {"localhost", "127.0.0.1", "::1"}:
+            env["K6_WEB_DASHBOARD_HOST"] = host
+        if parsed.port:
+            env["K6_WEB_DASHBOARD_PORT"] = str(parsed.port)
 
     async def stop(self) -> bool:
         if self.process and self.process.returncode is None:

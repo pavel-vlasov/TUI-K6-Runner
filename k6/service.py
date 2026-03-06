@@ -48,6 +48,7 @@ class K6Service:
         on_status,
         output_to_ui: bool = True,
         enable_web_dashboard: bool = False,
+        web_dashboard_url: str | None = None,
         enable_html_summary: bool = False,
     ):
         if self.state.is_running:
@@ -76,6 +77,7 @@ class K6Service:
 
                 process = await self.process_manager.start_run(
                     enable_web_dashboard=enable_web_dashboard,
+                    web_dashboard_url=web_dashboard_url,
                     summary_json_path=str(summary_json_path),
                     enable_html_summary=enable_html_summary,
                 )
