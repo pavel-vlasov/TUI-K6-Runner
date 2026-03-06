@@ -15,6 +15,7 @@ from k6.output_parser import (
 from k6.metrics import extract_snapshot, format_metrics_snapshot
 from k6.presenters import (
     format_done_status,
+    format_run_summary,
     format_running_status,
     format_start_log,
     format_start_status,
@@ -66,16 +67,89 @@ class K6Service:
                     if not on_metrics or not metrics_enabled:
                         return
 
-                    while self.state.is_running and self.process_manager.process and self.process_manager.process.returncode is None:
-                        try:
-                            returncode, stdout, _ = await self.process_manager.status()
-                            if returncode == 0:
-                                data = json.loads(stdout.decode())
-                                snapshot = extract_snapshot(data)
-                                on_metrics(format_metrics_snapshot(snapshot))
-                        except Exception:
-                            pass
-                        await asyncio.sleep(1)
+                    last_error = ""
+                    metric_types: dict[str, str] = {}
+                    ordered_metric_names: list[str] = []
+                    on_metrics("[bold yellow]Collecting metrics from SSE stream /events...[/bold yellow]")
+
+                    def aggregate_names(metric_type: str) -> list[str]:
+                        mapping = {
+                            "gauge": ["value"],
+                            "rate": ["rate"],
+                            "counter": ["count", "rate"],
+                            "trend": ["avg", "max", "med", "min", "p(90)", "p(95)", "p(99)"],
+                        }
+                        return mapping.get(metric_type, [])
+
+                    def parse_aggregates_matrix(matrix: list[list[float]]) -> dict[str, dict[str, float]]:
+                        result: dict[str, dict[str, float]] = {}
+
+                        for idx, sample_values in enumerate(matrix):
+                            if idx >= len(ordered_metric_names):
+                                continue
+
+                            metric_name = ordered_metric_names[idx]
+                            metric_type = metric_types.get(metric_name, "")
+                            keys = aggregate_names(metric_type)
+
+                            normalized_values = sample_values
+                            if len(sample_values) > len(keys) and sample_values and sample_values[0] > 1_000_000_000_000:
+                                normalized_values = sample_values[1:]
+
+                            if len(keys) != len(normalized_values):
+                                continue
+
+                            result[metric_name] = {keys[i]: normalized_values[i] for i in range(len(keys))}
+
+                        return result
+
+                    try:
+                        async for event_name, event_data in self.process_manager.stream_metrics_events():
+                            if not self.state.is_running:
+                                break
+
+                            try:
+                                payload = json.loads(event_data)
+                                if event_name == "metric" and isinstance(payload, dict):
+                                    for metric_name, metric_info in payload.items():
+                                        if isinstance(metric_info, dict):
+                                            metric_type = metric_info.get("type")
+                                            if isinstance(metric_type, str):
+                                                metric_types[metric_name] = metric_type
+                                    ordered_metric_names = sorted(metric_types.keys())
+                                    continue
+
+                                if event_name == "metric" and isinstance(payload, list):
+                                    for metric_info in payload:
+                                        if not isinstance(metric_info, dict):
+                                            continue
+                                        metric_name = metric_info.get("name")
+                                        metric_type = metric_info.get("type")
+                                        if isinstance(metric_name, str) and isinstance(metric_type, str):
+                                            metric_types[metric_name] = metric_type
+                                    ordered_metric_names = sorted(metric_types.keys())
+                                    continue
+
+                                if event_name in {"snapshot", "cumulative", "start", "stop"}:
+                                    if isinstance(payload, dict):
+                                        snapshot = extract_snapshot(payload)
+                                        on_metrics(format_metrics_snapshot(snapshot))
+                                        last_error = ""
+                                        continue
+
+                                    if isinstance(payload, list) and all(isinstance(item, list) for item in payload):
+                                        metrics_payload = parse_aggregates_matrix(payload)
+                                        if metrics_payload:
+                                            snapshot = extract_snapshot(metrics_payload)
+                                            on_metrics(format_metrics_snapshot(snapshot))
+                                            last_error = ""
+                            except json.JSONDecodeError:
+                                current_error = "metrics SSE event is not valid JSON"
+                                if current_error != last_error:
+                                    on_metrics("[bold yellow]⚠ SSE event is not JSON.[/bold yellow]")
+                                    last_error = current_error
+                    except Exception as e:
+                        on_metrics(f"[bold red]⚠ SSE metrics stream error: {str(e)}[/bold red]")
 
                 async def read_stream(stream, color):
                     while True:
@@ -103,6 +177,7 @@ class K6Service:
                 )
 
                 await process.wait()
+                on_log(format_run_summary(self.state.success_count, self.state.fail_count))
                 on_log("\n[bold green]✅ Test finished.[/bold green]")
                 on_status(format_done_status(self.state.last_counter))
             else:

@@ -28,7 +28,12 @@ def _pick(source: Mapping[str, Any] | None, *keys: str) -> float | int | None:
 
 
 def extract_snapshot(status_payload: Mapping[str, Any]) -> dict[str, float | int | None]:
-    metrics = status_payload.get("metrics", {}) if isinstance(status_payload, Mapping) else {}
+    if not isinstance(status_payload, Mapping):
+        metrics = {}
+    elif isinstance(status_payload.get("metrics"), Mapping):
+        metrics = status_payload.get("metrics", {})
+    else:
+        metrics = status_payload
 
     http_reqs = metrics.get("http_reqs", {})
     iterations = metrics.get("iterations", {})

@@ -16,3 +16,13 @@ def format_start_status() -> str:
 
 def format_start_log() -> str:
     return "[bold cyan]Starting k6 test in UI...[/bold cyan]\n"
+
+
+def format_run_summary(success_count: int, fail_count: int) -> str:
+    total = success_count + fail_count
+    return (
+        "\n[bold magenta]📋 Run summary[/bold magenta]\n"
+        f"[bold]Total processed:[/bold] {total}\n"
+        f"[bold green]✅ Success:[/bold green] {success_count}\n"
+        f"[bold red]❌ Fail:[/bold red] {fail_count}\n"
+    )
