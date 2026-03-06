@@ -39,7 +39,13 @@ class K6Service:
     async def stop_k6_process(self):
         return await self.process_manager.stop()
 
-    async def run_k6_process(self, on_log, on_status, output_to_ui: bool = True):
+    async def run_k6_process(
+        self,
+        on_log,
+        on_status,
+        output_to_ui: bool = True,
+        enable_web_dashboard: bool = False,
+    ):
         if self.state.is_running:
             try:
                 on_status("[bold red]⛔ k6 уже выполняется. Дождитесь завершения текущего запуска.[/bold red]")
@@ -59,7 +65,7 @@ class K6Service:
                 on_status(format_start_status())
                 on_log(format_start_log())
 
-                process = await self.process_manager.start_run()
+                process = await self.process_manager.start_run(enable_web_dashboard=enable_web_dashboard)
 
                 async def read_stream(stream, color):
                     while True:
