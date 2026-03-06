@@ -29,6 +29,7 @@ class UIMixin:
     async def on_mount(self) -> None:
         self.set_run_ui_state(False)
         self.toggle_execution_type_fields()
+        self.toggle_metrics_tab_availability()
 
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
         if self._get_request_tab_panes():
@@ -37,6 +38,11 @@ class UIMixin:
         request_endpoints = self.get_request_endpoints()
         for index, request_data in enumerate(request_endpoints):
             await request_subtabs.add_pane(self.build_request_subtab(index, request_data))
+
+    def toggle_metrics_tab_availability(self) -> None:
+        metrics_switch = self.query_one("#bool___k6__logging__metricsViewer", Switch)
+        metrics_tab = self.query_one("#tab_metrics", TabPane)
+        metrics_tab.disabled = not bool(metrics_switch.value)
 
     def toggle_execution_type_fields(self) -> None:
         execution_select = self.query_one("#select___k6__executionType", Select)
@@ -258,15 +264,23 @@ class UIMixin:
                         yield ScrollableContainer(*build_config_fields(log_data, "k6.logging"), classes="tab-container")
 
             with TabPane("Logs", id="tab_logs"):
-                with Vertical(id="log_view_container"):
-                    yield Static("Waiting...\nPrepare to run", id="status_bar")
-                    yield RichLog(id="output_log", markup=True, wrap=True)
+                with TabbedContent(id="logs_subtabs"):
+                    with TabPane("Logs", id="tab_output_logs"):
+                        with Vertical(id="log_view_container"):
+                            yield Static("Waiting...\nPrepare to run", id="status_bar")
+                            yield RichLog(id="output_log", markup=True, wrap=True)
 
-                with Horizontal(id="button_row"):
-                    yield Input(placeholder="VUs...", id="vu_input")
-                    yield Button("✅ Apply", id="apply_vu_btn", variant="primary")
-                    yield Button("📋 Copy All Logs", id="copy_btn", variant="primary")
-                    yield Button("Stop k6", id="stop_btn", variant="error")
-                    yield Button("Save & Run k6 Test", id="run_btn", variant="success")
+                        with Horizontal(id="button_row"):
+                            yield Input(placeholder="VUs...", id="vu_input")
+                            yield Button("✅ Apply", id="apply_vu_btn", variant="primary")
+                            yield Button("📋 Copy All Logs", id="copy_btn", variant="primary")
+                            yield Button("Stop k6", id="stop_btn", variant="error")
+                            yield Button("Save & Run k6 Test", id="run_btn", variant="success")
+
+                    with TabPane("Metrics", id="tab_metrics"):
+                        with Vertical(id="metrics_view_container"):
+                            yield Static("Metrics viewer is disabled", id="metrics_status")
+                            yield RichLog(id="metrics_log", markup=False, wrap=False)
+
 
         yield Footer()

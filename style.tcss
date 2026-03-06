@@ -152,3 +152,11 @@ Button.-active {
 .spike-stage-row Input {
     min-width: 20;
 }
+
+#metrics_view_container { height: 1fr; layout: vertical; }
+#metrics_status {
+    background: $surface; color: $text; content-align: center middle;
+    text-style: bold; height: 3; width: 100%; margin: 0 1;
+    border: solid $primary; padding: 0 1;
+}
+#metrics_log { height: 1fr; margin: 0 1 1 1; border: solid $secondary; background: $surface; padding: 1; }

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import platform
 import subprocess
@@ -39,7 +40,15 @@ class K6Service:
     async def stop_k6_process(self):
         return await self.process_manager.stop()
 
-    async def run_k6_process(self, on_log, on_status, output_to_ui: bool = True):
+    async def run_k6_process(
+        self,
+        on_log,
+        on_status,
+        on_metrics_log,
+        on_metrics_status,
+        enable_metrics: bool = False,
+        output_to_ui: bool = True,
+    ):
         if self.state.is_running:
             try:
                 on_status("[bold red]⛔ k6 уже выполняется. Дождитесь завершения текущего запуска.[/bold red]")
@@ -60,6 +69,13 @@ class K6Service:
                 on_log(format_start_log())
 
                 process = await self.process_manager.start_run()
+
+                metrics_task = None
+                if enable_metrics:
+                    on_metrics_status("[bold green]📈 Metrics viewer enabled[/bold green]")
+                    metrics_task = asyncio.create_task(self._read_metrics_stream(on_metrics_log, on_metrics_status))
+                else:
+                    on_metrics_status("[bold yellow]Metrics viewer is disabled[/bold yellow]")
 
                 async def read_stream(stream, color):
                     while True:
@@ -86,8 +102,14 @@ class K6Service:
                 )
 
                 await process.wait()
+                if metrics_task:
+                    metrics_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await metrics_task
                 on_log("\n[bold green]✅ Test finished.[/bold green]")
                 on_status(format_done_status(self.state.last_counter))
+                if enable_metrics:
+                    on_metrics_status("[bold green]✅ Metrics viewer stopped[/bold green]")
             else:
                 on_log("📤 k6 starting in external terminal.\n")
 
@@ -105,9 +127,27 @@ class K6Service:
 
         except Exception as e:
             on_log(f"[bold red]💥 Error: {str(e)}[/bold red]")
+            on_metrics_log(f"[metrics error] {str(e)}")
         finally:
             self.state.is_running = False
             self.process_manager.clear_process()
+
+    async def _read_metrics_stream(self, on_metrics_log, on_metrics_status):
+        try:
+            metrics_process = await self.process_manager.start_metrics()
+            on_metrics_log("k6 top started...")
+
+            while True:
+                line = await metrics_process.stdout.readline()
+                if not line:
+                    break
+                text = clean_cursor_sequences(line.decode("utf-8", errors="replace").rstrip())
+                if text.strip():
+                    on_metrics_log(text)
+        except FileNotFoundError:
+            on_metrics_status("[bold red]❌ k6 top is unavailable. Install xk6-top extension.[/bold red]")
+        except Exception as error:
+            on_metrics_status(f"[bold red]❌ metrics stream failed: {error}[/bold red]")
 
     def _handle_status_lines(self, clean_text: str, on_status) -> bool:
         running = is_running_line(clean_text)

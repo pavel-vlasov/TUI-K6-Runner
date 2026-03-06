@@ -39,7 +39,12 @@ DEFAULT_CONFIG = {
         "thresholds": {
             "http_req_duration": [{"threshold": "p(99) < 2000", "abortOnFail": False, "delayAbortEval": "2s"}]
         },
-        "logging": {"enabled": False, "level": "failed", "outputToUI": True}
+        "logging": {
+            "enabled": False,
+            "level": "failed",
+            "outputToUI": True,
+            "metricsViewer": False,
+        }
     }
 }
 
