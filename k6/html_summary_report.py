@@ -71,20 +71,33 @@ def _metric_type(metrics: dict[str, dict[str, Any]], metric_name: str) -> str:
     return str((metrics.get(metric_name) or {}).get("type", ""))
 
 
-def _count_checks_in_group(group: dict[str, Any]) -> tuple[int, int]:
+def _count_checks_in_group(group: Any) -> tuple[int, int]:
     passes = 0
     fails = 0
 
-    for check in group.get("checks", []) or []:
+    if not isinstance(group, dict):
+        return passes, fails
+
+    for check in _iter_collection(group.get("checks")):
+        if not isinstance(check, dict):
+            continue
         passes += int(check.get("passes", 0) or 0)
         fails += int(check.get("fails", 0) or 0)
 
-    for subgroup in group.get("groups", []) or []:
+    for subgroup in _iter_collection(group.get("groups")):
         sub_passes, sub_fails = _count_checks_in_group(subgroup)
         passes += sub_passes
         fails += sub_fails
 
     return passes, fails
+
+
+def _iter_collection(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        return list(value.values())
+    return []
 
 
 def _render_metric_rows(metric_names: list[str], metrics: dict[str, dict[str, Any]]) -> str:

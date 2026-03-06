@@ -21,9 +21,12 @@ class K6ProcessManager:
         if platform.system() == "Windows":
             extra_args["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
 
+        env = os.environ.copy()
+
         command = ["k6", "run", "test.js", "--no-color"]
         if enable_web_dashboard:
             command.extend(["--out", "web-dashboard=period=1s&open=false"])
+            env.setdefault("K6_WEB_DASHBOARD_EXPORT", "artifacts/dashboard.html")
         if enable_html_summary and summary_json_path:
             summary_dir = Path(summary_json_path).parent
             if str(summary_dir) not in {"", "."}:
@@ -34,6 +37,7 @@ class K6ProcessManager:
             *command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=env,
             **extra_args,
         )
         return self.process
