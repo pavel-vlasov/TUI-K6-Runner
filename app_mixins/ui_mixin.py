@@ -275,12 +275,6 @@ class UIMixin:
                             yield Static("Waiting for test run to start...", id="metrics_status")
                             yield RichLog(id="metrics_log", markup=False, wrap=False)
 
-                with Horizontal(id="button_row"):
-                    yield Input(placeholder="VUs...", id="vu_input")
-                    yield Button("✅ Apply", id="apply_vu_btn", variant="primary")
-                    yield Button("📋 Copy All Logs", id="copy_btn", variant="primary")
-                    yield Button("Stop k6", id="stop_btn", variant="error")
-                    yield Button("Save & Run k6 Test", id="run_btn", variant="success")
 
 
         yield Footer()
