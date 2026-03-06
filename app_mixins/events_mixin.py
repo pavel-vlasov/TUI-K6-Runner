@@ -43,6 +43,7 @@ class EventsMixin:
 
         log_view = self.query_one("#output_log", RichLog)
         status_bar = self.query_one("#status_bar", Static)
+        metrics_view = self.query_one("#metrics_view", Static)
 
         if event.button.id == "run_btn":
             if self.run_controller.is_running:
@@ -57,7 +58,16 @@ class EventsMixin:
                 on_log=log_view.write,
                 on_status=status_bar.update,
                 on_run_state_changed=self.set_run_ui_state,
+                on_metrics=metrics_view.update,
             )
+
+            if not self.full_config.get("k6", {}).get("logging", {}).get("metricsEnabled", False):
+                metrics_view.update(
+                    "Metrics are disabled.\nEnable k6.logging.metricsEnabled in Settings → Logging."
+                )
+            else:
+                metrics_view.update("[bold yellow]Collecting metrics...[/bold yellow]")
+
             await self.run_controller.start_run(self.full_config, callbacks)
         elif event.button.id == "stop_btn":
             await self.run_controller.stop_run()

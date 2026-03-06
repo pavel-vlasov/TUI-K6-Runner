@@ -11,6 +11,7 @@ class RunCallbacks:
     on_log: Callable[[str], None]
     on_status: Callable[[str], None]
     on_run_state_changed: Callable[[bool], None]
+    on_metrics: Callable[[str], None] | None = None
 
 
 class RunController:
@@ -33,12 +34,15 @@ class RunController:
 
         callbacks.on_run_state_changed(True)
         output_ui = config.get("k6", {}).get("logging", {}).get("outputToUI", True)
+        metrics_enabled = config.get("k6", {}).get("logging", {}).get("metricsEnabled", False)
 
         task = asyncio.create_task(
             self.k6_service.run_k6_process(
                 on_log=callbacks.on_log,
                 on_status=callbacks.on_status,
                 output_to_ui=output_ui,
+                on_metrics=callbacks.on_metrics,
+                metrics_enabled=metrics_enabled,
             )
         )
         task.add_done_callback(lambda _: callbacks.on_run_state_changed(False))
