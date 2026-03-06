@@ -1,0 +1,46 @@
+from k6.metrics import extract_snapshot, format_metrics_snapshot
+
+
+def test_extract_snapshot_from_k6_status_payload():
+    payload = {
+        "metrics": {
+            "http_reqs": {"rate": 31.5},
+            "iterations": {"rate": 25.1},
+            "http_req_duration": {"avg": 145.6, "p(95)": 220.8},
+            "vus": {"value": 6},
+            "vus_max": {"value": 20},
+            "checks": {"rate": 0.99},
+            "data_received": {"rate": 1024},
+            "data_sent": {"rate": 512},
+        }
+    }
+
+    snapshot = extract_snapshot(payload)
+
+    assert snapshot["http_reqs_rate"] == 31.5
+    assert snapshot["iterations_rate"] == 25.1
+    assert snapshot["latency_avg_ms"] == 145.6
+    assert snapshot["latency_p95_ms"] == 220.8
+    assert snapshot["vus"] == 6
+
+
+def test_format_metrics_snapshot_contains_main_sections():
+    rendered = format_metrics_snapshot({"http_reqs_rate": 10.0, "vus": 2})
+
+    assert "Metrics (xk6-top style)" in rendered
+    assert "HTTP req/s:" in rendered
+    assert "VUs:" in rendered
+
+
+def test_extract_snapshot_accepts_raw_metrics_payload_from_sse():
+    payload = {
+        "http_reqs": {"rate": 15.0},
+        "http_req_duration": {"avg": 120.5},
+        "vus": {"value": 3},
+    }
+
+    snapshot = extract_snapshot(payload)
+
+    assert snapshot["http_reqs_rate"] == 15.0
+    assert snapshot["latency_avg_ms"] == 120.5
+    assert snapshot["vus"] == 3

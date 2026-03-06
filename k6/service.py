@@ -12,6 +12,7 @@ from k6.output_parser import (
     is_scenario_progress_line,
     is_success_line,
 )
+from k6.metrics import extract_snapshot, format_metrics_snapshot
 from k6.presenters import (
     format_done_status,
     format_running_status,
@@ -39,7 +40,7 @@ class K6Service:
     async def stop_k6_process(self):
         return await self.process_manager.stop()
 
-    async def run_k6_process(self, on_log, on_status, output_to_ui: bool = True):
+    async def run_k6_process(self, on_log, on_status, output_to_ui: bool = True, on_metrics=None, metrics_enabled=False):
         if self.state.is_running:
             try:
                 on_status("[bold red]⛔ k6 уже выполняется. Дождитесь завершения текущего запуска.[/bold red]")
@@ -60,6 +61,34 @@ class K6Service:
                 on_log(format_start_log())
 
                 process = await self.process_manager.start_run()
+
+                async def poll_metrics():
+                    if not on_metrics or not metrics_enabled:
+                        return
+
+                    last_error = ""
+                    on_metrics("[bold yellow]Collecting metrics from SSE stream /v1/metrics...[/bold yellow]")
+
+                    try:
+                        async for event_data in self.process_manager.stream_metrics_events():
+                            if not self.state.is_running:
+                                break
+
+                            try:
+                                payload = json.loads(event_data)
+                                if not isinstance(payload, dict):
+                                    continue
+
+                                snapshot = extract_snapshot(payload)
+                                on_metrics(format_metrics_snapshot(snapshot))
+                                last_error = ""
+                            except json.JSONDecodeError:
+                                current_error = "metrics SSE event is not valid JSON"
+                                if current_error != last_error:
+                                    on_metrics("[bold yellow]⚠ SSE event is not JSON.[/bold yellow]")
+                                    last_error = current_error
+                    except Exception as e:
+                        on_metrics(f"[bold red]⚠ SSE metrics stream error: {str(e)}[/bold red]")
 
                 async def read_stream(stream, color):
                     while True:
@@ -83,6 +112,7 @@ class K6Service:
                 await asyncio.gather(
                     read_stream(process.stdout, "white"),
                     read_stream(process.stderr, "pale_turquoise4"),
+                    poll_metrics(),
                 )
 
                 await process.wait()
