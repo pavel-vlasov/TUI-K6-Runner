@@ -90,31 +90,17 @@ class K6Service:
                             metric_name = ordered_metric_names[idx]
                             metric_type = metric_types.get(metric_name, "")
                             keys = aggregate_names(metric_type)
-                            if len(keys) != len(sample_values):
+
+                            normalized_values = sample_values
+                            if len(sample_values) > len(keys) and sample_values and sample_values[0] > 1_000_000_000_000:
+                                normalized_values = sample_values[1:]
+
+                            if len(keys) != len(normalized_values):
                                 continue
 
-                            result[metric_name] = {keys[i]: sample_values[i] for i in range(len(keys))}
+                            result[metric_name] = {keys[i]: normalized_values[i] for i in range(len(keys))}
 
                         return result
-
-                    async def fallback_from_status() -> bool:
-                        try:
-                            returncode, stdout, _ = await self.process_manager.status()
-                            if returncode != 0:
-                                return False
-
-                            payload = json.loads(stdout.decode("utf-8", errors="replace"))
-                            if not isinstance(payload, dict):
-                                return False
-
-                            snapshot = extract_snapshot(payload)
-                            if any(value is not None for value in snapshot.values()):
-                                on_metrics(format_metrics_snapshot(snapshot))
-                                return True
-                        except Exception:
-                            return False
-
-                        return False
 
                     try:
                         async for event_name, event_data in self.process_manager.stream_metrics_events():
@@ -155,8 +141,6 @@ class K6Service:
                                         if metrics_payload:
                                             snapshot = extract_snapshot(metrics_payload)
                                             on_metrics(format_metrics_snapshot(snapshot))
-                                            last_error = ""
-                                        elif await fallback_from_status():
                                             last_error = ""
                             except json.JSONDecodeError:
                                 current_error = "metrics SSE event is not valid JSON"

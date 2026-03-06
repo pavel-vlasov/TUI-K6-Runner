@@ -58,8 +58,6 @@ class K6ProcessManager:
             "scale",
             "--vus",
             str(target_vus),
-            "--address",
-            self.API_ADDRESS,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -68,7 +66,7 @@ class K6ProcessManager:
 
     async def status(self) -> tuple[int, bytes, bytes]:
         process = await asyncio.create_subprocess_exec(
-            "k6", "status", "--address", self.API_ADDRESS, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            "k6", "status", stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         stdout, stderr = await process.communicate()
         return process.returncode, stdout, stderr
