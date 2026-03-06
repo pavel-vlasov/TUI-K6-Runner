@@ -51,8 +51,9 @@ class K6ProcessManager:
             return
 
         parsed = urlparse(web_dashboard_url)
-        if parsed.hostname:
-            env["K6_WEB_DASHBOARD_HOST"] = parsed.hostname
+        host = parsed.hostname
+        if host and host not in {"localhost", "127.0.0.1", "::1"}:
+            env["K6_WEB_DASHBOARD_HOST"] = host
         if parsed.port:
             env["K6_WEB_DASHBOARD_PORT"] = str(parsed.port)
 
