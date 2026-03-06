@@ -1,3 +1,4 @@
+import webbrowser
 import pyperclip
 from textual.containers import ScrollableContainer
 from textual.widgets import Button, Input, RichLog, Select, Static, Switch, TextArea
@@ -22,6 +23,22 @@ class EventsMixin:
             self.toggle_execution_type_fields()
 
     async def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "web_dashboard_btn":
+            logging_config = self.full_config.get("k6", {}).get("logging", {})
+            web_dashboard_enabled = logging_config.get("webDashboard", False)
+
+            if not web_dashboard_enabled:
+                self.notify("🌐 Web Dashboard is disabled in config.", severity="warning")
+                return
+
+            if not self.run_controller.is_running:
+                self.notify("🌐 Web Dashboard is available only during a running test.", severity="warning")
+                return
+
+            web_dashboard_url = logging_config.get("webDashboardUrl", "http://localhost:5665")
+            webbrowser.open(web_dashboard_url)
+            self.notify(f"Opening Web Dashboard: {web_dashboard_url}")
+            return
         if event.button.id == "add_request_endpoint_btn":
             await self.add_request_endpoint_tab()
             return
@@ -50,6 +67,7 @@ class EventsMixin:
                 return
 
             self.action_save_config()
+            self.set_run_ui_state(self.run_controller.is_running)
             log_view.clear()
             self.notify("Running K6 execution...")
 

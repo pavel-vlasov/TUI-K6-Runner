@@ -33,12 +33,14 @@ class RunController:
 
         callbacks.on_run_state_changed(True)
         output_ui = config.get("k6", {}).get("logging", {}).get("outputToUI", True)
+        web_dashboard = config.get("k6", {}).get("logging", {}).get("webDashboard", False)
 
         task = asyncio.create_task(
             self.k6_service.run_k6_process(
                 on_log=callbacks.on_log,
                 on_status=callbacks.on_status,
                 output_to_ui=output_ui,
+                enable_web_dashboard=web_dashboard,
             )
         )
         task.add_done_callback(lambda _: callbacks.on_run_state_changed(False))

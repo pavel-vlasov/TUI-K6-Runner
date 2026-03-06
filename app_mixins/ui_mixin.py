@@ -22,9 +22,14 @@ class UIMixin:
         run_btn = self.query_one("#run_btn", Button)
         stop_btn = self.query_one("#stop_btn", Button)
         apply_btn = self.query_one("#apply_vu_btn", Button)
+        web_dashboard_btn = self.query_one("#web_dashboard_btn", Button)
+        web_dashboard_enabled = self.full_config.get("k6", {}).get("logging", {}).get("webDashboard", False)
+
         run_btn.disabled = running
         stop_btn.disabled = not running
         apply_btn.disabled = not running
+        web_dashboard_btn.display = web_dashboard_enabled
+        web_dashboard_btn.disabled = (not running) or (not web_dashboard_enabled)
 
     async def on_mount(self) -> None:
         self.set_run_ui_state(False)
@@ -263,6 +268,7 @@ class UIMixin:
                     yield RichLog(id="output_log", markup=True, wrap=True)
 
                 with Horizontal(id="button_row"):
+                    yield Button("🌐 Web Dashboard", id="web_dashboard_btn", variant="primary")
                     yield Input(placeholder="VUs...", id="vu_input")
                     yield Button("✅ Apply", id="apply_vu_btn", variant="primary")
                     yield Button("📋 Copy All Logs", id="copy_btn", variant="primary")
