@@ -15,6 +15,7 @@ from k6.output_parser import (
 from k6.metrics import extract_snapshot, format_metrics_snapshot
 from k6.presenters import (
     format_done_status,
+    format_run_summary,
     format_running_status,
     format_start_log,
     format_start_status,
@@ -176,6 +177,7 @@ class K6Service:
                 )
 
                 await process.wait()
+                on_log(format_run_summary(self.state.success_count, self.state.fail_count))
                 on_log("\n[bold green]✅ Test finished.[/bold green]")
                 on_status(format_done_status(self.state.last_counter))
             else:

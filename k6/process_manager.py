@@ -24,6 +24,7 @@ class K6ProcessManager:
         env["K6_WEB_DASHBOARD"] = "true"
         env["K6_WEB_DASHBOARD_HOST"] = self.DASHBOARD_HOST
         env["K6_WEB_DASHBOARD_PORT"] = str(self.DASHBOARD_PORT)
+        env["K6_WEB_DASHBOARD_PERIOD"] = "1s"
 
         self.process = await asyncio.create_subprocess_exec(
             "k6",

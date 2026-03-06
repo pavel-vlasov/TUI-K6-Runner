@@ -1,4 +1,5 @@
 from k6.metrics import extract_snapshot, format_metrics_snapshot
+from k6.presenters import format_run_summary
 
 
 def test_extract_snapshot_from_k6_status_payload():
@@ -44,3 +45,12 @@ def test_extract_snapshot_accepts_raw_metrics_payload_from_sse():
     assert snapshot["http_reqs_rate"] == 15.0
     assert snapshot["latency_avg_ms"] == 120.5
     assert snapshot["vus"] == 3
+
+
+def test_format_run_summary_contains_counts():
+    summary = format_run_summary(12, 3)
+
+    assert "Run summary" in summary
+    assert "Total processed:" in summary
+    assert "12" in summary
+    assert "3" in summary
