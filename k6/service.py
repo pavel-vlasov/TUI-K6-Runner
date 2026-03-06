@@ -52,8 +52,8 @@ class K6Service:
     ):
         if self.state.is_running:
             try:
-                on_status("[bold red]⛔ k6 уже выполняется. Дождитесь завершения текущего запуска.[/bold red]")
-                on_log("[bold red]⛔ Повторный запуск заблокирован: тест уже идёт.[/bold red]\n")
+                on_status("[bold red]⛔ k6 is already running. Wait for the current run to finish.[/bold red]")
+                on_log("[bold red]⛔ Re-run blocked: test is already in progress.[/bold red]\n")
             except Exception:
                 pass
             return

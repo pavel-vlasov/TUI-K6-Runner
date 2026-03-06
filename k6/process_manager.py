@@ -3,6 +3,7 @@ import os
 import platform
 import signal
 import subprocess
+from pathlib import Path
 from typing import Optional
 
 
@@ -25,6 +26,9 @@ class K6ProcessManager:
         if enable_web_dashboard:
             command.extend(["--out", "web-dashboard"])
         if enable_html_summary and summary_json_path:
+            summary_dir = Path(summary_json_path).parent
+            if str(summary_dir) not in {"", "."}:
+                summary_dir.mkdir(parents=True, exist_ok=True)
             command.extend(["--summary-export", summary_json_path])
 
         self.process = await asyncio.create_subprocess_exec(

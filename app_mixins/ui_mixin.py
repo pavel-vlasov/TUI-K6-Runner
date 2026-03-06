@@ -28,7 +28,7 @@ class UIMixin:
         run_btn.disabled = running
         stop_btn.disabled = not running
         apply_btn.disabled = not running
-        web_dashboard_btn.display = web_dashboard_enabled
+        web_dashboard_btn.display = True
         web_dashboard_btn.disabled = (not running) or (not web_dashboard_enabled)
 
     async def on_mount(self) -> None:

@@ -26,13 +26,14 @@ def test_web_dashboard_button_disabled_when_not_running():
 
     ui.set_run_ui_state(False)
 
+    assert ui.buttons["#web_dashboard_btn"].display is True
     assert ui.buttons["#web_dashboard_btn"].disabled is True
 
 
-def test_web_dashboard_button_hidden_and_disabled_when_feature_off():
+def test_web_dashboard_button_visible_and_disabled_when_feature_off():
     ui = DummyUI(web_dashboard_enabled=False)
 
     ui.set_run_ui_state(True)
 
-    assert ui.buttons["#web_dashboard_btn"].display is False
+    assert ui.buttons["#web_dashboard_btn"].display is True
     assert ui.buttons["#web_dashboard_btn"].disabled is True

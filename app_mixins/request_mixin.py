@@ -49,7 +49,7 @@ class RequestMixin:
         existing_tabs = self._get_request_tab_panes()
 
         if len(existing_tabs) >= 5:
-            self.notify("Максимум 5 эндпоинтов", severity="warning")
+            self.notify("Maximum 5 endpoints allowed", severity="warning")
             return
 
         endpoint_index = len(existing_tabs)
@@ -64,7 +64,7 @@ class RequestMixin:
         existing_tabs = self._get_request_tab_panes()
 
         if len(existing_tabs) <= 1:
-            self.notify("Должен остаться минимум 1 эндпоинт", severity="warning")
+            self.notify("At least 1 endpoint must remain", severity="warning")
             return
 
         last_tab = existing_tabs[-1]
