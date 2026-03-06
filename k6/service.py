@@ -97,6 +97,25 @@ class K6Service:
 
                         return result
 
+                    async def fallback_from_status() -> bool:
+                        try:
+                            returncode, stdout, _ = await self.process_manager.status()
+                            if returncode != 0:
+                                return False
+
+                            payload = json.loads(stdout.decode("utf-8", errors="replace"))
+                            if not isinstance(payload, dict):
+                                return False
+
+                            snapshot = extract_snapshot(payload)
+                            if any(value is not None for value in snapshot.values()):
+                                on_metrics(format_metrics_snapshot(snapshot))
+                                return True
+                        except Exception:
+                            return False
+
+                        return False
+
                     try:
                         async for event_name, event_data in self.process_manager.stream_metrics_events():
                             if not self.state.is_running:
@@ -113,6 +132,17 @@ class K6Service:
                                     ordered_metric_names = sorted(metric_types.keys())
                                     continue
 
+                                if event_name == "metric" and isinstance(payload, list):
+                                    for metric_info in payload:
+                                        if not isinstance(metric_info, dict):
+                                            continue
+                                        metric_name = metric_info.get("name")
+                                        metric_type = metric_info.get("type")
+                                        if isinstance(metric_name, str) and isinstance(metric_type, str):
+                                            metric_types[metric_name] = metric_type
+                                    ordered_metric_names = sorted(metric_types.keys())
+                                    continue
+
                                 if event_name in {"snapshot", "cumulative", "start", "stop"}:
                                     if isinstance(payload, dict):
                                         snapshot = extract_snapshot(payload)
@@ -122,9 +152,12 @@ class K6Service:
 
                                     if isinstance(payload, list) and all(isinstance(item, list) for item in payload):
                                         metrics_payload = parse_aggregates_matrix(payload)
-                                        snapshot = extract_snapshot(metrics_payload)
-                                        on_metrics(format_metrics_snapshot(snapshot))
-                                        last_error = ""
+                                        if metrics_payload:
+                                            snapshot = extract_snapshot(metrics_payload)
+                                            on_metrics(format_metrics_snapshot(snapshot))
+                                            last_error = ""
+                                        elif await fallback_from_status():
+                                            last_error = ""
                             except json.JSONDecodeError:
                                 current_error = "metrics SSE event is not valid JSON"
                                 if current_error != last_error:

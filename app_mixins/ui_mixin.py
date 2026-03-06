@@ -1,4 +1,5 @@
 from textual.app import ComposeResult
+from textual.css.query import NoMatches
 from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.widgets import (
     Button,
@@ -19,9 +20,13 @@ from ui_components import build_config_fields, get_valid_id
 
 class UIMixin:
     def set_run_ui_state(self, running: bool) -> None:
-        run_btn = self.query_one("#run_btn", Button)
-        stop_btn = self.query_one("#stop_btn", Button)
-        apply_btn = self.query_one("#apply_vu_btn", Button)
+        try:
+            run_btn = self.query_one("#run_btn", Button)
+            stop_btn = self.query_one("#stop_btn", Button)
+            apply_btn = self.query_one("#apply_vu_btn", Button)
+        except NoMatches:
+            return
+
         run_btn.disabled = running
         stop_btn.disabled = not running
         apply_btn.disabled = not running
