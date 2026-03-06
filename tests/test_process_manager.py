@@ -22,7 +22,7 @@ def test_start_run_includes_web_dashboard_output_when_enabled(monkeypatch):
     asyncio.run(manager.start_run(enable_web_dashboard=True))
 
     assert "--out" in captured["args"]
-    assert "web-dashboard" in captured["args"]
+    assert "web-dashboard=period=1s&open=false" in captured["args"]
 
 
 def test_start_run_does_not_include_web_dashboard_output_when_disabled(monkeypatch):

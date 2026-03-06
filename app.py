@@ -1,5 +1,6 @@
 import json
 import os
+from copy import deepcopy
 
 from textual.app import App
 
@@ -29,6 +30,6 @@ class K6TestApp(EventsMixin, UIMixin, RequestMixin, StageMixin, App):
                 with open("test_config.json", "r", encoding="utf-8") as f:
                     self.full_config = json.load(f)
             else:
-                self.full_config = DEFAULT_CONFIG.copy()
+                self.full_config = deepcopy(DEFAULT_CONFIG)
         except Exception:
-            self.full_config = DEFAULT_CONFIG.copy()
+            self.full_config = deepcopy(DEFAULT_CONFIG)

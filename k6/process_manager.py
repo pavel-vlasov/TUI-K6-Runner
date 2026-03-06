@@ -15,7 +15,6 @@ class K6ProcessManager:
         self,
         enable_web_dashboard: bool = False,
         summary_json_path: str | None = None,
-        summary_html_path: str | None = None,
         enable_html_summary: bool = False,
     ) -> asyncio.subprocess.Process:
         extra_args = {}
@@ -24,7 +23,7 @@ class K6ProcessManager:
 
         command = ["k6", "run", "test.js", "--no-color"]
         if enable_web_dashboard:
-            command.extend(["--out", "web-dashboard"])
+            command.extend(["--out", "web-dashboard=period=1s&open=false"])
         if enable_html_summary and summary_json_path:
             summary_dir = Path(summary_json_path).parent
             if str(summary_dir) not in {"", "."}:
