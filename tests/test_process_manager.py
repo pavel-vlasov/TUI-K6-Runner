@@ -45,3 +45,30 @@ def test_start_run_does_not_include_web_dashboard_output_when_disabled(monkeypat
 
     assert "--out" not in captured["args"]
     assert "web-dashboard" not in captured["args"]
+
+
+def test_start_run_includes_summary_export_when_html_summary_enabled(monkeypatch):
+    captured = {}
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+
+        class DummyProcess:
+            returncode = None
+            pid = 1
+
+        return DummyProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+
+    manager = K6ProcessManager()
+    asyncio.run(
+        manager.start_run(
+            enable_html_summary=True,
+            summary_json_path="artifacts/summary.json",
+        )
+    )
+
+    assert "--summary-export" in captured["args"]
+    assert "artifacts/summary.json" in captured["args"]

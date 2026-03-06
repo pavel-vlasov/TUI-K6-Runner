@@ -10,7 +10,13 @@ class K6ProcessManager:
     def __init__(self) -> None:
         self.process: Optional[asyncio.subprocess.Process] = None
 
-    async def start_run(self, enable_web_dashboard: bool = False) -> asyncio.subprocess.Process:
+    async def start_run(
+        self,
+        enable_web_dashboard: bool = False,
+        summary_json_path: str | None = None,
+        summary_html_path: str | None = None,
+        enable_html_summary: bool = False,
+    ) -> asyncio.subprocess.Process:
         extra_args = {}
         if platform.system() == "Windows":
             extra_args["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
@@ -18,6 +24,8 @@ class K6ProcessManager:
         command = ["k6", "run", "test.js", "--no-color"]
         if enable_web_dashboard:
             command.extend(["--out", "web-dashboard"])
+        if enable_html_summary and summary_json_path:
+            command.extend(["--summary-export", summary_json_path])
 
         self.process = await asyncio.create_subprocess_exec(
             *command,

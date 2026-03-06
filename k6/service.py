@@ -3,7 +3,9 @@ import json
 import platform
 import subprocess
 import time
+from pathlib import Path
 
+from k6.html_summary_report import build_html_summary
 from k6.output_parser import (
     clean_cursor_sequences,
     is_default_line,
@@ -45,6 +47,7 @@ class K6Service:
         on_status,
         output_to_ui: bool = True,
         enable_web_dashboard: bool = False,
+        enable_html_summary: bool = False,
     ):
         if self.state.is_running:
             try:
@@ -65,7 +68,16 @@ class K6Service:
                 on_status(format_start_status())
                 on_log(format_start_log())
 
-                process = await self.process_manager.start_run(enable_web_dashboard=enable_web_dashboard)
+                artifacts_dir = Path("artifacts")
+                summary_json_path = artifacts_dir / "summary.json"
+                summary_html_path = artifacts_dir / "summary.html"
+
+                process = await self.process_manager.start_run(
+                    enable_web_dashboard=enable_web_dashboard,
+                    summary_json_path=str(summary_json_path),
+                    summary_html_path=str(summary_html_path),
+                    enable_html_summary=enable_html_summary,
+                )
 
                 async def read_stream(stream, color):
                     while True:
@@ -92,6 +104,10 @@ class K6Service:
                 )
 
                 await process.wait()
+
+                if enable_html_summary:
+                    self._generate_html_summary_report(summary_json_path, summary_html_path, on_log)
+
                 on_log("\n[bold green]✅ Test finished.[/bold green]")
                 on_status(format_done_status(self.state.last_counter))
             else:
@@ -114,6 +130,28 @@ class K6Service:
         finally:
             self.state.is_running = False
             self.process_manager.clear_process()
+
+
+    def _generate_html_summary_report(self, summary_json_path: Path, summary_html_path: Path, on_log) -> None:
+        try:
+            if not summary_json_path.exists():
+                on_log(
+                    f"[bold yellow]⚠️ HTML summary skipped: JSON summary is missing at {summary_json_path}[/bold yellow]"
+                )
+                return
+
+            with summary_json_path.open("r", encoding="utf-8") as fp:
+                summary_json = json.load(fp)
+
+            summary_html_path.parent.mkdir(parents=True, exist_ok=True)
+            html = build_html_summary(summary_json)
+            summary_html_path.write_text(html, encoding="utf-8")
+
+            on_log(
+                f"[bold cyan]📄 HTML summary report generated: {summary_html_path}[/bold cyan]"
+            )
+        except Exception as error:
+            on_log(f"[bold red]❌ Failed to build HTML summary: {error}[/bold red]")
 
     def _handle_status_lines(self, clean_text: str, on_status) -> bool:
         running = is_running_line(clean_text)
