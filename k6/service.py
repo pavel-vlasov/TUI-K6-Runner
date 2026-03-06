@@ -77,7 +77,6 @@ class K6Service:
                 process = await self.process_manager.start_run(
                     enable_web_dashboard=enable_web_dashboard,
                     summary_json_path=str(summary_json_path),
-                    summary_html_path=str(summary_html_path),
                     enable_html_summary=enable_html_summary,
                 )
 

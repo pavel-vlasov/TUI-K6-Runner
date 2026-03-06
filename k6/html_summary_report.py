@@ -38,7 +38,8 @@ def build_html_summary(summary_json: dict, title: str | None = None) -> str:
         if thresholds:
             threshold_count += 1
             for threshold in thresholds.values():
-                if not threshold.get("ok", True):
+                threshold_ok = threshold.get("ok", True) if isinstance(threshold, dict) else bool(threshold)
+                if not threshold_ok:
                     threshold_failures += 1
 
     check_passes, check_failures = _count_checks_in_group(data.get("root_group") or {})
@@ -116,7 +117,12 @@ def _render_threshold_summary(metric: dict[str, Any]) -> str:
 
     parts: list[str] = []
     for threshold_name, threshold_result in thresholds.items():
-        status = "ok" if threshold_result.get("ok", True) else "failed"
+        threshold_ok = (
+            threshold_result.get("ok", True)
+            if isinstance(threshold_result, dict)
+            else bool(threshold_result)
+        )
+        status = "ok" if threshold_ok else "failed"
         parts.append(f"{threshold_name}: {status}")
     return "; ".join(parts)
 

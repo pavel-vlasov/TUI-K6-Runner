@@ -87,3 +87,26 @@ def test_build_html_summary_groups_mixed_metrics_and_excludes_special():
     assert "checks" in html
     assert "Check passes" in html and ">5<" in html
     assert "Check failures" in html and ">1<" in html
+
+
+def test_build_html_summary_handles_boolean_threshold_values():
+    summary_json = {
+        "metrics": {
+            "http_req_duration": {
+                "type": "trend",
+                "contains": "time",
+                "values": {"avg": 150.0},
+                "thresholds": {
+                    "p(95)<200": True,
+                    "p(99)<100": False,
+                },
+            }
+        },
+        "root_group": {"checks": [], "groups": []},
+    }
+
+    html = build_html_summary(summary_json)
+
+    assert "Threshold failures" in html
+    assert ">1<" in html
+    assert "p(99)&lt;100: failed" in html
