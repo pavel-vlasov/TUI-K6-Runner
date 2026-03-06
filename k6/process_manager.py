@@ -56,8 +56,8 @@ class K6ProcessManager:
         candidate = web_dashboard_url if "://" in web_dashboard_url else f"//{web_dashboard_url}"
         parsed = urlparse(candidate)
         host = parsed.hostname
-        if host and not self._is_loopback_host(host):
-            env["K6_WEB_DASHBOARD_HOST"] = host
+        if host:
+            env["K6_WEB_DASHBOARD_HOST"] = "0.0.0.0" if self._is_loopback_host(host) else host
         if parsed.port:
             env["K6_WEB_DASHBOARD_PORT"] = str(parsed.port)
 

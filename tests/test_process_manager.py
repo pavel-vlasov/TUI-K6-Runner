@@ -96,7 +96,7 @@ def test_start_run_overwrites_dashboard_export_env_when_enabled(monkeypatch):
 
 
 
-def test_start_run_sets_dashboard_port_from_local_url_without_forcing_host(monkeypatch):
+def test_start_run_sets_dashboard_port_and_bind_host_from_local_url(monkeypatch):
     captured = {}
 
     async def fake_create_subprocess_exec(*args, **kwargs):
@@ -116,14 +116,14 @@ def test_start_run_sets_dashboard_port_from_local_url_without_forcing_host(monke
 
     env = captured["kwargs"].get("env")
     assert env is not None
-    assert "K6_WEB_DASHBOARD_HOST" not in env
+    assert env["K6_WEB_DASHBOARD_HOST"] == "0.0.0.0"
     assert env["K6_WEB_DASHBOARD_PORT"] == "7777"
 
 
 
 
 
-def test_start_run_clears_stale_dashboard_host_env_for_local_url(monkeypatch):
+def test_start_run_replaces_stale_dashboard_host_env_for_local_url(monkeypatch):
     captured = {}
 
     async def fake_create_subprocess_exec(*args, **kwargs):
@@ -145,7 +145,7 @@ def test_start_run_clears_stale_dashboard_host_env_for_local_url(monkeypatch):
 
     env = captured["kwargs"].get("env")
     assert env is not None
-    assert "K6_WEB_DASHBOARD_HOST" not in env
+    assert env["K6_WEB_DASHBOARD_HOST"] == "0.0.0.0"
     assert env["K6_WEB_DASHBOARD_PORT"] == "5665"
 
 def test_start_run_sets_dashboard_host_for_non_local_url(monkeypatch):
@@ -171,7 +171,7 @@ def test_start_run_sets_dashboard_host_for_non_local_url(monkeypatch):
     assert env["K6_WEB_DASHBOARD_HOST"] == "0.0.0.0"
     assert env["K6_WEB_DASHBOARD_PORT"] == "7777"
 
-def test_start_run_sets_dashboard_port_from_local_url_without_scheme(monkeypatch):
+def test_start_run_sets_dashboard_port_and_bind_host_from_local_url_without_scheme(monkeypatch):
     captured = {}
 
     async def fake_create_subprocess_exec(*args, **kwargs):
@@ -191,7 +191,7 @@ def test_start_run_sets_dashboard_port_from_local_url_without_scheme(monkeypatch
 
     env = captured["kwargs"].get("env")
     assert env is not None
-    assert "K6_WEB_DASHBOARD_HOST" not in env
+    assert env["K6_WEB_DASHBOARD_HOST"] == "0.0.0.0"
     assert env["K6_WEB_DASHBOARD_PORT"] == "7777"
 
 
