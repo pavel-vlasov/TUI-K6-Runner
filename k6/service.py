@@ -93,17 +93,33 @@ class K6Service:
                             metric_name = ordered_metric_names[idx]
                             metric_type = metric_types.get(metric_name, "")
                             keys = aggregate_names(metric_type)
-
-                            normalized_values = sample_values
-                            if len(sample_values) > len(keys) and sample_values and sample_values[0] > 1_000_000_000_000:
-                                normalized_values = sample_values[1:]
-
-                            if len(keys) != len(normalized_values):
+                            if not keys:
                                 continue
 
-                            result[metric_name] = {keys[i]: normalized_values[i] for i in range(len(keys))}
+                            normalized_values = sample_values
+                            if sample_values and sample_values[0] > 1_000_000_000_000:
+                                normalized_values = sample_values[1:]
+
+                            if not normalized_values:
+                                continue
+
+                            values = normalized_values[: len(keys)]
+                            if len(values) < len(keys):
+                                values = values + [None] * (len(keys) - len(values))
+
+                            metric_data = {
+                                keys[i]: values[i]
+                                for i in range(len(keys))
+                                if isinstance(values[i], (int, float))
+                            }
+                            if metric_data:
+                                result[metric_name] = metric_data
 
                         return result
+
+                    def register_metric(metric_name: str | None, metric_type: str | None) -> None:
+                        if isinstance(metric_name, str) and isinstance(metric_type, str):
+                            metric_types[metric_name] = metric_type
 
                     try:
                         async for event_name, event_data in self.process_manager.stream_metrics_events():
@@ -113,11 +129,16 @@ class K6Service:
                             try:
                                 payload = json.loads(event_data)
                                 if event_name == "metric" and isinstance(payload, dict):
+                                    # format: {"name": "http_reqs", "type": "counter", ...}
+                                    if isinstance(payload.get("name"), str):
+                                        register_metric(payload.get("name"), payload.get("type"))
+                                        ordered_metric_names = list(metric_types.keys())
+                                        continue
+
+                                    # format: {"http_reqs": {"type": "counter"}, ...}
                                     for metric_name, metric_info in payload.items():
                                         if isinstance(metric_info, dict):
-                                            metric_type = metric_info.get("type")
-                                            if isinstance(metric_type, str):
-                                                metric_types[metric_name] = metric_type
+                                            register_metric(metric_name, metric_info.get("type"))
                                     ordered_metric_names = list(metric_types.keys())
                                     continue
 
@@ -125,10 +146,7 @@ class K6Service:
                                     for metric_info in payload:
                                         if not isinstance(metric_info, dict):
                                             continue
-                                        metric_name = metric_info.get("name")
-                                        metric_type = metric_info.get("type")
-                                        if isinstance(metric_name, str) and isinstance(metric_type, str):
-                                            metric_types[metric_name] = metric_type
+                                        register_metric(metric_info.get("name"), metric_info.get("type"))
                                     ordered_metric_names = list(metric_types.keys())
                                     continue
 

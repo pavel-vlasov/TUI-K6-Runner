@@ -18,6 +18,7 @@ class RunController:
     def __init__(self, k6_service: K6Service, config_path: str = "test_config.json") -> None:
         self.k6_service = k6_service
         self.config_path = config_path
+        self._ui_run_pending = False
 
     @property
     def is_running(self) -> bool:
@@ -27,13 +28,17 @@ class RunController:
         ConfigHandler.save_to_file(config, filename=self.config_path)
 
     async def start_run(self, config: dict, callbacks: RunCallbacks):
-        if self.is_running:
+        output_ui = config.get("k6", {}).get("logging", {}).get("outputToUI", True)
+
+        if self.is_running or (output_ui and self._ui_run_pending):
             callbacks.on_status("[bold red]⛔ k6 уже выполняется. Дождитесь завершения текущего запуска.[/bold red]")
             callbacks.on_log("[bold red]⛔ Повторный запуск заблокирован: тест уже идёт.[/bold red]\n")
             return
 
+        if output_ui:
+            self._ui_run_pending = True
+
         callbacks.on_run_state_changed(True)
-        output_ui = config.get("k6", {}).get("logging", {}).get("outputToUI", True)
         task = asyncio.create_task(
             self.k6_service.run_k6_process(
                 on_log=callbacks.on_log,
@@ -42,7 +47,12 @@ class RunController:
                 on_metrics=callbacks.on_metrics
             )
         )
-        task.add_done_callback(lambda _: callbacks.on_run_state_changed(False))
+
+        def on_complete(_):
+            self._ui_run_pending = False
+            callbacks.on_run_state_changed(False)
+
+        task.add_done_callback(on_complete)
         return task
 
     async def stop_run(self):
