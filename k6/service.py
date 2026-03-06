@@ -67,21 +67,64 @@ class K6Service:
                         return
 
                     last_error = ""
-                    on_metrics("[bold yellow]Collecting metrics from SSE stream /v1/metrics...[/bold yellow]")
+                    metric_types: dict[str, str] = {}
+                    ordered_metric_names: list[str] = []
+                    on_metrics("[bold yellow]Collecting metrics from SSE stream /events...[/bold yellow]")
+
+                    def aggregate_names(metric_type: str) -> list[str]:
+                        mapping = {
+                            "gauge": ["value"],
+                            "rate": ["rate"],
+                            "counter": ["count", "rate"],
+                            "trend": ["avg", "max", "med", "min", "p(90)", "p(95)", "p(99)"],
+                        }
+                        return mapping.get(metric_type, [])
+
+                    def parse_aggregates_matrix(matrix: list[list[float]]) -> dict[str, dict[str, float]]:
+                        result: dict[str, dict[str, float]] = {}
+
+                        for idx, sample_values in enumerate(matrix):
+                            if idx >= len(ordered_metric_names):
+                                continue
+
+                            metric_name = ordered_metric_names[idx]
+                            metric_type = metric_types.get(metric_name, "")
+                            keys = aggregate_names(metric_type)
+                            if len(keys) != len(sample_values):
+                                continue
+
+                            result[metric_name] = {keys[i]: sample_values[i] for i in range(len(keys))}
+
+                        return result
 
                     try:
-                        async for event_data in self.process_manager.stream_metrics_events():
+                        async for event_name, event_data in self.process_manager.stream_metrics_events():
                             if not self.state.is_running:
                                 break
 
                             try:
                                 payload = json.loads(event_data)
-                                if not isinstance(payload, dict):
+                                if event_name == "metric" and isinstance(payload, dict):
+                                    for metric_name, metric_info in payload.items():
+                                        if isinstance(metric_info, dict):
+                                            metric_type = metric_info.get("type")
+                                            if isinstance(metric_type, str):
+                                                metric_types[metric_name] = metric_type
+                                    ordered_metric_names = sorted(metric_types.keys())
                                     continue
 
-                                snapshot = extract_snapshot(payload)
-                                on_metrics(format_metrics_snapshot(snapshot))
-                                last_error = ""
+                                if event_name in {"snapshot", "cumulative", "start", "stop"}:
+                                    if isinstance(payload, dict):
+                                        snapshot = extract_snapshot(payload)
+                                        on_metrics(format_metrics_snapshot(snapshot))
+                                        last_error = ""
+                                        continue
+
+                                    if isinstance(payload, list) and all(isinstance(item, list) for item in payload):
+                                        metrics_payload = parse_aggregates_matrix(payload)
+                                        snapshot = extract_snapshot(metrics_payload)
+                                        on_metrics(format_metrics_snapshot(snapshot))
+                                        last_error = ""
                             except json.JSONDecodeError:
                                 current_error = "metrics SSE event is not valid JSON"
                                 if current_error != last_error:

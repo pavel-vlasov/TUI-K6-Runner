@@ -9,6 +9,8 @@ from typing import Optional
 
 class K6ProcessManager:
     API_ADDRESS = "127.0.0.1:6565"
+    DASHBOARD_HOST = "127.0.0.1"
+    DASHBOARD_PORT = 5665
 
     def __init__(self) -> None:
         self.process: Optional[asyncio.subprocess.Process] = None
@@ -17,6 +19,11 @@ class K6ProcessManager:
         extra_args = {}
         if platform.system() == "Windows":
             extra_args["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+
+        env = os.environ.copy()
+        env["K6_WEB_DASHBOARD"] = "true"
+        env["K6_WEB_DASHBOARD_HOST"] = self.DASHBOARD_HOST
+        env["K6_WEB_DASHBOARD_PORT"] = str(self.DASHBOARD_PORT)
 
         self.process = await asyncio.create_subprocess_exec(
             "k6",
@@ -27,6 +34,7 @@ class K6ProcessManager:
             self.API_ADDRESS,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=env,
             **extra_args,
         )
         return self.process
@@ -65,12 +73,12 @@ class K6ProcessManager:
         stdout, stderr = await process.communicate()
         return process.returncode, stdout, stderr
 
-    async def stream_metrics_events(self) -> AsyncIterator[str]:
-        reader, writer = await asyncio.open_connection("127.0.0.1", 6565)
+    async def stream_metrics_events(self) -> AsyncIterator[tuple[str, str]]:
+        reader, writer = await asyncio.open_connection(self.DASHBOARD_HOST, self.DASHBOARD_PORT)
 
         request = (
-            "GET /v1/metrics HTTP/1.1\r\n"
-            "Host: 127.0.0.1:6565\r\n"
+            "GET /events HTTP/1.1\r\n"
+            f"Host: {self.DASHBOARD_HOST}:{self.DASHBOARD_PORT}\r\n"
             "Accept: text/event-stream\r\n"
             "Cache-Control: no-cache\r\n"
             "Connection: keep-alive\r\n\r\n"
@@ -88,6 +96,7 @@ class K6ProcessManager:
                 if not line or line == b"\r\n":
                     break
 
+            current_event = ""
             current_data: list[str] = []
             while True:
                 raw_line = await reader.readline()
@@ -95,13 +104,18 @@ class K6ProcessManager:
                     break
 
                 line = raw_line.decode("utf-8", errors="replace").rstrip("\r\n")
+                if line.startswith("event:"):
+                    current_event = line[6:].strip()
+                    continue
+
                 if line.startswith("data:"):
                     current_data.append(line[5:].lstrip())
                     continue
 
                 if not line:
                     if current_data:
-                        yield "\n".join(current_data)
+                        yield current_event, "\n".join(current_data)
+                        current_event = ""
                         current_data.clear()
         finally:
             writer.close()
