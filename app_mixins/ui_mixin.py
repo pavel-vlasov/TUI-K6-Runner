@@ -270,17 +270,11 @@ class UIMixin:
                             yield Static("Waiting...\nPrepare to run", id="status_bar")
                             yield RichLog(id="output_log", markup=True, wrap=True)
 
-                        with Horizontal(id="button_row"):
-                            yield Input(placeholder="VUs...", id="vu_input")
-                            yield Button("✅ Apply", id="apply_vu_btn", variant="primary")
-                            yield Button("📋 Copy All Logs", id="copy_btn", variant="primary")
-                            yield Button("Stop k6", id="stop_btn", variant="error")
-                            yield Button("Save & Run k6 Test", id="run_btn", variant="success")
-
                     with TabPane("Metrics", id="tab_metrics"):
                         with Vertical(id="metrics_view_container"):
-                            yield Static("Metrics viewer is disabled", id="metrics_status")
+                            yield Static("Waiting for test run to start...", id="metrics_status")
                             yield RichLog(id="metrics_log", markup=False, wrap=False)
+
 
 
         yield Footer()

@@ -72,10 +72,10 @@ class K6Service:
 
                 metrics_task = None
                 if enable_metrics:
-                    on_metrics_status("[bold green]📈 Metrics viewer enabled[/bold green]")
+                    on_metrics_status("[bold yellow]⏳ Waiting for metrics stream...[/bold yellow]")
                     metrics_task = asyncio.create_task(self._read_metrics_stream(on_metrics_log, on_metrics_status))
                 else:
-                    on_metrics_status("[bold yellow]Metrics viewer is disabled[/bold yellow]")
+                    on_metrics_status("[bold yellow]Metrics viewer is turned off in settings[/bold yellow]")
 
                 async def read_stream(stream, color):
                     while True:
@@ -135,17 +135,35 @@ class K6Service:
     async def _read_metrics_stream(self, on_metrics_log, on_metrics_status):
         try:
             metrics_process = await self.process_manager.start_metrics()
-            on_metrics_log("k6 top started...")
 
-            while True:
-                line = await metrics_process.stdout.readline()
-                if not line:
-                    break
-                text = clean_cursor_sequences(line.decode("utf-8", errors="replace").rstrip())
-                if text.strip():
-                    on_metrics_log(text)
+            await asyncio.sleep(0.2)
+            if metrics_process.returncode is not None:
+                _, stderr = await metrics_process.communicate()
+                error_text = clean_cursor_sequences(stderr.decode("utf-8", errors="replace").strip())
+                if not error_text:
+                    error_text = "k6 top command is not available in current k6 build"
+                on_metrics_status("[bold red]❌ Metrics viewer unavailable (k6 top is missing in current build).[/bold red]")
+                on_metrics_log(error_text)
+                return
+
+            on_metrics_status("[bold green]📈 Metrics stream is running[/bold green]")
+            on_metrics_log("Connected to k6 top stream")
+
+            async def read_metrics_stream(stream):
+                while True:
+                    line = await stream.readline()
+                    if not line:
+                        break
+                    text = clean_cursor_sequences(line.decode("utf-8", errors="replace").rstrip())
+                    if text.strip():
+                        on_metrics_log(text)
+
+            await asyncio.gather(
+                read_metrics_stream(metrics_process.stdout),
+                read_metrics_stream(metrics_process.stderr),
+            )
         except FileNotFoundError:
-            on_metrics_status("[bold red]❌ k6 top is unavailable. Install xk6-top extension.[/bold red]")
+            on_metrics_status("[bold red]❌ Metrics viewer unavailable: k6 binary was not found.[/bold red]")
         except Exception as error:
             on_metrics_status(f"[bold red]❌ metrics stream failed: {error}[/bold red]")
 
