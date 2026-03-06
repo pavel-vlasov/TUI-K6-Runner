@@ -31,10 +31,11 @@ class RunController:
             callbacks.on_log("[bold red]⛔ Re-run blocked: test is already in progress.[/bold red]\n")
             return
 
-        callbacks.on_run_state_changed(True)
+        self._notify_run_state_changed(callbacks, True)
         output_ui = config.get("k6", {}).get("logging", {}).get("outputToUI", True)
         web_dashboard = config.get("k6", {}).get("logging", {}).get("webDashboard", False)
         html_summary_report = config.get("k6", {}).get("logging", {}).get("htmlSummaryReport", False)
+        web_dashboard_url = config.get("k6", {}).get("logging", {}).get("webDashboardUrl", "")
 
         task = asyncio.create_task(
             self.k6_service.run_k6_process(
@@ -42,10 +43,11 @@ class RunController:
                 on_status=callbacks.on_status,
                 output_to_ui=output_ui,
                 enable_web_dashboard=web_dashboard,
+                web_dashboard_url=web_dashboard_url,
                 enable_html_summary=html_summary_report,
             )
         )
-        task.add_done_callback(lambda _: callbacks.on_run_state_changed(False))
+        task.add_done_callback(lambda _: self._notify_run_state_changed(callbacks, False))
         return task
 
     async def stop_run(self):
@@ -53,3 +55,10 @@ class RunController:
 
     async def scale(self, vus: int, on_log: Callable[[str], None]):
         return await self.k6_service.set_vus(vus, on_log)
+
+    def _notify_run_state_changed(self, callbacks: RunCallbacks, running: bool) -> None:
+        try:
+            callbacks.on_run_state_changed(running)
+        except Exception:
+            # UI can already be unmounted during shutdown; state callback is best-effort.
+            pass
