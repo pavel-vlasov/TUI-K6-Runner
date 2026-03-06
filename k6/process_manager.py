@@ -9,6 +9,7 @@ from typing import Optional
 class K6ProcessManager:
     def __init__(self) -> None:
         self.process: Optional[asyncio.subprocess.Process] = None
+        self.metrics_process: Optional[asyncio.subprocess.Process] = None
 
     async def start_run(self) -> asyncio.subprocess.Process:
         extra_args = {}
@@ -26,17 +27,33 @@ class K6ProcessManager:
         )
         return self.process
 
+    async def start_metrics(self) -> asyncio.subprocess.Process:
+        self.metrics_process = await asyncio.create_subprocess_exec(
+            "k6",
+            "top",
+            "--no-thresholds",
+            "--no-tags",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        return self.metrics_process
+
     async def stop(self) -> bool:
-        if self.process and self.process.returncode is None:
+        stopped = self._stop_process(self.process)
+        metrics_stopped = self._stop_process(self.metrics_process)
+        return stopped or metrics_stopped
+
+    def _stop_process(self, process: Optional[asyncio.subprocess.Process]) -> bool:
+        if process and process.returncode is None:
             try:
                 if platform.system() == "Windows":
-                    os.kill(self.process.pid, signal.CTRL_BREAK_EVENT)
+                    os.kill(process.pid, signal.CTRL_BREAK_EVENT)
                 else:
-                    self.process.send_signal(signal.SIGINT)
+                    process.send_signal(signal.SIGINT)
                 return True
             except Exception:
-                if self.process:
-                    self.process.terminate()
+                process.terminate()
+                return True
         return False
 
     async def scale(self, target_vus: int) -> tuple[int, bytes, bytes]:
@@ -60,3 +77,4 @@ class K6ProcessManager:
 
     def clear_process(self) -> None:
         self.process = None
+        self.metrics_process = None
