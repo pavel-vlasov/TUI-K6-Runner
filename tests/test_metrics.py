@@ -29,7 +29,8 @@ def test_format_metrics_snapshot_contains_main_sections():
     rendered = format_metrics_snapshot({"http_reqs_rate": 10.0, "vus": 2})
 
     assert "Metrics (xk6-top style)" in rendered
-    assert "HTTP req/s:" in rendered
+    assert "Req Rate:" in rendered
+    assert "Req Rate chart" in rendered
     assert "VUs:" in rendered
 
 
@@ -54,3 +55,15 @@ def test_format_run_summary_contains_counts():
     assert "Total processed:" in summary
     assert "12" in summary
     assert "3" in summary
+
+
+def test_extract_snapshot_ignores_timestamp_like_checks_value():
+    payload = {
+        "checks": {"value": 1772804950362},
+        "http_reqs": {"rate": 42.0},
+    }
+
+    snapshot = extract_snapshot(payload)
+
+    assert snapshot["checks_rate"] is None
+    assert snapshot["http_reqs_rate"] == 42.0
