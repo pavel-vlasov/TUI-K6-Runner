@@ -12,6 +12,7 @@ from k6.output_parser import (
     is_scenario_progress_line,
     is_success_line,
 )
+from k6.metrics import extract_snapshot, format_metrics_snapshot
 from k6.presenters import (
     format_done_status,
     format_running_status,
@@ -39,7 +40,7 @@ class K6Service:
     async def stop_k6_process(self):
         return await self.process_manager.stop()
 
-    async def run_k6_process(self, on_log, on_status, output_to_ui: bool = True):
+    async def run_k6_process(self, on_log, on_status, output_to_ui: bool = True, on_metrics=None, metrics_enabled=False):
         if self.state.is_running:
             try:
                 on_status("[bold red]⛔ k6 уже выполняется. Дождитесь завершения текущего запуска.[/bold red]")
@@ -60,6 +61,21 @@ class K6Service:
                 on_log(format_start_log())
 
                 process = await self.process_manager.start_run()
+
+                async def poll_metrics():
+                    if not on_metrics or not metrics_enabled:
+                        return
+
+                    while self.state.is_running and self.process_manager.process and self.process_manager.process.returncode is None:
+                        try:
+                            returncode, stdout, _ = await self.process_manager.status()
+                            if returncode == 0:
+                                data = json.loads(stdout.decode())
+                                snapshot = extract_snapshot(data)
+                                on_metrics(format_metrics_snapshot(snapshot))
+                        except Exception:
+                            pass
+                        await asyncio.sleep(1)
 
                 async def read_stream(stream, color):
                     while True:
@@ -83,6 +99,7 @@ class K6Service:
                 await asyncio.gather(
                     read_stream(process.stdout, "white"),
                     read_stream(process.stderr, "pale_turquoise4"),
+                    poll_metrics(),
                 )
 
                 await process.wait()
