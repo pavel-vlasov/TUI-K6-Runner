@@ -36,8 +36,7 @@ def build_html_summary(summary_json: dict, title: str | None = None) -> str:
         if thresholds:
             threshold_count += 1
             for threshold in thresholds.values():
-                threshold_ok = threshold.get("ok", True) if isinstance(threshold, dict) else bool(threshold)
-                if not threshold_ok:
+                if not _threshold_is_ok(threshold):
                     threshold_failures += 1
 
     check_passes, check_failures = _count_checks_in_group(data.get("root_group") or {})
@@ -163,20 +162,25 @@ def _render_rate_rows(metric_names: list[str], metrics: dict[str, dict[str, Any]
     for name in metric_names:
         metric = metrics.get(name, {}) or {}
         values = _extract_values(metric)
-        rendered_values = _rate_columns(metric, values)
+        rendered_values = _rate_columns(name, metric, values)
         columns = "".join(f"<td>{escape(_format_value(value))}</td>" for value in rendered_values)
         rows.append(f"<tr><td class=\"metric-name\">{escape(name)}</td>{columns}</tr>")
     return "".join(rows)
 
 
 
-def _rate_columns(metric: dict[str, Any], values: dict[str, Any]) -> tuple[Any, Any, Any]:
+def _rate_columns(metric_name: str, metric: dict[str, Any], values: dict[str, Any]) -> tuple[Any, Any, Any]:
     rate_value = values.get("rate")
     if rate_value is None and _metric_type({"metric": metric}, "metric") == "rate":
         rate_value = values.get("value")
 
     passes = values.get("passes")
     fails = values.get("fails")
+
+    if metric_name == "http_req_failed":
+        # k6 semantics: for http_req_failed, passes=true means failed requests.
+        passes, fails = fails, passes
+
     return rate_value, passes, fails
 
 
@@ -231,6 +235,20 @@ def _render_threshold_rows(metric_names: list[str], metrics: dict[str, dict[str,
         return '<tr><td colspan="2">No threshold details</td></tr>'
     return "".join(rows)
 
+def _threshold_is_ok(threshold_result: Any) -> bool:
+    if isinstance(threshold_result, dict):
+        if "ok" in threshold_result:
+            return bool(threshold_result.get("ok"))
+        if "success" in threshold_result:
+            return bool(threshold_result.get("success"))
+        if "pass" in threshold_result:
+            return bool(threshold_result.get("pass"))
+        if "failed" in threshold_result:
+            return not bool(threshold_result.get("failed"))
+        return bool(threshold_result)
+    return bool(threshold_result)
+
+
 def _render_threshold_summary(metric: dict[str, Any]) -> str:
     thresholds = metric.get("thresholds") or {}
     if not thresholds:
@@ -238,11 +256,7 @@ def _render_threshold_summary(metric: dict[str, Any]) -> str:
 
     parts: list[str] = []
     for threshold_name, threshold_result in thresholds.items():
-        threshold_ok = (
-            threshold_result.get("ok", True)
-            if isinstance(threshold_result, dict)
-            else bool(threshold_result)
-        )
+        threshold_ok = _threshold_is_ok(threshold_result)
         status = "ok" if threshold_ok else "failed"
         parts.append(f"{threshold_name}: {status}")
     return "; ".join(parts)

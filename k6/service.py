@@ -3,6 +3,7 @@ import json
 import platform
 import subprocess
 import time
+from datetime import datetime
 from pathlib import Path
 
 from k6.html_summary_report import build_html_summary
@@ -71,9 +72,7 @@ class K6Service:
                 on_status(format_start_status())
                 on_log(format_start_log())
 
-                artifacts_dir = Path("artifacts")
-                summary_json_path = artifacts_dir / "summary.json"
-                summary_html_path = artifacts_dir / "summary.html"
+                summary_json_path, summary_html_path = self._build_summary_paths()
 
                 process = await self.process_manager.start_run(
                     enable_web_dashboard=enable_web_dashboard,
@@ -142,6 +141,12 @@ class K6Service:
         finally:
             self.state.is_running = False
             self.process_manager.clear_process()
+
+
+    def _build_summary_paths(self) -> tuple[Path, Path]:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        artifacts_dir = Path("artifacts")
+        return artifacts_dir / f"summary_{timestamp}.json", artifacts_dir / f"summary_{timestamp}.html"
 
 
     def _generate_html_summary_report(self, summary_json_path: Path, summary_html_path: Path, on_log) -> None:

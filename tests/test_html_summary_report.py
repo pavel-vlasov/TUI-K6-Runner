@@ -258,3 +258,41 @@ def test_build_html_summary_uses_http_req_failed_passes_as_failed_request_count(
 
     assert "<h3>Total requests</h3><p>20</p>" in html
     assert "<h3>Failed requests</h3><p>0</p>" in html
+
+
+def test_build_html_summary_swaps_http_req_failed_rate_columns_for_human_readability():
+    summary_json = {
+        "metrics": {
+            "http_req_failed": {
+                "type": "rate",
+                "values": {"rate": 0.0, "passes": 0, "fails": 20},
+            },
+        },
+        "root_group": {"checks": [], "groups": []},
+    }
+
+    html = build_html_summary(summary_json)
+
+    assert "http_req_failed" in html
+    assert "<td>20</td><td>0</td>" in html
+
+
+def test_build_html_summary_handles_threshold_result_with_failed_flag():
+    summary_json = {
+        "metrics": {
+            "http_req_duration": {
+                "type": "trend",
+                "values": {"avg": 150.0},
+                "thresholds": {
+                    "p(95)<20": {"failed": True},
+                },
+            },
+        },
+        "root_group": {"checks": [], "groups": []},
+    }
+
+    html = build_html_summary(summary_json)
+
+    assert "Threshold failures" in html
+    assert ">1<" in html
+    assert "p(95)&lt;20: failed" in html
