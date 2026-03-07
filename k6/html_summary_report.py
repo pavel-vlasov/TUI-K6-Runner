@@ -16,15 +16,12 @@ OTHER_METRICS = {
     "http_req_duration{expected_response:true}",
 }
 
+TREND_COLUMNS = ("avg", "min", "max", "med", "p(90)", "p(95)", "p(99)")
+RATE_COLUMNS = ("rate", "passes", "fails")
+
 
 def build_html_summary(summary_json: dict, title: str | None = None) -> str:
-    """Build an HTML summary report from k6 summary JSON.
-
-    The calculation logic follows k6-reporter's report.js:
-    - thresholdCount / thresholdFailures
-    - recursive check pass/fail counting from root_group
-    - metric grouping by trend/rate/counter/gauge and excluding special metrics
-    """
+    """Build a styled HTML summary report from k6 summary JSON."""
     data = summary_json or {}
     metrics = data.get("metrics", {}) or {}
 
@@ -53,22 +50,35 @@ def build_html_summary(summary_json: dict, title: str | None = None) -> str:
 
     report_title = title or f"{DEFAULT_TITLE_PREFIX}: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
+    total_requests = _metric_value(metrics.get("http_reqs", {}), "count")
+    failed_requests = _metric_value(metrics.get("http_req_failed", {}), "fails")
+
     return HTML_TEMPLATE.format(
         title=escape(report_title),
-        threshold_count=threshold_count,
+        total_requests=escape(_format_value(total_requests)),
+        failed_requests=escape(_format_value(failed_requests)),
         threshold_failures=threshold_failures,
-        check_passes=check_passes,
         check_failures=check_failures,
-        trend_rows=_render_metric_rows(grouped_metrics["trend"], metrics),
-        rate_rows=_render_metric_rows(grouped_metrics["rate"], metrics),
-        counter_rows=_render_metric_rows(grouped_metrics["counter"], metrics),
-        gauge_rows=_render_metric_rows(grouped_metrics["gauge"], metrics),
-        other_rows=_render_metric_rows([m for m in metric_names if m in OTHER_METRICS], metrics),
+        trend_rows=_render_detailed_rows(grouped_metrics["trend"], metrics),
+        rate_rows=_render_rate_rows(grouped_metrics["rate"], metrics),
+        run_rows=_render_metric_rows(grouped_metrics["counter"] + grouped_metrics["gauge"], metrics),
+        check_rows=_render_metric_rows([m for m in metric_names if m in OTHER_METRICS], metrics),
+        threshold_rows=_render_threshold_rows(metric_names, metrics),
+        threshold_count=threshold_count,
+        check_passes=check_passes,
     )
 
 
 def _metric_type(metrics: dict[str, dict[str, Any]], metric_name: str) -> str:
-    return str((metrics.get(metric_name) or {}).get("type", ""))
+    metric_type = str((metrics.get(metric_name) or {}).get("type", ""))
+    return metric_type.strip().lower()
+
+
+def _metric_value(metric: dict[str, Any], key: str) -> Any:
+    values = metric.get("values", {}) if isinstance(metric, dict) else {}
+    if isinstance(values, dict):
+        return values.get(key)
+    return None
 
 
 def _count_checks_in_group(group: Any) -> tuple[int, int]:
@@ -100,6 +110,30 @@ def _iter_collection(value: Any) -> list[Any]:
     return []
 
 
+def _render_detailed_rows(metric_names: list[str], metrics: dict[str, dict[str, Any]]) -> str:
+    if not metric_names:
+        return '<tr><td colspan="8">No metrics</td></tr>'
+
+    rows: list[str] = []
+    for name in metric_names:
+        values = (metrics.get(name, {}) or {}).get("values", {}) or {}
+        columns = "".join(f"<td>{escape(_format_value(values.get(col)))}</td>" for col in TREND_COLUMNS)
+        rows.append(f"<tr><td class=\"metric-name\">{escape(name)}</td>{columns}</tr>")
+    return "".join(rows)
+
+
+def _render_rate_rows(metric_names: list[str], metrics: dict[str, dict[str, Any]]) -> str:
+    if not metric_names:
+        return '<tr><td colspan="4">No metrics</td></tr>'
+
+    rows: list[str] = []
+    for name in metric_names:
+        values = (metrics.get(name, {}) or {}).get("values", {}) or {}
+        columns = "".join(f"<td>{escape(_format_value(values.get(col)))}</td>" for col in RATE_COLUMNS)
+        rows.append(f"<tr><td class=\"metric-name\">{escape(name)}</td>{columns}</tr>")
+    return "".join(rows)
+
+
 def _render_metric_rows(metric_names: list[str], metrics: dict[str, dict[str, Any]]) -> str:
     if not metric_names:
         return '<tr><td colspan="4">No metrics</td></tr>'
@@ -109,11 +143,11 @@ def _render_metric_rows(metric_names: list[str], metrics: dict[str, dict[str, An
         metric = metrics.get(name, {}) or {}
         contains = metric.get("contains", "")
         values = metric.get("values", {}) or {}
-        values_compact = ", ".join(f"{k}={v}" for k, v in sorted(values.items())) if values else "-"
+        values_compact = ", ".join(f"{k}={_format_value(v)}" for k, v in sorted(values.items())) if values else "-"
         th_summary = _render_threshold_summary(metric)
         rows.append(
             "<tr>"
-            f"<td>{escape(name)}</td>"
+            f"<td class=\"metric-name\">{escape(name)}</td>"
             f"<td>{escape(str(contains))}</td>"
             f"<td>{escape(values_compact)}</td>"
             f"<td>{escape(th_summary)}</td>"
@@ -122,6 +156,18 @@ def _render_metric_rows(metric_names: list[str], metrics: dict[str, dict[str, An
 
     return "".join(rows)
 
+
+
+def _render_threshold_rows(metric_names: list[str], metrics: dict[str, dict[str, Any]]) -> str:
+    rows: list[str] = []
+    for name in metric_names:
+        summary = _render_threshold_summary(metrics.get(name, {}) or {})
+        if summary == "-":
+            continue
+        rows.append(f"<tr><td class=\"metric-name\">{escape(name)}</td><td>{escape(summary)}</td></tr>")
+    if not rows:
+        return '<tr><td colspan="2">No threshold details</td></tr>'
+    return "".join(rows)
 
 def _render_threshold_summary(metric: dict[str, Any]) -> str:
     thresholds = metric.get("thresholds") or {}
@@ -140,6 +186,16 @@ def _render_threshold_summary(metric: dict[str, Any]) -> str:
     return "; ".join(parts)
 
 
+def _format_value(value: Any) -> str:
+    if value is None:
+        return "-"
+    if isinstance(value, int):
+        return f"{value}"
+    if isinstance(value, float):
+        return f"{value:.2f}"
+    return str(value)
+
+
 HTML_TEMPLATE = """<!doctype html>
 <html lang=\"en\">
 <head>
@@ -147,39 +203,91 @@ HTML_TEMPLATE = """<!doctype html>
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
   <title>{title}</title>
   <style>
-    body {{ font-family: Inter, Arial, sans-serif; margin: 24px; color: #1f2937; }}
-    h1 {{ margin-bottom: 8px; }}
-    .cards {{ display: flex; gap: 12px; margin: 16px 0 24px; flex-wrap: wrap; }}
-    .card {{ border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; min-width: 220px; }}
-    .label {{ font-size: 12px; color: #6b7280; text-transform: uppercase; }}
-    .value {{ font-size: 28px; font-weight: 700; }}
-    table {{ border-collapse: collapse; width: 100%; margin-bottom: 24px; }}
-    th, td {{ border: 1px solid #e5e7eb; padding: 8px; text-align: left; vertical-align: top; }}
-    th {{ background: #f3f4f6; }}
+    :root {{
+      --bg: #f5f6fb;
+      --text: #13233a;
+      --muted: #d8dce8;
+      --card-purple: linear-gradient(135deg, #5f72ff, #6e42c1);
+      --card-red: linear-gradient(135deg, #ff7f88, #f35d65);
+      --card-green: linear-gradient(135deg, #5fcb88, #43b777);
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin: 0; font-family: Inter, Arial, sans-serif; background: var(--bg); color: var(--text); }}
+    .container {{ max-width: 1220px; margin: 24px auto; padding: 0 16px 24px; }}
+    .header {{ background: var(--card-purple); color: #fff; border-radius: 18px; padding: 24px 28px; font-size: 48px; font-weight: 700; }}
+    .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 20px 0; }}
+    .card {{ border-radius: 14px; color: #fff; padding: 18px 22px; box-shadow: 0 8px 18px rgba(23, 26, 42, 0.16); }}
+    .card h3 {{ margin: 0; font-size: 14px; text-transform: uppercase; opacity: .9; }}
+    .card p {{ margin: 10px 0 0; font-size: 52px; font-weight: 700; }}
+    .purple {{ background: var(--card-purple); }}
+    .red {{ background: var(--card-red); }}
+    .green {{ background: var(--card-green); }}
+    .panel {{ background: #fff; border: 1px solid #dbe0ec; border-radius: 14px; padding: 20px; }}
+    .tabs {{ display: flex; gap: 8px; margin-bottom: 16px; }}
+    .tab {{ border: 1px solid #dbe0ec; border-radius: 10px 10px 0 0; padding: 10px 14px; background: #eff2fa; font-weight: 600; color: #4b5f7a; }}
+    .tab.active {{ background: #fff; color: #6941ff; }}
+    h2 {{ margin: 18px 0 10px; font-size: 34px; }}
+    table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; overflow: hidden; border-radius: 10px; }}
+    thead tr {{ background: var(--card-purple); color: #fff; }}
+    th, td {{ padding: 10px 14px; border-bottom: 1px solid #e8ecf5; text-align: left; }}
+    .metric-name {{ font-weight: 600; }}
+    @media (max-width: 980px) {{
+      .summary {{ grid-template-columns: repeat(2, minmax(180px, 1fr)); }}
+      .header {{ font-size: 36px; }}
+    }}
   </style>
 </head>
 <body>
-  <h1>{title}</h1>
-  <div class=\"cards\">
-    <div class=\"card\"><div class=\"label\">Threshold failures</div><div class=\"value\">{threshold_failures}</div><div>{threshold_count} metrics with thresholds</div></div>
-    <div class=\"card\"><div class=\"label\">Check passes</div><div class=\"value\">{check_passes}</div></div>
-    <div class=\"card\"><div class=\"label\">Check failures</div><div class=\"value\">{check_failures}</div></div>
+  <div class=\"container\">
+    <div class=\"header\">{title}</div>
+    <div class="summary">
+      <div class="card purple"><h3>Total requests</h3><p>{total_requests}</p></div>
+      <div class="card red"><h3>Failed requests</h3><p>{failed_requests}</p></div>
+      <div class="card green"><h3>Threshold failures</h3><p>{threshold_failures}</p></div>
+      <div class="card purple"><h3>Check passes</h3><p>{check_passes}</p></div>
+      <div class="card red"><h3>Check failures</h3><p>{check_failures}</p></div>
+    </div>
+
+    <div class="panel">
+      <div class=\"tabs\">
+        <div class=\"tab active\">Detailed Metrics</div>
+        <div class=\"tab\">Test Run Details</div>
+        <div class=\"tab\">Checks & Groups</div>
+      </div>
+
+      <h2>Trends & Times</h2>
+      <table>
+        <thead><tr><th>Metric</th><th>AVG</th><th>MIN</th><th>MAX</th><th>MED</th><th>P(90)</th><th>P(95)</th><th>P(99)</th></tr></thead>
+        <tbody>{trend_rows}</tbody>
+      </table>
+
+      <h2>Rates</h2>
+      <table>
+        <thead><tr><th>Metric</th><th>RATE</th><th>PASSES</th><th>FAILS</th></tr></thead>
+        <tbody>{rate_rows}</tbody>
+      </table>
+
+      <h2>Run details</h2>
+      <table>
+        <thead><tr><th>Metric</th><th>Contains</th><th>Values</th><th>Thresholds</th></tr></thead>
+        <tbody>{run_rows}</tbody>
+      </table>
+
+      <h2>Checks & other stats</h2>
+      <table>
+        <thead><tr><th>Metric</th><th>Contains</th><th>Values</th><th>Thresholds</th></tr></thead>
+        <tbody>{check_rows}</tbody>
+      </table>
+
+      <h2>Threshold details</h2>
+      <table>
+        <thead><tr><th>Metric</th><th>Thresholds</th></tr></thead>
+        <tbody>{threshold_rows}</tbody>
+      </table>
+
+      <p><strong>Threshold metrics:</strong> {threshold_count} &nbsp; <strong>Check passes:</strong> {check_passes}</p>
+    </div>
   </div>
-
-  <h2>Trend metrics</h2>
-  <table><thead><tr><th>Metric</th><th>Contains</th><th>Values</th><th>Thresholds</th></tr></thead><tbody>{trend_rows}</tbody></table>
-
-  <h2>Rate metrics</h2>
-  <table><thead><tr><th>Metric</th><th>Contains</th><th>Values</th><th>Thresholds</th></tr></thead><tbody>{rate_rows}</tbody></table>
-
-  <h2>Counter metrics</h2>
-  <table><thead><tr><th>Metric</th><th>Contains</th><th>Values</th><th>Thresholds</th></tr></thead><tbody>{counter_rows}</tbody></table>
-
-  <h2>Gauge metrics</h2>
-  <table><thead><tr><th>Metric</th><th>Contains</th><th>Values</th><th>Thresholds</th></tr></thead><tbody>{gauge_rows}</tbody></table>
-
-  <h2>Other stats</h2>
-  <table><thead><tr><th>Metric</th><th>Contains</th><th>Values</th><th>Thresholds</th></tr></thead><tbody>{other_rows}</tbody></table>
 </body>
 </html>
 """

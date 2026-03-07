@@ -141,3 +141,28 @@ def test_build_html_summary_handles_root_group_dict_shapes_and_scalar_values():
 
     assert "Check passes" in html and ">6<" in html
     assert "Check failures" in html and ">3<" in html
+
+
+def test_build_html_summary_normalizes_metric_types_for_grouping():
+    summary_json = {
+        "metrics": {
+            "http_req_duration": {
+                "type": "Trend",
+                "contains": "time",
+                "values": {"avg": 21.38, "min": 0.26, "max": 143.33, "med": 20.09, "p(90)": 26.36},
+            },
+            "http_req_failed": {
+                "type": "Rate",
+                "contains": "default",
+                "values": {"rate": 0.4, "passes": 349, "fails": 529},
+            },
+        },
+        "root_group": {"checks": [], "groups": []},
+    }
+
+    html = build_html_summary(summary_json)
+
+    assert "http_req_duration" in html
+    assert "21.38" in html
+    assert "http_req_failed" in html
+    assert "529" in html
