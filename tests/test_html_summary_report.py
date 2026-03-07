@@ -166,3 +166,50 @@ def test_build_html_summary_normalizes_metric_types_for_grouping():
     assert "21.38" in html
     assert "http_req_failed" in html
     assert "529" in html
+
+
+def test_build_html_summary_handles_flat_metric_values_without_values_node():
+    summary_json = {
+        "metrics": {
+            "http_reqs": {
+                "type": "counter",
+                "contains": "default",
+                "count": 878,
+                "rate": 34.9,
+            },
+            "http_req_failed": {
+                "type": "rate",
+                "contains": "default",
+                "passes": 349,
+                "fails": 529,
+                "rate": 0.4,
+            },
+            "http_req_duration": {
+                "contains": "time",
+                "avg": 21.38,
+                "min": 0.26,
+                "max": 143.33,
+                "med": 20.09,
+                "p(90)": 26.36,
+                "p(95)": 30.03,
+                "p(99)": 39.58,
+                "thresholds": {"p(95)<30": False},
+            },
+        },
+        "root_group": {"checks": [{"passes": 42, "fails": 0}], "groups": []},
+    }
+
+    html = build_html_summary(summary_json)
+
+    assert "<h3>Total requests</h3><p>878</p>" in html
+    assert "<h3>Failed requests</h3><p>529</p>" in html
+    assert "http_req_duration" in html
+    assert "21.38" in html
+    assert "p(95)&lt;30: failed" in html
+
+
+def test_build_html_summary_has_tab_switching_script():
+    html = build_html_summary({"metrics": {}, "root_group": {"checks": [], "groups": []}})
+
+    assert "data-tab-target=\"detailed-metrics\"" in html
+    assert "activateTab" in html

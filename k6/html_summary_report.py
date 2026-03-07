@@ -18,6 +18,7 @@ OTHER_METRICS = {
 
 TREND_COLUMNS = ("avg", "min", "max", "med", "p(90)", "p(95)", "p(99)")
 RATE_COLUMNS = ("rate", "passes", "fails")
+METRIC_META_KEYS = {"type", "contains", "thresholds", "submetrics", "tainted"}
 
 
 def build_html_summary(summary_json: dict, title: str | None = None) -> str:
@@ -70,15 +71,47 @@ def build_html_summary(summary_json: dict, title: str | None = None) -> str:
 
 
 def _metric_type(metrics: dict[str, dict[str, Any]], metric_name: str) -> str:
-    metric_type = str((metrics.get(metric_name) or {}).get("type", ""))
-    return metric_type.strip().lower()
+    metric = metrics.get(metric_name) or {}
+    metric_type = str(metric.get("type", "")).strip().lower()
+    if metric_type:
+        return metric_type
+
+    values = _extract_values(metric)
+    value_keys = set(values.keys())
+
+    if value_keys & set(TREND_COLUMNS):
+        return "trend"
+    if value_keys & set(RATE_COLUMNS):
+        return "rate"
+    if "count" in value_keys:
+        return "counter"
+    if "value" in value_keys:
+        return "gauge"
+    return ""
 
 
 def _metric_value(metric: dict[str, Any], key: str) -> Any:
-    values = metric.get("values", {}) if isinstance(metric, dict) else {}
-    if isinstance(values, dict):
+    values = _extract_values(metric)
+    if values:
         return values.get(key)
     return None
+
+
+def _extract_values(metric: dict[str, Any] | Any) -> dict[str, Any]:
+    if not isinstance(metric, dict):
+        return {}
+
+    values = metric.get("values")
+    if isinstance(values, dict) and values:
+        return values
+
+    flattened: dict[str, Any] = {}
+    for key, value in metric.items():
+        if key in METRIC_META_KEYS:
+            continue
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            flattened[key] = value
+    return flattened
 
 
 def _count_checks_in_group(group: Any) -> tuple[int, int]:
@@ -116,7 +149,7 @@ def _render_detailed_rows(metric_names: list[str], metrics: dict[str, dict[str, 
 
     rows: list[str] = []
     for name in metric_names:
-        values = (metrics.get(name, {}) or {}).get("values", {}) or {}
+        values = _extract_values(metrics.get(name, {}) or {})
         columns = "".join(f"<td>{escape(_format_value(values.get(col)))}</td>" for col in TREND_COLUMNS)
         rows.append(f"<tr><td class=\"metric-name\">{escape(name)}</td>{columns}</tr>")
     return "".join(rows)
@@ -128,7 +161,7 @@ def _render_rate_rows(metric_names: list[str], metrics: dict[str, dict[str, Any]
 
     rows: list[str] = []
     for name in metric_names:
-        values = (metrics.get(name, {}) or {}).get("values", {}) or {}
+        values = _extract_values(metrics.get(name, {}) or {})
         columns = "".join(f"<td>{escape(_format_value(values.get(col)))}</td>" for col in RATE_COLUMNS)
         rows.append(f"<tr><td class=\"metric-name\">{escape(name)}</td>{columns}</tr>")
     return "".join(rows)
@@ -142,7 +175,7 @@ def _render_metric_rows(metric_names: list[str], metrics: dict[str, dict[str, An
     for name in metric_names:
         metric = metrics.get(name, {}) or {}
         contains = metric.get("contains", "")
-        values = metric.get("values", {}) or {}
+        values = _extract_values(metric)
         values_compact = ", ".join(f"{k}={_format_value(v)}" for k, v in sorted(values.items())) if values else "-"
         th_summary = _render_threshold_summary(metric)
         rows.append(
@@ -224,8 +257,9 @@ HTML_TEMPLATE = """<!doctype html>
     .green {{ background: var(--card-green); }}
     .panel {{ background: #fff; border: 1px solid #dbe0ec; border-radius: 14px; padding: 20px; }}
     .tabs {{ display: flex; gap: 8px; margin-bottom: 16px; }}
-    .tab {{ border: 1px solid #dbe0ec; border-radius: 10px 10px 0 0; padding: 10px 14px; background: #eff2fa; font-weight: 600; color: #4b5f7a; }}
+    .tab {{ border: 1px solid #dbe0ec; border-radius: 10px 10px 0 0; padding: 10px 14px; background: #eff2fa; font-weight: 600; color: #4b5f7a; cursor: pointer; }}
     .tab.active {{ background: #fff; color: #6941ff; }}
+    .tab-panel.hidden {{ display: none; }}
     h2 {{ margin: 18px 0 10px; font-size: 34px; }}
     table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; overflow: hidden; border-radius: 10px; }}
     thead tr {{ background: var(--card-purple); color: #fff; }}
@@ -250,44 +284,67 @@ HTML_TEMPLATE = """<!doctype html>
 
     <div class="panel">
       <div class=\"tabs\">
-        <div class=\"tab active\">Detailed Metrics</div>
-        <div class=\"tab\">Test Run Details</div>
-        <div class=\"tab\">Checks & Groups</div>
+        <button class=\"tab active\" data-tab-target=\"detailed-metrics\" type=\"button\">Detailed Metrics</button>
+        <button class=\"tab\" data-tab-target=\"test-run-details\" type=\"button\">Test Run Details</button>
+        <button class=\"tab\" data-tab-target=\"checks-groups\" type=\"button\">Checks & Groups</button>
       </div>
 
-      <h2>Trends & Times</h2>
-      <table>
-        <thead><tr><th>Metric</th><th>AVG</th><th>MIN</th><th>MAX</th><th>MED</th><th>P(90)</th><th>P(95)</th><th>P(99)</th></tr></thead>
-        <tbody>{trend_rows}</tbody>
-      </table>
+      <section id=\"detailed-metrics\" class=\"tab-panel\">
+        <h2>Trends & Times</h2>
+        <table>
+          <thead><tr><th>Metric</th><th>AVG</th><th>MIN</th><th>MAX</th><th>MED</th><th>P(90)</th><th>P(95)</th><th>P(99)</th></tr></thead>
+          <tbody>{trend_rows}</tbody>
+        </table>
 
-      <h2>Rates</h2>
-      <table>
-        <thead><tr><th>Metric</th><th>RATE</th><th>PASSES</th><th>FAILS</th></tr></thead>
-        <tbody>{rate_rows}</tbody>
-      </table>
+        <h2>Rates</h2>
+        <table>
+          <thead><tr><th>Metric</th><th>RATE</th><th>PASSES</th><th>FAILS</th></tr></thead>
+          <tbody>{rate_rows}</tbody>
+        </table>
+      </section>
 
-      <h2>Run details</h2>
-      <table>
-        <thead><tr><th>Metric</th><th>Contains</th><th>Values</th><th>Thresholds</th></tr></thead>
-        <tbody>{run_rows}</tbody>
-      </table>
+      <section id=\"test-run-details\" class=\"tab-panel hidden\">
+        <h2>Run details</h2>
+        <table>
+          <thead><tr><th>Metric</th><th>Contains</th><th>Values</th><th>Thresholds</th></tr></thead>
+          <tbody>{run_rows}</tbody>
+        </table>
+      </section>
 
-      <h2>Checks & other stats</h2>
-      <table>
-        <thead><tr><th>Metric</th><th>Contains</th><th>Values</th><th>Thresholds</th></tr></thead>
-        <tbody>{check_rows}</tbody>
-      </table>
+      <section id=\"checks-groups\" class=\"tab-panel hidden\">
+        <h2>Checks & other stats</h2>
+        <table>
+          <thead><tr><th>Metric</th><th>Contains</th><th>Values</th><th>Thresholds</th></tr></thead>
+          <tbody>{check_rows}</tbody>
+        </table>
 
-      <h2>Threshold details</h2>
-      <table>
-        <thead><tr><th>Metric</th><th>Thresholds</th></tr></thead>
-        <tbody>{threshold_rows}</tbody>
-      </table>
+        <h2>Threshold details</h2>
+        <table>
+          <thead><tr><th>Metric</th><th>Thresholds</th></tr></thead>
+          <tbody>{threshold_rows}</tbody>
+        </table>
+      </section>
 
       <p><strong>Threshold metrics:</strong> {threshold_count} &nbsp; <strong>Check passes:</strong> {check_passes}</p>
     </div>
   </div>
+  <script>
+    const tabs = Array.from(document.querySelectorAll('.tab'));
+    const panels = Array.from(document.querySelectorAll('.tab-panel'));
+
+    function activateTab(targetId) {{
+      tabs.forEach((tab) => {{
+        tab.classList.toggle('active', tab.dataset.tabTarget === targetId);
+      }});
+      panels.forEach((panel) => {{
+        panel.classList.toggle('hidden', panel.id !== targetId);
+      }});
+    }}
+
+    tabs.forEach((tab) => {{
+      tab.addEventListener('click', () => activateTab(tab.dataset.tabTarget));
+    }});
+  </script>
 </body>
 </html>
 """
