@@ -52,7 +52,7 @@ def build_html_summary(summary_json: dict, title: str | None = None) -> str:
     report_title = title or f"{DEFAULT_TITLE_PREFIX}: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
     total_requests = _metric_value(metrics.get("http_reqs", {}), "count")
-    failed_requests = _metric_value(metrics.get("http_req_failed", {}), "fails")
+    failed_requests = _http_req_failed_count(metrics.get("http_req_failed", {}), total_requests)
 
     return HTML_TEMPLATE.format(
         title=escape(report_title),
@@ -161,11 +161,40 @@ def _render_rate_rows(metric_names: list[str], metrics: dict[str, dict[str, Any]
 
     rows: list[str] = []
     for name in metric_names:
-        values = _extract_values(metrics.get(name, {}) or {})
-        columns = "".join(f"<td>{escape(_format_value(values.get(col)))}</td>" for col in RATE_COLUMNS)
+        metric = metrics.get(name, {}) or {}
+        values = _extract_values(metric)
+        rendered_values = _rate_columns(metric, values)
+        columns = "".join(f"<td>{escape(_format_value(value))}</td>" for value in rendered_values)
         rows.append(f"<tr><td class=\"metric-name\">{escape(name)}</td>{columns}</tr>")
     return "".join(rows)
 
+
+
+def _rate_columns(metric: dict[str, Any], values: dict[str, Any]) -> tuple[Any, Any, Any]:
+    rate_value = values.get("rate")
+    if rate_value is None and _metric_type({"metric": metric}, "metric") == "rate":
+        rate_value = values.get("value")
+
+    passes = values.get("passes")
+    fails = values.get("fails")
+    return rate_value, passes, fails
+
+
+def _http_req_failed_count(metric: dict[str, Any], total_requests: Any) -> Any:
+    values = _extract_values(metric)
+
+    if "passes" in values:
+        # For http_req_failed, `passes` means failed requests (condition evaluated to true).
+        return values.get("passes")
+
+    if "count" in values:
+        return values.get("count")
+
+    rate_value = values.get("rate", values.get("value"))
+    if isinstance(rate_value, (int, float)) and isinstance(total_requests, (int, float)):
+        return int(round(total_requests * float(rate_value)))
+
+    return None
 
 def _render_metric_rows(metric_names: list[str], metrics: dict[str, dict[str, Any]]) -> str:
     if not metric_names:
@@ -277,8 +306,8 @@ HTML_TEMPLATE = """<!doctype html>
     <div class="summary">
       <div class="card purple"><h3>Total requests</h3><p>{total_requests}</p></div>
       <div class="card red"><h3>Failed requests</h3><p>{failed_requests}</p></div>
-      <div class="card green"><h3>Threshold failures</h3><p>{threshold_failures}</p></div>
-      <div class="card purple"><h3>Check passes</h3><p>{check_passes}</p></div>
+      <div class="card red"><h3>Threshold failures</h3><p>{threshold_failures}</p></div>
+      <div class="card green"><h3>Check passes</h3><p>{check_passes}</p></div>
       <div class="card red"><h3>Check failures</h3><p>{check_failures}</p></div>
     </div>
 
