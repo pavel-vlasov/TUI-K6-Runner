@@ -82,3 +82,22 @@ def test_save_to_file_writes_json_to_target_file(tmp_path: Path):
 
     assert target.exists()
     assert target.read_text(encoding="utf-8").strip().startswith("{")
+
+
+def test_validate_runtime_config_allows_no_auth_mode():
+    runtime = {
+        "baseURL": "https://example.com",
+        "auth": {
+            "ClientId_Enforcement": False,
+            "useOAuth2": False,
+            "basicauth": False,
+            "client_id": "",
+            "client_secret": "",
+        },
+        "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/"}],
+        "k6": {"executionType": "Constant VUs", "thresholds": {"http_req_duration": ["p(95)<500"]}},
+    }
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert not any("auth" in error for error in errors)

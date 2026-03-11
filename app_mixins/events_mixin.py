@@ -16,10 +16,20 @@ class EventsMixin:
         if not event.switch.id:
             return
 
+        if event.switch.id == "auth_noauth_switch" and event.value is True:
+            for sw_id in AUTH_MAP:
+                self.query_one(f"#{sw_id}", Switch).value = False
+            self.toggle_auth_fields()
+            return
+
         if event.switch.id in AUTH_MAP and event.value is True:
+            self.query_one("#auth_noauth_switch", Switch).value = False
             for sw_id in AUTH_MAP:
                 if sw_id != event.switch.id:
                     self.query_one(f"#{sw_id}", Switch).value = False
+
+        if event.switch.id in AUTH_MAP or event.switch.id == "auth_noauth_switch":
+            self.toggle_auth_fields()
 
     def on_select_changed(self, event: Select.Changed):
         if event.select.id == "select___k6__executionType":
