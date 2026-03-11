@@ -37,82 +37,91 @@ jobs:
             --cov=. \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
-            --cov-report=markdown-append:${GITHUB_STEP_SUMMARY} \
             --junitxml=pytest-report.xml | tee pytest-output.txt
 
-      - name: Build test summary
+      - name: Build job summary (tests + coverage)
         if: always()
+        env:
+          SUMMARY_FILE: ${{ env.GITHUB_STEP_SUMMARY }}
         run: |
           python - <<'PY'
           import os
           import xml.etree.ElementTree as ET
           from pathlib import Path
 
-          report = Path("pytest-report.xml")
-          coverage_report = Path("coverage.xml")
-          summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+          summary_file = os.environ.get("GITHUB_STEP_SUMMARY") or os.environ.get("SUMMARY_FILE")
           if not summary_file:
               raise SystemExit(0)
+
           summary_path = Path(summary_file)
+          report = Path("pytest-report.xml")
+          coverage_report = Path("coverage.xml")
 
-          if not report.exists():
-              summary_path.write_text("## Pytest summary\n\n⚠️ `pytest-report.xml` was not generated.\n", encoding="utf-8")
-              raise SystemExit(0)
+          lines = ["## Test summary", ""]
 
-          root = ET.parse(report).getroot()
-          suite = root if root.tag == "testsuite" else root.find("testsuite")
-          if suite is None:
-              summary_path.write_text("## Pytest summary\n\n⚠️ Unable to parse testsuite from junit report.\n", encoding="utf-8")
-              raise SystemExit(0)
+          if report.exists():
+              root = ET.parse(report).getroot()
+              suites = [root] if root.tag == "testsuite" else root.findall("testsuite")
 
-          total = int(suite.attrib.get("tests", 0))
-          failures = int(suite.attrib.get("failures", 0))
-          errors = int(suite.attrib.get("errors", 0))
-          skipped = int(suite.attrib.get("skipped", 0))
-          passed = total - failures - errors - skipped
+              total = failures = errors = skipped = 0
+              failed_items = []
 
-          coverage_line = "- 📊 Coverage: **n/a**"
+              for suite in suites:
+                  total += int(suite.attrib.get("tests", 0))
+                  failures += int(suite.attrib.get("failures", 0))
+                  errors += int(suite.attrib.get("errors", 0))
+                  skipped += int(suite.attrib.get("skipped", 0))
+
+                  for case in suite.findall("testcase"):
+                      node = case.find("failure") or case.find("error")
+                      if node is None:
+                          continue
+                      name = f"{case.attrib.get('classname', '')}::{case.attrib.get('name', '')}".strip(":")
+                      text = (node.text or node.attrib.get("message") or "No details provided.").strip()
+                      failed_items.append((name, text))
+
+              passed = total - failures - errors - skipped
+
+              lines.extend(
+                  [
+                      f"- ✅ Passed: **{passed}**",
+                      f"- ❌ Failed: **{failures}**",
+                      f"- 💥 Errors: **{errors}**",
+                      f"- ⏭️ Skipped: **{skipped}**",
+                      f"- 🔢 Total: **{total}**",
+                  ]
+              )
+
+              if failed_items:
+                  lines.extend(["", "### Failed test details", ""])
+                  for name, text in failed_items:
+                      clipped = text[:4000]
+                      lines.extend(
+                          [
+                              f"<details><summary><code>{name}</code></summary>",
+                              "",
+                              "```text",
+                              clipped,
+                              "```",
+                              "</details>",
+                              "",
+                          ]
+                      )
+          else:
+              lines.append("⚠️ `pytest-report.xml` was not generated.")
+
+          lines.extend(["", "## Coverage summary", ""])
           if coverage_report.exists():
               cov_root = ET.parse(coverage_report).getroot()
-              rate = float(cov_root.attrib.get("line-rate", 0.0))
-              coverage_line = f"- 📊 Coverage: **{rate * 100:.2f}%**"
+              line_rate = float(cov_root.attrib.get("line-rate", 0.0)) * 100
+              branch_rate = float(cov_root.attrib.get("branch-rate", 0.0)) * 100
+              lines.append(f"- 📊 Line coverage: **{line_rate:.2f}%**")
+              lines.append(f"- 🌿 Branch coverage: **{branch_rate:.2f}%**")
+          else:
+              lines.append("⚠️ `coverage.xml` was not generated.")
 
-          lines = [
-              "## Pytest summary",
-              "",
-              f"- ✅ Passed: **{passed}**",
-              f"- ❌ Failed: **{failures}**",
-              f"- 💥 Errors: **{errors}**",
-              f"- ⏭️ Skipped: **{skipped}**",
-              f"- 🔢 Total: **{total}**",
-              coverage_line,
-              "",
-          ]
-
-          failed_items = []
-          for case in suite.findall("testcase"):
-              node = case.find("failure") or case.find("error")
-              if node is None:
-                  continue
-              name = f"{case.attrib.get('classname', '')}::{case.attrib.get('name', '')}".strip(":")
-              text = (node.text or node.attrib.get("message") or "No details provided.").strip()
-              failed_items.append((name, text))
-
-          if failed_items:
-              lines.append("### Failed test details")
-              lines.append("")
-              for name, text in failed_items:
-                  clipped = text[:4000]
-                  lines.append(f"<details><summary><code>{name}</code></summary>")
-                  lines.append("")
-                  lines.append("```text")
-                  lines.append(clipped)
-                  lines.append("```")
-                  lines.append("</details>")
-                  lines.append("")
-
-          summary_path.parent.mkdir(parents=True, exist_ok=True)
-          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8") if not summary_path.exists() else summary_path.write_text(summary_path.read_text(encoding="utf-8") + "\n" + "\n".join(lines) + "\n", encoding="utf-8")
+          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print(f"Job summary written to {summary_path}")
           PY
 
       - name: Upload pytest artifacts
