@@ -37,18 +37,23 @@ jobs:
             --cov=. \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
+            --cov-report=markdown-append:${GITHUB_STEP_SUMMARY} \
             --junitxml=pytest-report.xml | tee pytest-output.txt
 
       - name: Build test summary
         if: always()
         run: |
           python - <<'PY'
+          import os
           import xml.etree.ElementTree as ET
           from pathlib import Path
 
           report = Path("pytest-report.xml")
           coverage_report = Path("coverage.xml")
-          summary_path = Path("$GITHUB_STEP_SUMMARY")
+          summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+          if not summary_file:
+              raise SystemExit(0)
+          summary_path = Path(summary_file)
 
           if not report.exists():
               summary_path.write_text("## Pytest summary\n\n⚠️ `pytest-report.xml` was not generated.\n", encoding="utf-8")
@@ -106,7 +111,8 @@ jobs:
                   lines.append("</details>")
                   lines.append("")
 
-          summary_path.write_text("\n".join(lines), encoding="utf-8")
+          summary_path.parent.mkdir(parents=True, exist_ok=True)
+          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8") if not summary_path.exists() else summary_path.write_text(summary_path.read_text(encoding="utf-8") + "\n" + "\n".join(lines) + "\n", encoding="utf-8")
           PY
 
       - name: Upload pytest artifacts
