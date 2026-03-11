@@ -28,7 +28,6 @@ class K6ProcessManager:
         command = ["k6", "run", "test.js", "--no-color"]
         if enable_web_dashboard:
             command.extend(["--out", "web-dashboard=period=5s&open=false"])
-            env["K6_WEB_DASHBOARD_EXPORT"] = "artifacts/dashboard.html"
             env["K6_WEB_DASHBOARD_OPEN"] = "false"
             self._apply_web_dashboard_binding(env, web_dashboard_url)
         if enable_html_summary and summary_json_path:
@@ -52,7 +51,7 @@ class K6ProcessManager:
 
         parsed = urlparse(web_dashboard_url)
         host = parsed.hostname
-        if host and host not in {"localhost", "127.0.0.1", "::1"}:
+        if host:
             env["K6_WEB_DASHBOARD_HOST"] = host
         if parsed.port:
             env["K6_WEB_DASHBOARD_PORT"] = str(parsed.port)

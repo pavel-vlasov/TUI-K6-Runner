@@ -22,10 +22,10 @@ def test_start_run_includes_web_dashboard_output_when_enabled(monkeypatch):
     asyncio.run(manager.start_run(enable_web_dashboard=True))
 
     assert "--out" in captured["args"]
-    assert "web-dashboard=period=1s&open=false" in captured["args"]
+    assert "web-dashboard=period=5s&open=false" in captured["args"]
 
 
-def test_start_run_sets_web_dashboard_export_env_when_enabled(monkeypatch):
+def test_start_run_sets_web_dashboard_open_env_when_enabled(monkeypatch):
     captured = {}
 
     async def fake_create_subprocess_exec(*args, **kwargs):
@@ -45,7 +45,7 @@ def test_start_run_sets_web_dashboard_export_env_when_enabled(monkeypatch):
 
     env = captured["kwargs"].get("env")
     assert env is not None
-    assert env.get("K6_WEB_DASHBOARD_EXPORT")
+    assert env.get("K6_WEB_DASHBOARD_OPEN") == "false"
 
 
 def test_start_run_does_not_include_web_dashboard_output_when_disabled(monkeypatch):
@@ -70,33 +70,11 @@ def test_start_run_does_not_include_web_dashboard_output_when_disabled(monkeypat
     assert "web-dashboard" not in captured["args"]
 
 
-def test_start_run_overwrites_dashboard_export_env_when_enabled(monkeypatch):
-    captured = {}
-
-    async def fake_create_subprocess_exec(*args, **kwargs):
-        captured["args"] = args
-        captured["kwargs"] = kwargs
-
-        class DummyProcess:
-            returncode = None
-            pid = 1
-
-        return DummyProcess()
-
-    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
-    monkeypatch.setenv("K6_WEB_DASHBOARD_EXPORT", "old/path/dashboard.html")
-
-    manager = K6ProcessManager()
-    asyncio.run(manager.start_run(enable_web_dashboard=True))
-
-    env = captured["kwargs"].get("env")
-    assert env is not None
-    assert env["K6_WEB_DASHBOARD_EXPORT"] == "artifacts/dashboard.html"
 
 
 
 
-def test_start_run_sets_dashboard_port_from_local_url_without_forcing_host(monkeypatch):
+def test_start_run_sets_dashboard_host_and_port_from_local_url(monkeypatch):
     captured = {}
 
     async def fake_create_subprocess_exec(*args, **kwargs):
@@ -116,7 +94,7 @@ def test_start_run_sets_dashboard_port_from_local_url_without_forcing_host(monke
 
     env = captured["kwargs"].get("env")
     assert env is not None
-    assert "K6_WEB_DASHBOARD_HOST" not in env
+    assert env["K6_WEB_DASHBOARD_HOST"] == "127.0.0.1"
     assert env["K6_WEB_DASHBOARD_PORT"] == "7777"
 
 
