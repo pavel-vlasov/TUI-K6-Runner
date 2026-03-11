@@ -83,7 +83,12 @@ class UIMixin:
 
     def toggle_auth_fields(self) -> None:
         oauth_switch = self.query_one("#bool___auth__useOAuth2", Switch)
+        no_auth_switch = self.query_one("#auth_noauth_switch", Switch)
         oauth_enabled = bool(oauth_switch.value)
+        no_auth_enabled = bool(no_auth_switch.value)
+
+        for row_id in ["#auth_row__client_id", "#auth_row__client_secret"]:
+            self.query_one(row_id, Horizontal).styles.display = "none" if no_auth_enabled else "block"
 
         for row_id in ["#auth_oauth_row__token_url", "#auth_oauth_row__scope"]:
             self.query_one(row_id, Horizontal).styles.display = "block" if oauth_enabled else "none"
@@ -136,11 +141,13 @@ class UIMixin:
                                 Label("client_id:", classes="field-label"),
                                 Input(str(auth_data.get("client_id", "")), id="input___auth__client_id"),
                                 classes="field-row",
+                                id="auth_row__client_id",
                             ),
                             Horizontal(
                                 Label("client_secret:", classes="field-label"),
                                 Input(str(auth_data.get("client_secret", "")), id="input___auth__client_secret"),
                                 classes="field-row",
+                                id="auth_row__client_secret",
                             ),
                             Horizontal(
                                 Label("token_url:", classes="field-label"),
