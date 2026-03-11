@@ -105,11 +105,14 @@ class ConfigHandler:
             bool(auth.get("basicauth")),
             bool(auth.get("ClientId_Enforcement")),
         ]
-        if sum(auth_modes) != 1:
-            errors.append("Exactly one auth mode must be enabled.")
+        if sum(auth_modes) > 1:
+            errors.append("Only one auth mode can be enabled at a time.")
 
-        if not str(auth.get("client_id", "")).strip() or not str(auth.get("client_secret", "")).strip():
-            errors.append("auth.client_id and auth.client_secret are required.")
+        auth_enabled = sum(auth_modes) == 1
+        if auth_enabled and (
+            not str(auth.get("client_id", "")).strip() or not str(auth.get("client_secret", "")).strip()
+        ):
+            errors.append("auth.client_id and auth.client_secret are required when auth is enabled.")
 
         if auth.get("useOAuth2"):
             if not str(auth.get("token_url", "")).strip():

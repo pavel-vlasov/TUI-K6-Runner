@@ -24,8 +24,6 @@ if (!['off', 'failed', 'all'].includes(logConfig.level)) logConfig.level = 'off'
     authConfig.basicauth ? 'BasicAuth' : null,
     authConfig.ClientId_Enforcement ? 'ClientId_Enforcement' : null,
   ].filter(Boolean);
-  if (modes.length === 0)
-    throw new Error('❌ No auth mode enabled! Set one of: useOAuth2, basicauth, ClientId_Enforcement.');
   if (modes.length > 1)
     throw new Error('❌ Multiple auth modes enabled simultaneously: ' + modes.join(', '));
 })();
@@ -228,6 +226,11 @@ export let options = {
 // --- setup ---
 export function setup() {
   const headers = {};
+
+  if (!authConfig.useOAuth2 && !authConfig.basicauth && !authConfig.ClientId_Enforcement) {
+    console.log('🔓 Using no auth');
+    return { authType: 'none' };
+  }
 
   if (authConfig.basicauth) {
     const encoded = encodingBase64(`${authConfig.client_id}:${authConfig.client_secret}`);

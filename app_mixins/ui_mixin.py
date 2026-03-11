@@ -14,7 +14,7 @@ from textual.widgets import (
     TabPane,
 )
 
-from ui_components import build_config_fields, get_valid_id
+from ui_components import build_config_fields
 
 
 class UIMixin:
@@ -34,6 +34,7 @@ class UIMixin:
     async def on_mount(self) -> None:
         self.set_run_ui_state(False)
         self.toggle_execution_type_fields()
+        self.toggle_auth_fields()
 
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
         if self._get_request_tab_panes():
@@ -80,6 +81,13 @@ class UIMixin:
             "block" if show_ramping_arrival_fields else "none"
         )
 
+    def toggle_auth_fields(self) -> None:
+        oauth_switch = self.query_one("#bool___auth__useOAuth2", Switch)
+        oauth_enabled = bool(oauth_switch.value)
+
+        for row_id in ["#auth_oauth_row__token_url", "#auth_oauth_row__scope"]:
+            self.query_one(row_id, Horizontal).styles.display = "block" if oauth_enabled else "none"
+
     def compose(self) -> ComposeResult:
         yield Header()
         with TabbedContent(id="main_tabs"):
@@ -87,29 +95,65 @@ class UIMixin:
                 with TabbedContent(id="settings_subtabs"):
                     with TabPane("Auth", id="tab_auth"):
                         auth_data = self.full_config.get("auth", {})
-                        switches_list = []
-                        inputs_list = []
-                        for k, v in auth_data.items():
-                            full_key = f"auth.{k}"
-                            if isinstance(v, bool):
-                                switches_list.append(
-                                    Horizontal(
-                                        Label(k),
-                                        Switch(v, id=get_valid_id(full_key, "bool")),
-                                        classes="switch-group",
-                                    )
-                                )
-                            else:
-                                inputs_list.append(
-                                    Horizontal(
-                                        Label(f"{k}:", classes="field-label"),
-                                        Input(str(v), id=get_valid_id(full_key, "input")),
-                                        classes="field-row",
-                                    )
-                                )
+                        auth_mode_switches = [
+                            Horizontal(
+                                Label("useOAuth2"),
+                                Switch(bool(auth_data.get("useOAuth2", False)), id="bool___auth__useOAuth2"),
+                                classes="switch-group",
+                            ),
+                            Horizontal(
+                                Label("basicauth"),
+                                Switch(bool(auth_data.get("basicauth", False)), id="bool___auth__basicauth"),
+                                classes="switch-group",
+                            ),
+                            Horizontal(
+                                Label("ClientId_Enforcement"),
+                                Switch(
+                                    bool(auth_data.get("ClientId_Enforcement", False)),
+                                    id="bool___auth__ClientId_Enforcement",
+                                ),
+                                classes="switch-group",
+                            ),
+                            Horizontal(
+                                Label("no auth"),
+                                Switch(
+                                    not any(
+                                        [
+                                            bool(auth_data.get("useOAuth2", False)),
+                                            bool(auth_data.get("basicauth", False)),
+                                            bool(auth_data.get("ClientId_Enforcement", False)),
+                                        ]
+                                    ),
+                                    id="auth_noauth_switch",
+                                ),
+                                classes="switch-group",
+                            ),
+                        ]
+
                         yield ScrollableContainer(
-                            Horizontal(*switches_list, classes="field-row"),
-                            *inputs_list,
+                            Horizontal(*auth_mode_switches, classes="field-row"),
+                            Horizontal(
+                                Label("client_id:", classes="field-label"),
+                                Input(str(auth_data.get("client_id", "")), id="input___auth__client_id"),
+                                classes="field-row",
+                            ),
+                            Horizontal(
+                                Label("client_secret:", classes="field-label"),
+                                Input(str(auth_data.get("client_secret", "")), id="input___auth__client_secret"),
+                                classes="field-row",
+                            ),
+                            Horizontal(
+                                Label("token_url:", classes="field-label"),
+                                Input(str(auth_data.get("token_url", "")), id="input___auth__token_url"),
+                                classes="field-row",
+                                id="auth_oauth_row__token_url",
+                            ),
+                            Horizontal(
+                                Label("scope:", classes="field-label"),
+                                Input(str(auth_data.get("scope", "")), id="input___auth__scope"),
+                                classes="field-row",
+                                id="auth_oauth_row__scope",
+                            ),
                             classes="tab-container",
                         )
 
