@@ -131,3 +131,13 @@ def test_toggle_logging_fields_shows_level_and_dashboard_url_when_switches_on():
     assert ui.logging_widgets["#select___k6__logging__level"].styles.display == "block"
     assert ui.logging_widgets["#logging_web_dashboard_url_label"].styles.display == "block"
     assert ui.logging_widgets["#input___k6__logging__webDashboardUrl"].styles.display == "block"
+
+
+def test_normalize_logging_level_falls_back_for_invalid_values():
+    ui = DummyUI(web_dashboard_enabled=False)
+
+    assert ui._normalize_logging_level("failed") == "failed"
+    assert ui._normalize_logging_level("all") == "all"
+    assert ui._normalize_logging_level("Select.BLANK") == "failed"
+    assert ui._normalize_logging_level("") == "failed"
+    assert ui._normalize_logging_level(None) == "failed"

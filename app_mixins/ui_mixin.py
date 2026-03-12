@@ -94,6 +94,12 @@ class UIMixin:
         for row_id in ["#auth_oauth_row__token_url", "#auth_oauth_row__scope"]:
             self.query_one(row_id, Horizontal).styles.display = "block" if oauth_enabled else "none"
 
+    def _normalize_logging_level(self, raw_value: object) -> str:
+        allowed_levels = {"all", "failed", "Failures - without payloads"}
+        if raw_value in allowed_levels:
+            return str(raw_value)
+        return "failed"
+
     def toggle_logging_fields(self) -> None:
         logging_enabled_switch = self.query_one("#bool___k6__logging__enabled", Switch)
         web_dashboard_switch = self.query_one("#bool___k6__logging__webDashboard", Switch)
@@ -343,7 +349,7 @@ class UIMixin:
                                         ("failed", "failed"),
                                         ("Failures - without payloads", "Failures - without payloads"),
                                     ],
-                                    value=log_data.get("level", "failed"),
+                                    value=self._normalize_logging_level(log_data.get("level", "failed")),
                                     id="select___k6__logging__level",
                                 ),
                                 classes="field-row",
