@@ -11,6 +11,7 @@ from k6.output_parser import (
     clean_cursor_sequences,
     is_default_line,
     is_fail_line,
+    parse_http_status_code,
     is_running_line,
     is_run_complete_line,
     is_scenario_progress_line,
@@ -63,6 +64,9 @@ class K6Service:
         self.state.is_running = True
         self.state.success_count = 0
         self.state.fail_count = 0
+        self.state.fail_4xx_count = 0
+        self.state.fail_500_count = 0
+        self.state.fail_5xx_except_500_count = 0
         self.state.last_counter = "requests: ✅ 0  [bold white]│[/bold white]  ❌ 0"
         self.last_update_time = 0.0
         run_result_reported = False
@@ -196,6 +200,14 @@ class K6Service:
 
         if is_fail_line(clean_text):
             self.state.fail_count += 1
+            status_code = parse_http_status_code(clean_text)
+            if status_code is not None:
+                if 400 <= status_code <= 499:
+                    self.state.fail_4xx_count += 1
+                elif status_code == 500:
+                    self.state.fail_500_count += 1
+                elif 501 <= status_code <= 599:
+                    self.state.fail_5xx_except_500_count += 1
             self._refresh_counter()
             self._update_ui(on_status)
             return True
@@ -204,7 +216,13 @@ class K6Service:
 
     def _refresh_counter(self):
         self.state.last_counter = (
-            f"requests: ✅ {self.state.success_count}  [bold white]│[/bold white]  ❌ {self.state.fail_count}"
+            "requests: "
+            f"✅ {self.state.success_count}  [bold white]│[/bold white]  "
+            f"❌ {self.state.fail_count}"
+            "\n"
+            f"failed by code: 4xx={self.state.fail_4xx_count}  "
+            f"500={self.state.fail_500_count}  "
+            f"5xx(except 500)={self.state.fail_5xx_except_500_count}"
         )
 
     def _update_ui(self, on_status):

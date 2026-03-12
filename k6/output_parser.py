@@ -39,5 +39,20 @@ def is_fail_line(text: str) -> bool:
     return 'msg="❌' in text or "Non-200" in text
 
 
+def parse_http_status_code(text: str) -> int | None:
+    patterns = (
+        r"Non-200 status:\s*(\d{3})",
+        r"status\s*[:=]\s*(\d{3})",
+        r"\bHTTP\s*(\d{3})\b",
+    )
+
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+
+    return None
+
+
 def is_run_complete_line(text: str) -> bool:
     return bool(RUN_COMPLETE_PATTERN.search(text))
