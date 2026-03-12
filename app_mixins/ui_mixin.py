@@ -35,6 +35,7 @@ class UIMixin:
         self.set_run_ui_state(False)
         self.toggle_execution_type_fields()
         self.toggle_auth_fields()
+        self.toggle_logging_fields()
 
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
         if self._get_request_tab_panes():
@@ -92,6 +93,24 @@ class UIMixin:
 
         for row_id in ["#auth_oauth_row__token_url", "#auth_oauth_row__scope"]:
             self.query_one(row_id, Horizontal).styles.display = "block" if oauth_enabled else "none"
+
+    def _normalize_logging_level(self, raw_value: object) -> str:
+        allowed_levels = {"all", "failed", "Failures - without payloads"}
+        if raw_value in allowed_levels:
+            return str(raw_value)
+        return "failed"
+
+    def toggle_logging_fields(self) -> None:
+        logging_enabled_switch = self.query_one("#bool___k6__logging__enabled", Switch)
+        web_dashboard_switch = self.query_one("#bool___k6__logging__webDashboard", Switch)
+
+        level_display = "block" if bool(logging_enabled_switch.value) else "none"
+        web_dashboard_url_display = "block" if bool(web_dashboard_switch.value) else "none"
+
+        self.query_one("#logging_level_label", Label).styles.display = level_display
+        self.query_one("#select___k6__logging__level", Select).styles.display = level_display
+        self.query_one("#logging_web_dashboard_url_label", Label).styles.display = web_dashboard_url_display
+        self.query_one("#input___k6__logging__webDashboardUrl", Input).styles.display = web_dashboard_url_display
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -312,7 +331,42 @@ class UIMixin:
                     with TabPane("Logging", id="tab_logging"):
                         log_data = self.full_config.setdefault("k6", {}).setdefault("logging", {})
                         log_data.setdefault("htmlSummaryReport", False)
-                        yield ScrollableContainer(*build_config_fields(log_data, "k6.logging"), classes="tab-container")
+
+                        other_logging_data = {
+                            k: v
+                            for k, v in log_data.items()
+                            if k not in ["enabled", "level", "webDashboard", "webDashboardUrl"]
+                        }
+
+                        yield ScrollableContainer(
+                            Horizontal(
+                                Label("enabled:", classes="field-label"),
+                                Switch(bool(log_data.get("enabled", False)), id="bool___k6__logging__enabled"),
+                                Label("level:", classes="field-label", id="logging_level_label"),
+                                Select(
+                                    [
+                                        ("all", "all"),
+                                        ("failed", "failed"),
+                                        ("Failures - without payloads", "Failures - without payloads"),
+                                    ],
+                                    value=self._normalize_logging_level(log_data.get("level", "failed")),
+                                    id="select___k6__logging__level",
+                                ),
+                                classes="field-row",
+                            ),
+                            Horizontal(
+                                Label("webDashboard:", classes="field-label"),
+                                Switch(bool(log_data.get("webDashboard", False)), id="bool___k6__logging__webDashboard"),
+                                Label("webDashboardUrl:", classes="field-label", id="logging_web_dashboard_url_label"),
+                                Input(
+                                    str(log_data.get("webDashboardUrl", "http://localhost:5665")),
+                                    id="input___k6__logging__webDashboardUrl",
+                                ),
+                                classes="field-row",
+                            ),
+                            *build_config_fields(other_logging_data, "k6.logging"),
+                            classes="tab-container",
+                        )
 
             with TabPane("Logs", id="tab_logs"):
                 with Vertical(id="log_view_container"):

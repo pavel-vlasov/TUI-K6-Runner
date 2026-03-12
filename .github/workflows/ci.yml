@@ -26,7 +26,48 @@ jobs:
           pip install -r requirements.txt
 
       - name: Ruff lint
-        run: ruff check .
+        id: ruff
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ruff check . | tee ruff-output.txt
+
+      - name: Compile check
+        id: compile
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m compileall -q . 2>&1 | tee compile-output.txt
+
+      - name: Build source bundle
+        id: build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python - <<'PY' 2>&1 | tee build-output.txt
+          from pathlib import Path
+          import zipfile
+
+          project_root = Path('.')
+          dist_dir = project_root / 'dist'
+          dist_dir.mkdir(parents=True, exist_ok=True)
+          bundle_path = dist_dir / 'tui-k6-runner-source.zip'
+
+          include_suffixes = {'.py', '.tcss', '.md', '.txt', '.js', '.yml'}
+          excluded_parts = {'.git', '.pytest_cache', '__pycache__', '.ruff_cache', 'dist'}
+
+          with zipfile.ZipFile(bundle_path, 'w', compression=zipfile.ZIP_DEFLATED) as bundle:
+              for path in project_root.rglob('*'):
+                  if not path.is_file():
+                      continue
+                  if any(part in excluded_parts for part in path.parts):
+                      continue
+                  if path.suffix.lower() not in include_suffixes:
+                      continue
+                  bundle.write(path, arcname=path.as_posix())
+
+          print(f'Built source bundle: {bundle_path}')
+          PY
 
       - name: Run tests with coverage
         id: pytest
@@ -39,10 +80,13 @@ jobs:
             --cov-report=xml:coverage.xml \
             --junitxml=pytest-report.xml | tee pytest-output.txt
 
-      - name: Build job summary (tests + coverage)
+      - name: Build job summary (lint + compile + build + tests + coverage)
         if: always()
         env:
           SUMMARY_FILE: ${{ env.GITHUB_STEP_SUMMARY }}
+          RUFF_OUTCOME: ${{ steps.ruff.outcome }}
+          COMPILE_OUTCOME: ${{ steps.compile.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
         run: |
           python - <<'PY'
           import os
@@ -57,7 +101,39 @@ jobs:
           report = Path("pytest-report.xml")
           coverage_report = Path("coverage.xml")
 
-          lines = ["## Test summary", ""]
+          lines = ["## Quality summary", ""]
+
+          checks = [
+              ("Ruff lint", os.environ.get("RUFF_OUTCOME", "unknown"), Path("ruff-output.txt")),
+              ("Compile check", os.environ.get("COMPILE_OUTCOME", "unknown"), Path("compile-output.txt")),
+              ("Build", os.environ.get("BUILD_OUTCOME", "unknown"), Path("build-output.txt")),
+          ]
+
+          for title, outcome, output_file in checks:
+              if outcome == "success":
+                  lines.append(f"- ✅ {title}: **passed**")
+              elif outcome == "failure":
+                  lines.append(f"- ❌ {title}: **failed**")
+              else:
+                  lines.append(f"- ⚠️ {title}: **{outcome}**")
+
+              if output_file.exists():
+                  content = output_file.read_text(encoding="utf-8", errors="replace").strip()
+                  if content:
+                      lines.extend(
+                          [
+                              "",
+                              f"<details><summary><code>{title} output</code></summary>",
+                              "",
+                              "```text",
+                              content[:4000],
+                              "```",
+                              "</details>",
+                              "",
+                          ]
+                      )
+
+          lines.extend(["", "## Test summary", ""])
 
           if report.exists():
               root = ET.parse(report).getroot()
@@ -129,13 +205,18 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pytest-results
+          if-no-files-found: warn
           path: |
             pytest-report.xml
             pytest-output.txt
+            ruff-output.txt
+            compile-output.txt
+            build-output.txt
             coverage.xml
+            dist/tui-k6-runner-source.zip
 
-      - name: Fail job when tests failed
-        if: steps.pytest.outcome == 'failure'
+      - name: Fail job when any quality gate failed
+        if: steps.pytest.outcome == 'failure' || steps.ruff.outcome == 'failure' || steps.compile.outcome == 'failure' || steps.build.outcome == 'failure'
         run: |
-          echo "Pytest reported failures. See summary and artifacts above."
+          echo "One or more quality checks failed (ruff/compile/build/pytest). See summary and artifacts above."
           exit 1
