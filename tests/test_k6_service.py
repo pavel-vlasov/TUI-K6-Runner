@@ -18,3 +18,20 @@ def test_build_summary_paths_uses_timestamped_files(monkeypatch):
 
     assert str(json_path).endswith("artifacts/summary_20260307_195400.json")
     assert str(html_path).endswith("artifacts/summary_20260307_195400.html")
+
+
+def test_handle_counter_lines_tracks_fail_categories():
+    service = K6Service()
+    status_updates = []
+
+    service._handle_counter_lines('level=error msg="Non-200 status: 404"', status_updates.append)
+    service._handle_counter_lines('level=error msg="Non-200 status: 500"', status_updates.append)
+    service._handle_counter_lines('level=error msg="Non-200 status: 503"', status_updates.append)
+
+    assert service.state.fail_count == 3
+    assert service.state.fail_4xx_count == 1
+    assert service.state.fail_500_count == 1
+    assert service.state.fail_5xx_except_500_count == 1
+    assert "4xx=1" in service.state.last_counter
+    assert "500=1" in service.state.last_counter
+    assert "5xx(except 500)=1" in service.state.last_counter
