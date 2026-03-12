@@ -1,3 +1,12 @@
+def format_error_categories_table(categories: dict[str, int]) -> str:
+    rows = sorted(categories.items(), key=lambda pair: (-pair[1], pair[0]))
+    if not rows:
+        return "errors: -"
+
+    parts = [f"{name}: {count}" for name, count in rows]
+    return "errors: " + "  |  ".join(parts)
+
+
 def format_running_status(last_counter: str, status_running: str, status_default: str) -> str:
     return (
         f"[bold]📊 {last_counter}[/bold]\n"
