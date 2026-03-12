@@ -15,7 +15,7 @@ let logConfig = k6cfg.logging || { enabled: false, level: 'off' };
 // --- Normalize & validate logging config ---
 logConfig.enabled = String(logConfig.enabled).toLowerCase() === 'true' || logConfig.enabled === true;
 logConfig.level = (logConfig.level || 'off').toLowerCase();
-if (!['off', 'failed', 'all'].includes(logConfig.level)) logConfig.level = 'off';
+if (!['off', 'failed', 'all', 'failures - without payloads'].includes(logConfig.level)) logConfig.level = 'off';
 
 // --- Validate auth modes ---
 (function () {
@@ -120,6 +120,8 @@ function buildSingleRequest(endpoint, data, correlationId) {
 }
 
 function logRequestResult(req, res, ok, correlationId) {
+  const failedWithoutPayloads = logConfig.enabled && logConfig.level === 'failures - without payloads';
+
   if (logConfig.enabled && (logConfig.level === 'all' || (!ok && logConfig.level === 'failed'))) {
     let prettyResBody;
     try {
@@ -132,16 +134,31 @@ function logRequestResult(req, res, ok, correlationId) {
     if (typeof logReqBody === 'object' && logReqBody !== null) logReqBody = JSON.stringify(logReqBody);
 
     const entry =
-      `\n[${new Date().toISOString()}] ${ok ? '✅ SUCCESS' : '❌ FAILED'} (${req.name})\n` +
-      `URL: ${req.url}\nMethod: ${req.method}\n` +
-      `Request Headers: ${JSON.stringify(req.params.headers, null, 2)}\n` +
-      `Request Body: ${logReqBody}\n` +
-      `Query Params: ${req.query}\n` +
-      `Status: ${res.status}\nResponse Headers: ${JSON.stringify(res.headers, null, 2)}\n` +
-      `Response Body: ${prettyResBody}\n` +
-      `-----------------------------------\n`;
+      `
+[${new Date().toISOString()}] ${ok ? '✅ SUCCESS' : '❌ FAILED'} (${req.name})
+` +
+      `URL: ${req.url}
+Method: ${req.method}
+` +
+      `Request Headers: ${JSON.stringify(req.params.headers, null, 2)}
+` +
+      `Request Body: ${logReqBody}
+` +
+      `Query Params: ${req.query}
+` +
+      `Status: ${res.status}
+Response Headers: ${JSON.stringify(res.headers, null, 2)}
+` +
+      `Response Body: ${prettyResBody}
+` +
+      `-----------------------------------
+`;
 
     console.log(entry);
+  }
+
+  if (failedWithoutPayloads && !ok) {
+    console.log(`❌ Correlation-Id: ${correlationId} | Status: ${res.status}`);
   }
 
   if (ok) {

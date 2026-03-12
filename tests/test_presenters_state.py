@@ -1,5 +1,6 @@
 from k6.presenters import (
     format_done_status,
+    format_error_categories_table,
     format_running_status,
     format_start_log,
     format_start_status,
@@ -18,10 +19,19 @@ def test_presenters_render_expected_fragments():
     assert "Starting k6 test" in format_start_log()
 
 
+def test_error_categories_table_renders_rows():
+    table = format_error_categories_table({"HTTP 500": 2, "EOF": 1})
+
+    assert "Category" in table
+    assert "HTTP 500" in table
+    assert "EOF" in table
+
+
 def test_k6_state_defaults():
     state = K6State()
 
     assert state.success_count == 0
     assert state.fail_count == 0
+    assert state.fail_categories == {}
     assert state.is_running is False
     assert state.current_vus_internal == 1
