@@ -24,13 +24,29 @@ def test_handle_counter_lines_accumulates_categories_and_totals():
     service = K6Service()
     statuses = []
 
-    service._handle_counter_lines('time="2025" level=error msg="❌ Non-200 Response (ep) | Correlation-Id: c1 | Status: 500"', statuses.append)
+    service._handle_counter_lines('time="2025" level=error msg="❌ Non-200 Response (ep) | Correlation-Id: c1 | Status: 404"', statuses.append)
+    service._handle_counter_lines('time="2025" level=error msg="❌ Non-200 Response (ep) | Correlation-Id: c2 | Status: 500"', statuses.append)
+    service._handle_counter_lines('time="2025" level=error msg="❌ Non-200 Response (ep) | Correlation-Id: c3 | Status: 503"', statuses.append)
     service._handle_counter_lines('time="2025" level=warning msg="Request Failed" error="Get "https://x": EOF"', statuses.append)
 
-    assert service.state.fail_count == 2
-    assert service.state.fail_categories["HTTP 500"] == 1
+    assert service.state.fail_count == 4
+    assert service.state.fail_categories["4xx"] == 1
+    assert service.state.fail_categories["500"] == 1
+    assert service.state.fail_categories["5xx (not 500)"] == 1
     assert service.state.fail_categories["EOF"] == 1
     assert "errors:" in service.state.last_counter
-    assert "HTTP 500: 1" in service.state.last_counter
+    assert "4xx: 1" in service.state.last_counter
+    assert "500: 1" in service.state.last_counter
+    assert "5xx (not 500): 1" in service.state.last_counter
     assert "EOF: 1" in service.state.last_counter
     assert "\n" not in service.state.last_counter
+
+
+def test_request_failed_without_eof_is_not_double_counted():
+    service = K6Service()
+    statuses = []
+
+    service._handle_counter_lines('time="2025" level=warning msg="Request Failed" error="Get "https://x": context deadline exceeded"', statuses.append)
+
+    assert service.state.fail_count == 0
+    assert service.state.fail_categories == {}

@@ -20,11 +20,10 @@ def test_presenters_render_expected_fragments():
 
 
 def test_error_categories_table_renders_rows():
-    table = format_error_categories_table({"HTTP 500": 2, "EOF": 1})
+    table = format_error_categories_table({"500": 2, "EOF": 1, "4xx": 3, "5xx (not 500)": 4})
 
     assert table.startswith("errors: ")
-    assert "HTTP 500: 2" in table
-    assert "EOF: 1" in table
+    assert table == "errors: 4xx: 3  |  500: 2  |  5xx (not 500): 4  |  EOF: 1"
 
 
 def test_error_categories_table_renders_empty_placeholder():

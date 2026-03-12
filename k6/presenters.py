@@ -1,9 +1,12 @@
 def format_error_categories_table(categories: dict[str, int]) -> str:
-    rows = sorted(categories.items(), key=lambda pair: (-pair[1], pair[0]))
-    if not rows:
+    if not categories:
         return "errors: -"
 
-    parts = [f"{name}: {count}" for name, count in rows]
+    preferred_order = ["4xx", "500", "5xx (not 500)", "EOF"]
+    ordered_keys = [key for key in preferred_order if key in categories]
+    ordered_keys.extend(sorted(key for key in categories if key not in preferred_order))
+
+    parts = [f"{key}: {categories[key]}" for key in ordered_keys]
     return "errors: " + "  |  ".join(parts)
 
 

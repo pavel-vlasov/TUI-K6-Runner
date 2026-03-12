@@ -36,18 +36,27 @@ def is_success_line(text: str) -> bool:
     return 'msg="Processed request: 200 ✅"' in text
 
 
+def _bucket_http_status(status: int) -> str | None:
+    if 400 <= status <= 499:
+        return "4xx"
+    if status == 500:
+        return "500"
+    if 501 <= status <= 599:
+        return "5xx (not 500)"
+    return None
+
+
 def get_fail_category(text: str) -> str | None:
     if "Request Failed" in text and "EOF" in text:
         return "EOF"
 
-    if "Request Failed" in text:
-        return "Request Failed"
-
     if "Non-200" in text:
         status_match = HTTP_STATUS_PATTERN.search(text)
-        if status_match:
-            return f"HTTP {status_match.group(1)}"
-        return "Non-200"
+        if not status_match:
+            return None
+
+        status = int(status_match.group(1))
+        return _bucket_http_status(status)
 
     return None
 
