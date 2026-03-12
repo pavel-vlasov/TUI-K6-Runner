@@ -51,7 +51,7 @@ def build_config_fields(data, parent_path):
             
         elif k == "method" or (k == "level" and parent_path == "k6.logging"):
             label = Label(f"{k}:", classes="field-label")
-            options = ["GET", "POST", "PUT", "PATCH"] if k == "method" else ["all", "failed"]
+            options = ["GET", "POST", "PUT", "PATCH"] if k == "method" else ["all", "failed", "Failures - without payloads"]
             widget = Select([(o, o) for o in options], value=v, id=get_valid_id(full_key, "select"))
             items.append(Horizontal(label, widget, classes="field-row"))
             
