@@ -29,7 +29,15 @@ class EventsMixin:
                     self.query_one(f"#{sw_id}", Switch).value = False
 
         if event.switch.id in AUTH_MAP or event.switch.id == "auth_noauth_switch":
+            all_auth_switches = [self.query_one(f"#{sw_id}", Switch) for sw_id in AUTH_MAP]
+            no_auth_switch = self.query_one("#auth_noauth_switch", Switch)
+            if not any(sw.value for sw in [*all_auth_switches, no_auth_switch]):
+                event.switch.value = True
+                self.notify("At least one Auth mode must stay enabled.", severity="warning")
             self.toggle_auth_fields()
+
+        if event.switch.id in {"bool___k6__logging__enabled", "bool___k6__logging__webDashboard"}:
+            self.toggle_logging_fields()
 
     def on_select_changed(self, event: Select.Changed):
         if event.select.id == "select___k6__executionType":
