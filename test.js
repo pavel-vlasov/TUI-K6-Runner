@@ -157,11 +157,8 @@ Response Headers: ${JSON.stringify(res.headers, null, 2)}
     console.log(entry);
   }
 
-  if (failedWithoutPayloads) {
-    if (!ok) {
-      console.log(`❌ Correlation-Id: ${correlationId} | Status: ${res.status}`);
-    }
-    return;
+  if (failedWithoutPayloads && !ok) {
+    console.log(`❌ Correlation-Id: ${correlationId} | Status: ${res.status}`);
   }
 
   if (ok) {

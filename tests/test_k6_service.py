@@ -20,18 +20,14 @@ def test_build_summary_paths_uses_timestamped_files(monkeypatch):
     assert str(html_path).endswith("artifacts/summary_20260307_195400.html")
 
 
-def test_handle_counter_lines_tracks_fail_categories():
+def test_handle_counter_lines_accumulates_categories_and_totals():
     service = K6Service()
-    status_updates = []
+    statuses = []
 
-    service._handle_counter_lines('level=error msg="Non-200 status: 404"', status_updates.append)
-    service._handle_counter_lines('level=error msg="Non-200 status: 500"', status_updates.append)
-    service._handle_counter_lines('level=error msg="Non-200 status: 503"', status_updates.append)
+    service._handle_counter_lines('time="2025" level=error msg="❌ Non-200 Response (ep) | Correlation-Id: c1 | Status: 500"', statuses.append)
+    service._handle_counter_lines('time="2025" level=warning msg="Request Failed" error="Get "https://x": EOF"', statuses.append)
 
-    assert service.state.fail_count == 3
-    assert service.state.fail_4xx_count == 1
-    assert service.state.fail_500_count == 1
-    assert service.state.fail_5xx_except_500_count == 1
-    assert "4xx=1" in service.state.last_counter
-    assert "500=1" in service.state.last_counter
-    assert "5xx(except 500)=1" in service.state.last_counter
+    assert service.state.fail_count == 2
+    assert service.state.fail_categories["HTTP 500"] == 1
+    assert service.state.fail_categories["EOF"] == 1
+    assert "Category" in service.state.last_counter
