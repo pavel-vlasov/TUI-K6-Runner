@@ -91,3 +91,4 @@ def test_build_config_fields_supports_multiline_and_bool_and_logging_level(monke
 
     level_row = next(field for field in fields if isinstance(field.children[1], FakeSelect))
     assert ("failed", "failed") in level_row.children[1].options
+    assert ("Failures - without payloads", "Failures - without payloads") in level_row.children[1].options

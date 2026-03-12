@@ -1,10 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
 class K6State:
     success_count: int = 0
     fail_count: int = 0
+    fail_categories: dict[str, int] = field(default_factory=dict)
     status_running: str = "Waiting for the run..."
     status_default: str = "Prepairing..."
     last_counter: str = "✅ 0  │  ❌ 0"
