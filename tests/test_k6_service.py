@@ -50,3 +50,17 @@ def test_request_failed_without_eof_is_not_double_counted():
 
     assert service.state.fail_count == 0
     assert service.state.fail_categories == {}
+
+
+def test_non_200_status_zero_is_filtered_from_ui_and_not_counted():
+    service = K6Service()
+    statuses = []
+
+    handled = service._handle_counter_lines(
+        'time="2026-03-12T14:07:46+03:00" level=info msg="❌ Non-200 Response (Endpoint 1) | Correlation-Id: 928cc85a-a8f7-429e-b7bc-7167e664f1fe | Status: 0" source=console',
+        statuses.append,
+    )
+
+    assert handled is True
+    assert service.state.fail_count == 0
+    assert service.state.fail_categories == {}

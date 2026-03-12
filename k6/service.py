@@ -204,6 +204,11 @@ class K6Service:
             self._update_ui(on_status)
             return True
 
+        # Keep raw k6 failure helper lines (e.g. Non-200 with Status: 0) out of UI log,
+        # while counting only lines that have a valid category.
+        if "Non-200" in clean_text:
+            return True
+
         return False
 
     def _refresh_counter(self):
