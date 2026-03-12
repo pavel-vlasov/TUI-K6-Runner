@@ -22,9 +22,13 @@ def test_presenters_render_expected_fragments():
 def test_error_categories_table_renders_rows():
     table = format_error_categories_table({"HTTP 500": 2, "EOF": 1})
 
-    assert "Category" in table
-    assert "HTTP 500" in table
-    assert "EOF" in table
+    assert table.startswith("errors: ")
+    assert "HTTP 500: 2" in table
+    assert "EOF: 1" in table
+
+
+def test_error_categories_table_renders_empty_placeholder():
+    assert format_error_categories_table({}) == "errors: -"
 
 
 def test_k6_state_defaults():

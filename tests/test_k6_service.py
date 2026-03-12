@@ -30,4 +30,7 @@ def test_handle_counter_lines_accumulates_categories_and_totals():
     assert service.state.fail_count == 2
     assert service.state.fail_categories["HTTP 500"] == 1
     assert service.state.fail_categories["EOF"] == 1
-    assert "Category" in service.state.last_counter
+    assert "errors:" in service.state.last_counter
+    assert "HTTP 500: 1" in service.state.last_counter
+    assert "EOF: 1" in service.state.last_counter
+    assert "\n" not in service.state.last_counter

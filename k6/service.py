@@ -209,7 +209,7 @@ class K6Service:
     def _refresh_counter(self):
         totals = f"requests: ✅ {self.state.success_count}  [bold white]│[/bold white]  ❌ {self.state.fail_count}"
         categories_table = format_error_categories_table(self.state.fail_categories)
-        self.state.last_counter = f"{totals}\n{categories_table}"
+        self.state.last_counter = f"{totals}  [bold white]│[/bold white]  {categories_table}"
 
     def _update_ui(self, on_status):
         on_status(
