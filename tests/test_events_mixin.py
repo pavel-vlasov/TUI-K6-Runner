@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 from app_mixins.events_mixin import EventsMixin
@@ -20,6 +21,15 @@ class DummyEventsUI(EventsMixin):
         self.toggle_count = 0
         self.logging_toggle_count = 0
         self.notifications = []
+        self.full_config = {
+            "k6": {
+                "logging": {
+                    "webDashboard": True,
+                    "webDashboardUrl": "http://localhost:5665",
+                }
+            }
+        }
+        self.run_controller = SimpleNamespace(is_running=True)
 
     def query_one(self, selector, _widget_type):
         return self.switches[selector]
@@ -88,3 +98,21 @@ def test_on_switch_changed_toggles_logging_fields_for_logging_switches():
     ui.on_switch_changed(event)
 
     assert ui.logging_toggle_count == 1
+
+
+def test_on_button_pressed_web_dashboard_rejects_invalid_url(monkeypatch):
+    ui = DummyEventsUI()
+    ui.full_config["k6"]["logging"]["webDashboardUrl"] = "bad-url"
+    opened_urls = []
+
+    def fake_open(url):
+        opened_urls.append(url)
+        return True
+
+    monkeypatch.setattr("app_mixins.events_mixin.webbrowser.open", fake_open)
+
+    event = SimpleNamespace(button=SimpleNamespace(id="web_dashboard_btn"))
+    asyncio.run(ui.on_button_pressed(event))
+
+    assert opened_urls == []
+    assert any("URL is invalid" in message and severity == "error" for message, severity in ui.notifications)

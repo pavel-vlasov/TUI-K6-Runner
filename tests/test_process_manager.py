@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from k6.process_manager import K6ProcessManager
 
@@ -121,6 +122,33 @@ def test_start_run_sets_dashboard_host_for_non_local_url(monkeypatch):
     assert env is not None
     assert env["K6_WEB_DASHBOARD_HOST"] == "0.0.0.0"
     assert env["K6_WEB_DASHBOARD_PORT"] == "7777"
+
+
+def test_start_run_keeps_default_port_when_dashboard_url_has_no_port(monkeypatch, caplog):
+    captured = {}
+
+    async def fake_create_subprocess_exec(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+
+        class DummyProcess:
+            returncode = None
+            pid = 1
+
+        return DummyProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+    caplog.set_level(logging.INFO)
+
+    manager = K6ProcessManager()
+    asyncio.run(manager.start_run(enable_web_dashboard=True, web_dashboard_url="http://localhost"))
+
+    env = captured["kwargs"].get("env")
+    assert env is not None
+    assert env["K6_WEB_DASHBOARD_HOST"] == "localhost"
+    assert "K6_WEB_DASHBOARD_PORT" not in env
+    assert "does not include a port" in caplog.text
+
 
 def test_start_run_includes_summary_export_when_html_summary_enabled(monkeypatch):
     captured = {}

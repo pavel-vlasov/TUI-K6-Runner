@@ -167,6 +167,22 @@ def test_validate_runtime_config_rejects_invalid_urls_and_k6_values():
     assert any("k6.vus" in error for error in errors)
 
 
+def test_validate_runtime_config_rejects_invalid_web_dashboard_url_when_enabled():
+    runtime = _base_runtime()
+    runtime["k6"]["logging"] = {
+        "enabled": True,
+        "level": "all",
+        "outputToUI": True,
+        "webDashboard": True,
+        "webDashboardUrl": "not-a-url",
+        "htmlSummaryReport": False,
+    }
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert any("k6.logging.webDashboardUrl" in error for error in errors)
+
+
 def test_validate_runtime_config_rejects_invalid_stage_shape():
     runtime = _base_runtime()
     runtime["k6"] = {
