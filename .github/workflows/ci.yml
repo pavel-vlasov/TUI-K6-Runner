@@ -63,6 +63,7 @@ jobs:
           PYTHONPATH=. pytest --junitxml=pytest-report.xml
 
       - name: Build source bundle
+        id: build
         run: |
           python - <<'PY'
           from pathlib import Path
