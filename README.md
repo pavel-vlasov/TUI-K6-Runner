@@ -1,5 +1,13 @@
 # TUI-K6-Runner
 
+[![CI / workflow status](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml/badge.svg)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Lint status](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&label=Lint)](https://github.com/pavel-vlasov/TUI-K6-Runner/blob/main/.github/workflows/ci.yml#L31)
+[![Unit tests status](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&label=Unit%20tests)](https://github.com/pavel-vlasov/TUI-K6-Runner/blob/main/.github/workflows/ci.yml#L37)
+[![Coverage](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&label=Coverage)](https://github.com/pavel-vlasov/TUI-K6-Runner/blob/main/.github/workflows/ci.yml#L43)
+[![Python version](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/downloads/release/python-3110/)
+[![Dependency status](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&label=Dependency%20check)](https://github.com/pavel-vlasov/TUI-K6-Runner/blob/main/.github/workflows/ci.yml#L49)
+[![Test report available](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&label=Test%20report)](https://github.com/pavel-vlasov/TUI-K6-Runner/blob/main/.github/workflows/ci.yml#L55)
+
 <img width="1102" height="618" alt="image" src="https://github.com/user-attachments/assets/c4d43c8a-66bf-4ee4-aac3-feb11462fb2d" />
 
 <img width="1118" height="677" alt="image" src="https://github.com/user-attachments/assets/3cef3d48-81fd-4fc7-83ee-445371efc5dc" />
