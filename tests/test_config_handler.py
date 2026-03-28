@@ -349,3 +349,38 @@ def test_validate_runtime_config_rejects_invalid_stage_shape():
 
     assert any("rampingArrivalStages[0].duration" in error for error in errors)
     assert any("rampingArrivalStages[0].target" in error for error in errors)
+
+
+def test_schema_validation_accepts_minimal_and_full_runtime_configs():
+    minimal_runtime = {
+        "baseURL": "https://example.com",
+        "auth": {"mode": "none", "client_id": "", "client_secret": ""},
+        "requestEndpoints": [
+            {
+                "name": "Endpoint 1",
+                "method": "GET",
+                "path": "/health",
+                "headers": {},
+                "query": {},
+            }
+        ],
+        "k6": {
+            "executionType": "Constant VUs",
+            "vus": 1,
+            "duration": "10s",
+            "thresholds": {"http_req_duration": ["p(95)<500"]},
+            "logging": {
+                "enabled": True,
+                "level": "failed",
+                "outputToUI": True,
+                "webDashboard": False,
+                "webDashboardUrl": "http://localhost:5665",
+                "htmlSummaryReport": False,
+            },
+        },
+    }
+
+    full_runtime = ConfigHandler.build_runtime_config(DEFAULT_CONFIG)
+
+    assert ConfigHandler.validate_against_schema(minimal_runtime) == []
+    assert ConfigHandler.validate_against_schema(full_runtime) == []
