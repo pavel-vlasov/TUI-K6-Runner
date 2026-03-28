@@ -175,6 +175,38 @@ def test_run_k6_process_generates_html_summary_when_enabled(tmp_path):
     assert any("HTML summary report generated" in line for line in logs)
 
 
+def test_run_k6_process_preserves_dashboard_and_summary_settings_when_ui_output_disabled():
+    service = K6Service()
+    statuses = []
+    logs = []
+    captured_kwargs = {}
+
+    async def fake_start_run(**kwargs):
+        captured_kwargs.update(kwargs)
+        return _FakeProcess(
+            stdout_lines=["default [100%] 1/1 VUs\n"],
+            stderr_lines=[],
+        )
+
+    service.process_manager.start_run = fake_start_run
+
+    asyncio.run(
+        service.run_k6_process(
+            on_log=logs.append,
+            on_status=statuses.append,
+            output_to_ui=False,
+            enable_web_dashboard=True,
+            web_dashboard_url="http://127.0.0.1:5678",
+            enable_html_summary=True,
+        )
+    )
+
+    assert captured_kwargs["enable_web_dashboard"] is True
+    assert captured_kwargs["web_dashboard_url"] == "http://127.0.0.1:5678"
+    assert captured_kwargs["enable_html_summary"] is True
+    assert "summary_json_path" in captured_kwargs
+
+
 def test_build_external_terminal_command_for_macos(monkeypatch):
     service = K6Service()
     monkeypatch.setattr("k6.service.platform.system", lambda: "Darwin")

@@ -75,61 +75,61 @@ class K6Service:
             if output_to_ui:
                 on_status(format_start_status())
                 on_log(format_start_log())
+            else:
+                on_status("[bold yellow]🕶️ Background mode: logs are hidden in UI.[/bold yellow]")
 
-                summary_json_path, summary_html_path = self._build_summary_paths()
+            summary_json_path, summary_html_path = self._build_summary_paths()
 
-                process = await self.process_manager.start_run(
-                    enable_web_dashboard=enable_web_dashboard,
-                    web_dashboard_url=web_dashboard_url,
-                    summary_json_path=str(summary_json_path),
-                    enable_html_summary=enable_html_summary,
-                )
+            process = await self.process_manager.start_run(
+                enable_web_dashboard=enable_web_dashboard,
+                web_dashboard_url=web_dashboard_url,
+                summary_json_path=str(summary_json_path),
+                enable_html_summary=enable_html_summary,
+            )
 
-                async def read_stream(stream, color):
-                    nonlocal run_result_reported
-                    while True:
-                        line = await stream.readline()
-                        if not line:
-                            break
+            async def read_stream(stream, color):
+                nonlocal run_result_reported
+                while True:
+                    line = await stream.readline()
+                    if not line:
+                        break
 
-                        text = line.decode("utf-8", errors="replace").rstrip()
-                        clean_text = clean_cursor_sequences(text)
-                        if not clean_text.strip():
-                            continue
+                    text = line.decode("utf-8", errors="replace").rstrip()
+                    clean_text = clean_cursor_sequences(text)
+                    if not clean_text.strip():
+                        continue
 
-                        if self._handle_status_lines(clean_text, on_status):
-                            continue
+                    if self._handle_status_lines(clean_text, on_status):
+                        continue
 
-                        if self._handle_counter_lines(clean_text, on_status):
-                            continue
+                    if self._handle_counter_lines(clean_text, on_status):
+                        continue
 
-                        if is_run_complete_line(clean_text) and not run_result_reported:
-                            run_result_reported = True
-                            if enable_html_summary:
-                                self._generate_html_summary_report(summary_json_path, summary_html_path, on_log)
+                    if is_run_complete_line(clean_text) and not run_result_reported:
+                        run_result_reported = True
+                        if enable_html_summary:
+                            self._generate_html_summary_report(summary_json_path, summary_html_path, on_log)
+                        if output_to_ui:
                             on_log("\n[bold green]✅ Test finished.[/bold green]")
-                            on_status(format_done_status(self.state.last_counter))
+                        on_status(format_done_status(self.state.last_counter))
 
+                    if output_to_ui:
                         on_log(f"[{color}]{clean_text}[/{color}]")
 
-                await asyncio.gather(
-                    read_stream(process.stdout, "white"),
-                    read_stream(process.stderr, "pale_turquoise4"),
-                )
+            await asyncio.gather(
+                read_stream(process.stdout, "white"),
+                read_stream(process.stderr, "pale_turquoise4"),
+            )
 
-                await process.wait()
+            await process.wait()
 
-                if not run_result_reported:
-                    if enable_html_summary:
-                        self._generate_html_summary_report(summary_json_path, summary_html_path, on_log)
+            if not run_result_reported:
+                if enable_html_summary:
+                    self._generate_html_summary_report(summary_json_path, summary_html_path, on_log)
 
+                if output_to_ui:
                     on_log("\n[bold green]✅ Test finished.[/bold green]")
-                    on_status(format_done_status(self.state.last_counter))
-            else:
-                on_log("📤 k6 starting in external terminal.\n")
-                self._spawn_external_terminal("k6 run test.js")
-
-                on_status("[bold green]📤 External terminal is started.[/bold green]")
+                on_status(format_done_status(self.state.last_counter))
 
         except Exception as e:
             on_log(f"[bold red]💥 Error: {str(e)}[/bold red]")
