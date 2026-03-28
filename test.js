@@ -11,7 +11,6 @@ const requestEndpointsRaw = Array.isArray(config.requestEndpoints) ? config.requ
 const authConfig = config.auth || {};
 const k6cfg = config.k6 || {};
 let logConfig = k6cfg.logging || { enabled: false, level: 'off' };
-const LOGGING_LEVELS = ['all', 'failed', 'failures - without payloads'];
 
 // --- Normalize & validate logging config ---
 logConfig.enabled = String(logConfig.enabled).toLowerCase() === 'true' || logConfig.enabled === true;
@@ -20,6 +19,7 @@ const LOG_LEVEL_OFF = 'off';
 const LOG_LEVEL_ALL = 'all';
 const LOG_LEVEL_FAILED = 'failed';
 const LOG_LEVEL_FAILED_WITHOUT_PAYLOADS = 'failed_without_payloads';
+const LOGGING_LEVELS = [LOG_LEVEL_ALL, LOG_LEVEL_FAILED, LOG_LEVEL_FAILED_WITHOUT_PAYLOADS];
 
 function normalizeLoggingLevel(rawLevel) {
   const key = String(rawLevel || '')
@@ -38,6 +38,9 @@ function normalizeLoggingLevel(rawLevel) {
 }
 
 logConfig.level = normalizeLoggingLevel(logConfig.level);
+if (!LOGGING_LEVELS.includes(logConfig.level)) {
+  logConfig.level = LOG_LEVEL_OFF;
+}
 
 function resolveAuthMode(auth) {
   const mode = String(auth.mode || '').trim();

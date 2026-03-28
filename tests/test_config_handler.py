@@ -4,6 +4,7 @@ from config_handler import ConfigHandler
 from constants import (
     DEFAULT_CONFIG,
     HTTP_METHODS,
+    LOGGING_LEVEL_ALL,
     LOGGING_LEVEL_FAILED,
     LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
 )
@@ -268,7 +269,65 @@ def test_validate_runtime_config_rejects_invalid_urls_and_k6_values():
     assert any("baseURL" in error for error in errors)
     assert any("path must start" in error for error in errors)
     assert any("k6.duration" in error for error in errors)
-    assert any("k6.vus" in error for error in errors)
+
+
+def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {
+                "mode": "oauth2_client_credentials",
+                "client_id": "cid",
+                "client_secret": "sec",
+                "token_url": "https://idp.example.com/token",
+                "scope": "read",
+            },
+            "requestEndpoints": [
+                {
+                    "name": "Endpoint 1",
+                    "method": "GET",
+                    "path": "/health",
+                    "headers": {},
+                    "query": {},
+                }
+            ],
+            "k6": {
+                "executionType": "Ramping Arrival Rate",
+                "startRate": 5,
+                "timeUnit": "1s",
+                "preAllocatedVUs": 10,
+                "maxVUs": 30,
+                "rampingArrivalStages": [{"duration": "30s", "target": 10}],
+                "thresholds": {"http_req_duration": ["p(95)<500"]},
+                "logging": {
+                    "enabled": True,
+                    "level": "failed_without_payloads",
+                    "outputToUI": True,
+                    "webDashboard": True,
+                    "webDashboardUrl": "http://localhost:5665",
+                    "htmlSummaryReport": True,
+                },
+            },
+        }
+    )
+
+    script = Path("test.js").read_text(encoding="utf-8")
+
+    assert "config.baseURL" in script
+    assert "config.auth" in script
+    assert "config.requestEndpoints" in script
+    assert "config.k6" in script
+
+    for key in runtime["k6"]:
+        if key == "logging":
+            continue
+        assert f"k6cfg.{key}" in script
+
+    assert "logConfig.enabled" in script
+    assert "logConfig.level" in script
+
+    python_side_logging_keys = {"outputToUI", "webDashboard", "webDashboardUrl", "htmlSummaryReport"}
+    assert python_side_logging_keys.issubset(set(runtime["k6"]["logging"].keys()))
 
 
 def test_validate_runtime_config_rejects_invalid_web_dashboard_url_when_enabled():
@@ -325,6 +384,44 @@ def test_build_runtime_config_falls_back_to_default_canonical_logging_level():
     assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_FAILED
 
 
+def test_build_runtime_config_normalizes_logging_level_with_hyphens_to_canonical():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"mode": "none"},
+            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+            "k6": {
+                "executionType": "Constant VUs",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {"http_req_duration": ["p(95)<500"]},
+                "logging": {"enabled": True, "level": "failures-without-payloads"},
+            },
+        }
+    )
+
+    assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
+
+
+def test_build_runtime_config_normalizes_logging_level_with_spaces_to_canonical():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"mode": "none"},
+            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+            "k6": {
+                "executionType": "Constant VUs",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {"http_req_duration": ["p(95)<500"]},
+                "logging": {"enabled": True, "level": "  ALL  "},
+            },
+        }
+    )
+
+    assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_ALL
+
+
 def test_validate_runtime_config_rejects_non_canonical_logging_level():
     runtime = _base_runtime()
     runtime["k6"]["logging"] = {"enabled": True, "level": "Failures - without payloads"}
@@ -349,3 +446,38 @@ def test_validate_runtime_config_rejects_invalid_stage_shape():
 
     assert any("rampingArrivalStages[0].duration" in error for error in errors)
     assert any("rampingArrivalStages[0].target" in error for error in errors)
+
+
+def test_schema_validation_accepts_minimal_and_full_runtime_configs():
+    minimal_runtime = {
+        "baseURL": "https://example.com",
+        "auth": {"mode": "none", "client_id": "", "client_secret": ""},
+        "requestEndpoints": [
+            {
+                "name": "Endpoint 1",
+                "method": "GET",
+                "path": "/health",
+                "headers": {},
+                "query": {},
+            }
+        ],
+        "k6": {
+            "executionType": "Constant VUs",
+            "vus": 1,
+            "duration": "10s",
+            "thresholds": {"http_req_duration": ["p(95)<500"]},
+            "logging": {
+                "enabled": True,
+                "level": "failed",
+                "outputToUI": True,
+                "webDashboard": False,
+                "webDashboardUrl": "http://localhost:5665",
+                "htmlSummaryReport": False,
+            },
+        },
+    }
+
+    full_runtime = ConfigHandler.build_runtime_config(DEFAULT_CONFIG)
+
+    assert ConfigHandler.validate_against_schema(minimal_runtime) == []
+    assert ConfigHandler.validate_against_schema(full_runtime) == []
