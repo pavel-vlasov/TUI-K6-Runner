@@ -1,7 +1,8 @@
 from pathlib import Path
+from copy import deepcopy
 
 from config_handler import ConfigHandler
-from constants import HTTP_METHODS
+from constants import DEFAULT_CONFIG, HTTP_METHODS
 
 
 def _base_runtime() -> dict:
@@ -165,6 +166,14 @@ def test_validate_runtime_config_rejects_invalid_urls_and_k6_values():
     assert any("path must start" in error for error in errors)
     assert any("k6.duration" in error for error in errors)
     assert any("k6.vus" in error for error in errors)
+
+
+def test_validate_runtime_config_default_config_paths_are_valid():
+    runtime = ConfigHandler.build_runtime_config(deepcopy(DEFAULT_CONFIG))
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert not any("path must start with '/'" in error for error in errors), errors
 
 
 def test_validate_runtime_config_rejects_invalid_stage_shape():

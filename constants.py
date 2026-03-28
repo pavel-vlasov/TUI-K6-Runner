@@ -20,14 +20,14 @@ DEFAULT_CONFIG = {
     },
     "request": {
         "name": "Endpoint 1",
-        "method": "GET", "path": "xxxx/healthcheck",
+        "method": "GET", "path": "/healthcheck",
         "headers": {"Content-Type": "application/json", "test": "123"},
         "body": {"sample": "payload2"}, "query": {}
     },
     "requestEndpoints": [
         {
             "name": "Endpoint 1",
-            "method": "GET", "path": "xxxx/healthcheck",
+            "method": "GET", "path": "/healthcheck",
             "headers": {"Content-Type": "application/json", "test": "123"},
             "body": {"sample": "payload2"}, "query": {}
         }
