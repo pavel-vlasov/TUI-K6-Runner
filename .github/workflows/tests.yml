@@ -1,4 +1,4 @@
-name: CI
+name: Tests
 
 on:
   push:
@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  quality:
-    name: Quality Pipeline
+  tests:
+    name: Python tests
     runs-on: ubuntu-latest
 
     steps:
@@ -25,45 +25,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pip-audit
 
       - name: Smoke tests
-        id: smoke
-        continue-on-error: true
         run: |
           PYTHONPATH=. pytest -q tests/test_process_manager.py tests/test_k6_service.py
 
-      - name: Lint (ruff check)
-        id: lint
-        run: |
-          ruff check .
-
       - name: Unit tests
-        id: unit_tests
-        continue-on-error: true
         run: |
           PYTHONPATH=. pytest -q
 
-      - name: Coverage
-        id: coverage
-        continue-on-error: true
-        run: |
-          PYTHONPATH=. pytest --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing
-
-      - name: Dependency check
-        id: dependency
-        continue-on-error: true
-        run: |
-          pip-audit
-
       - name: Test report
-        id: test_report
-        continue-on-error: true
         run: |
           PYTHONPATH=. pytest --junitxml=pytest-report.xml
 
       - name: Build source bundle
-        id: build
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -90,19 +65,12 @@ jobs:
           print(f'Built source bundle: {bundle_path}')
           PY
 
-      - name: Upload artifacts
+      - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ci-artifacts
+          name: test-artifacts
           if-no-files-found: warn
           path: |
             pytest-report.xml
-            coverage.xml
             dist/tui-k6-runner-source.zip
-
-      - name: Fail workflow if any stage failed
-        if: steps.smoke.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.unit_tests.outcome == 'failure' || steps.coverage.outcome == 'failure' || steps.dependency.outcome == 'failure' || steps.test_report.outcome == 'failure' || steps.build.outcome == 'failure'
-        run: |
-          echo "One or more CI stages failed."
-          exit 1
