@@ -71,10 +71,6 @@ def test_start_run_does_not_include_web_dashboard_output_when_disabled(monkeypat
     assert "web-dashboard" not in captured["args"]
 
 
-
-
-
-
 def test_start_run_sets_dashboard_host_and_port_from_local_url(monkeypatch):
     captured = {}
 
@@ -97,7 +93,6 @@ def test_start_run_sets_dashboard_host_and_port_from_local_url(monkeypatch):
     assert env is not None
     assert env["K6_WEB_DASHBOARD_HOST"] == "127.0.0.1"
     assert env["K6_WEB_DASHBOARD_PORT"] == "7777"
-
 
 
 def test_start_run_sets_dashboard_host_for_non_local_url(monkeypatch):
