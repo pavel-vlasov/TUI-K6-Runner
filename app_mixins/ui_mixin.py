@@ -89,10 +89,10 @@ class UIMixin:
         )
 
     def toggle_auth_fields(self) -> None:
-        oauth_switch = self.query_one("#bool___auth__useOAuth2", Switch)
-        no_auth_switch = self.query_one("#auth_noauth_switch", Switch)
-        oauth_enabled = bool(oauth_switch.value)
-        no_auth_enabled = bool(no_auth_switch.value)
+        auth_mode_select = self.query_one("#select___auth__mode", Select)
+        selected_mode = str(auth_mode_select.value or "none")
+        oauth_enabled = selected_mode == "oauth2_client_credentials"
+        no_auth_enabled = selected_mode == "none"
 
         for row_id in ["#auth_row__client_id", "#auth_row__client_secret"]:
             self.query_one(row_id, Horizontal).styles.display = "none" if no_auth_enabled else "block"
@@ -125,43 +125,30 @@ class UIMixin:
                 with TabbedContent(id="settings_subtabs"):
                     with TabPane("Auth", id="tab_auth"):
                         auth_data = self.full_config.get("auth", {})
-                        auth_mode_switches = [
-                            Horizontal(
-                                Label("useOAuth2"),
-                                Switch(bool(auth_data.get("useOAuth2", False)), id="bool___auth__useOAuth2"),
-                                classes="switch-group",
-                            ),
-                            Horizontal(
-                                Label("basicauth"),
-                                Switch(bool(auth_data.get("basicauth", False)), id="bool___auth__basicauth"),
-                                classes="switch-group",
-                            ),
-                            Horizontal(
-                                Label("ClientId_Enforcement"),
-                                Switch(
-                                    bool(auth_data.get("ClientId_Enforcement", False)),
-                                    id="bool___auth__ClientId_Enforcement",
-                                ),
-                                classes="switch-group",
-                            ),
-                            Horizontal(
-                                Label("no auth"),
-                                Switch(
-                                    not any(
-                                        [
-                                            bool(auth_data.get("useOAuth2", False)),
-                                            bool(auth_data.get("basicauth", False)),
-                                            bool(auth_data.get("ClientId_Enforcement", False)),
-                                        ]
-                                    ),
-                                    id="auth_noauth_switch",
-                                ),
-                                classes="switch-group",
-                            ),
-                        ]
+                        auth_mode = str(auth_data.get("mode", "")).strip()
+                        if auth_mode not in [
+                            "none",
+                            "oauth2_client_credentials",
+                            "basic",
+                            "client_id_enforcement",
+                        ]:
+                            auth_mode = "none"
 
                         yield ScrollableContainer(
-                            Horizontal(*auth_mode_switches, classes="field-row"),
+                            Horizontal(
+                                Label("mode:", classes="field-label"),
+                                Select(
+                                    [
+                                        ("none", "none"),
+                                        ("oauth2_client_credentials", "oauth2_client_credentials"),
+                                        ("basic", "basic"),
+                                        ("client_id_enforcement", "client_id_enforcement"),
+                                    ],
+                                    value=auth_mode,
+                                    id="select___auth__mode",
+                                ),
+                                classes="field-row",
+                            ),
                             Horizontal(
                                 Label("client_id:", classes="field-label"),
                                 Input(str(auth_data.get("client_id", "")), id="input___auth__client_id"),

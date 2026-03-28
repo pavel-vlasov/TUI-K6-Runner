@@ -12,9 +12,6 @@ DEFAULT_CONFIG = {
     "baseURL": "https://www.baseURL.com/",
     "auth": {
         "mode": "client_id_enforcement",
-        "useOAuth2": False,
-        "basicauth": False,
-        "ClientId_Enforcement": True,
         "token_url": "https://oAuthproviderURL.com/ID/oauth2/v2.0/token",
         "client_id": "876878764", "client_secret": "0", "scope": "read"
     },
@@ -58,10 +55,4 @@ DEFAULT_CONFIG = {
             "htmlSummaryReport": False,
         }
     }
-}
-
-AUTH_MAP = {
-    "bool___auth__useOAuth2": "useOAuth2",
-    "bool___auth__basicauth": "basicauth",
-    "bool___auth__ClientId_Enforcement": "ClientId_Enforcement"
 }
