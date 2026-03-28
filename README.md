@@ -8,7 +8,7 @@
 
 ## How to use
 
-- install Python
+- install Python 3.11 (supported version is fixed to 3.11.x)
 - install K6
 - install project dependencies:
 
