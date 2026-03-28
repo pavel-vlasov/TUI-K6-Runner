@@ -1,6 +1,5 @@
 import asyncio
 from types import SimpleNamespace
-import asyncio
 
 from app_mixins.events_mixin import EventsMixin
 
@@ -90,7 +89,9 @@ def test_with_cache_busting_query_keeps_existing_params():
 
 def test_on_switch_changed_toggles_logging_fields_for_logging_switches():
     ui = DummyEventsUI()
-    event = SimpleNamespace(switch=SimpleNamespace(id="bool___k6__logging__enabled"), value=True)
+    event = SimpleNamespace(
+        switch=SimpleNamespace(id="bool___k6__logging__enabled"), value=True
+    )
 
     ui.on_switch_changed(event)
 
@@ -109,7 +110,9 @@ def test_on_button_pressed_web_dashboard_rejects_invalid_url(monkeypatch):
     assert ui.logging_toggle_count == 1
 
 
-def test_on_button_pressed_copy_btn_notify_warning_when_clipboard_copy_fails(monkeypatch):
+def test_on_button_pressed_copy_btn_notify_warning_when_clipboard_copy_fails(
+    monkeypatch,
+):
     ui = DummyButtonUI()
     event = SimpleNamespace(button=SimpleNamespace(id="copy_btn"))
 

@@ -33,9 +33,8 @@ jobs:
         run: |
           PYTHONPATH=. pytest -q tests/test_process_manager.py tests/test_k6_service.py
 
-      - name: Lint
+      - name: Lint (ruff check)
         id: lint
-        continue-on-error: true
         run: |
           ruff check .
 
