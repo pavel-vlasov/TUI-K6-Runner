@@ -129,11 +129,14 @@ class K6Service:
                     on_status(format_done_status(self.state.last_counter))
             else:
                 summary_json_path, _ = self._build_summary_paths()
+                system_name = platform.system()
+                shell_type = "powershell" if system_name == "Windows" else "posix"
                 external_command = self._build_external_k6_command(
                     enable_web_dashboard=enable_web_dashboard,
                     web_dashboard_url=web_dashboard_url,
                     enable_html_summary=enable_html_summary,
                     summary_json_path=summary_json_path,
+                    shell_type=shell_type,
                 )
                 on_log("📤 k6 starting in external terminal.\n")
                 on_log(
@@ -158,8 +161,8 @@ class K6Service:
         artifacts_dir = Path("artifacts")
         return artifacts_dir / f"summary_{timestamp}.json", artifacts_dir / f"summary_{timestamp}.html"
 
-    def _build_external_terminal_command(self, command: str) -> list[str]:
-        system_name = platform.system()
+    def _build_external_terminal_command(self, command: str, system_name: str | None = None) -> list[str]:
+        system_name = system_name or platform.system()
 
         if system_name == "Windows":
             return ["powershell.exe", "-NoExit", "-Command", f"chcp 65001; {command}"]
@@ -206,9 +209,10 @@ class K6Service:
         )
 
     def _spawn_external_terminal(self, command: str) -> subprocess.Popen:
-        terminal_command = self._build_external_terminal_command(command)
+        system_name = platform.system()
+        terminal_command = self._build_external_terminal_command(command, system_name=system_name)
 
-        if platform.system() == "Windows":
+        if system_name == "Windows":
             create_new_console = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
             return subprocess.Popen(terminal_command, creationflags=create_new_console)
 
@@ -220,27 +224,34 @@ class K6Service:
         web_dashboard_url: str | None,
         enable_html_summary: bool,
         summary_json_path: Path,
+        shell_type: str = "posix",
     ) -> str:
         command_parts = ["k6", "run", "test.js"]
-        env_parts: list[str] = []
+        env_parts: list[tuple[str, str]] = []
 
         if enable_web_dashboard:
             command_parts.extend(["--out", "web-dashboard=period=5s&open=false"])
-            env_parts.append("K6_WEB_DASHBOARD_OPEN=false")
+            env_parts.append(("K6_WEB_DASHBOARD_OPEN", "false"))
             parsed_url = urlparse(web_dashboard_url or "")
             if parsed_url.hostname:
-                env_parts.append(f"K6_WEB_DASHBOARD_HOST={shlex.quote(parsed_url.hostname)}")
+                env_parts.append(("K6_WEB_DASHBOARD_HOST", parsed_url.hostname))
             if parsed_url.port:
-                env_parts.append(f"K6_WEB_DASHBOARD_PORT={parsed_url.port}")
+                env_parts.append(("K6_WEB_DASHBOARD_PORT", str(parsed_url.port)))
 
         if enable_html_summary:
             summary_json_path.parent.mkdir(parents=True, exist_ok=True)
             command_parts.extend(["--summary-export", shlex.quote(str(summary_json_path))])
 
         command_text = " ".join(command_parts)
-        if env_parts:
-            return f"{' '.join(env_parts)} {command_text}"
-        return command_text
+        if not env_parts:
+            return command_text
+
+        if shell_type == "powershell":
+            env_commands = [f"$env:{name}={shlex.quote(value)};" for name, value in env_parts]
+            return f"{' '.join(env_commands)} {command_text}"
+
+        env_prefix = " ".join(f"{name}={shlex.quote(value)}" for name, value in env_parts)
+        return f"{env_prefix} {command_text}"
 
 
     def _generate_html_summary_report(self, summary_json_path: Path, summary_html_path: Path, on_log) -> None:
