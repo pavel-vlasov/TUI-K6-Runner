@@ -362,6 +362,12 @@ class ConfigHandler:
                 if int_error:
                     errors.append(int_error)
 
+        logging_cfg = source.get("logging", {})
+        if isinstance(logging_cfg, dict) and bool(logging_cfg.get("webDashboard", False)):
+            dashboard_url = logging_cfg.get("webDashboardUrl", "")
+            if not ConfigHandler._is_valid_http_url(dashboard_url):
+                errors.append("k6.logging.webDashboardUrl must be a valid http/https URL when webDashboard is enabled.")
+
         return errors
 
     @staticmethod

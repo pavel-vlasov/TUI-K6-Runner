@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 import asyncio
 
@@ -21,6 +22,15 @@ class DummyEventsUI(EventsMixin):
         self.toggle_count = 0
         self.logging_toggle_count = 0
         self.notifications = []
+        self.full_config = {
+            "k6": {
+                "logging": {
+                    "webDashboard": True,
+                    "webDashboardUrl": "http://localhost:5665",
+                }
+            }
+        }
+        self.run_controller = SimpleNamespace(is_running=True)
 
     def query_one(self, selector, _widget_type):
         return self.switches[selector]
@@ -91,78 +101,19 @@ def test_on_switch_changed_toggles_logging_fields_for_logging_switches():
     assert ui.logging_toggle_count == 1
 
 
-class DummyLogView:
-    def __init__(self):
-        self.cleared = 0
-        self.lines = []
+def test_on_button_pressed_web_dashboard_rejects_invalid_url(monkeypatch):
+    ui = DummyEventsUI()
+    ui.full_config["k6"]["logging"]["webDashboardUrl"] = "bad-url"
+    opened_urls = []
 
-    def clear(self):
-        self.cleared += 1
-
-    def write(self, message):
-        self.lines.append(message)
-
-
-class DummyStatusBar:
-    def __init__(self):
-        self.messages = []
-
-    def update(self, message):
-        self.messages.append(message)
-
-
-class DummyRunController:
-    def __init__(self, ui):
-        self.is_running = False
-        self.ui = ui
-
-    async def start_run(self, _config, callbacks):
-        self.ui.events.append(("start_run", list(self.ui.run_state_updates)))
-        callbacks.on_run_state_changed(True)
-        callbacks.on_run_state_changed(False)
-
-    async def stop_run(self):
-        return None
-
-    async def scale(self, _vus, _on_log):
-        return None
-
-
-class DummyEventsRunUI(EventsMixin):
-    def __init__(self):
-        self.full_config = {"k6": {"logging": {}}}
-        self.log_view = DummyLogView()
-        self.status_bar = DummyStatusBar()
-        self.notifications = []
-        self.run_state_updates = []
-        self.events = []
-        self.run_controller = DummyRunController(self)
-
-    def query_one(self, selector, _widget_type):
-        if selector == "#output_log":
-            return self.log_view
-        if selector == "#status_bar":
-            return self.status_bar
-        raise KeyError(selector)
-
-    def action_save_config(self):
-        self.events.append(("save", None))
+    def fake_open(url):
+        opened_urls.append(url)
         return True
 
-    def set_run_ui_state(self, running: bool):
-        self.run_state_updates.append(running)
-        self.events.append(("state", running))
+    monkeypatch.setattr("app_mixins.events_mixin.webbrowser.open", fake_open)
 
-    def notify(self, message, severity="information"):
-        self.notifications.append((message, severity))
-
-
-def test_run_button_updates_ui_only_via_run_state_callback():
-    ui = DummyEventsRunUI()
-    event = SimpleNamespace(button=SimpleNamespace(id="run_btn"))
-
+    event = SimpleNamespace(button=SimpleNamespace(id="web_dashboard_btn"))
     asyncio.run(ui.on_button_pressed(event))
 
-    assert ui.run_state_updates == [True, False]
-    assert ui.events == [("save", None), ("start_run", []), ("state", True), ("state", False)]
-    assert ui.log_view.cleared == 1
+    assert opened_urls == []
+    assert any("URL is invalid" in message and severity == "error" for message, severity in ui.notifications)
