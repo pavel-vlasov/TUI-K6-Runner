@@ -28,9 +28,7 @@ LOGGING_LEVEL_ALIASES = {
     "all": LOGGING_LEVEL_ALL,
     "failed": LOGGING_LEVEL_FAILED,
     "failed_without_payloads": LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
-    "failures-without-payloads": LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
     "failures_without_payloads": LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
-    "failures - without payloads": LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
 }
 
 

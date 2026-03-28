@@ -1,5 +1,10 @@
 import ui_components as uc
-from constants import HTTP_METHODS, LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
+from constants import (
+    HTTP_METHODS,
+    LOGGING_LEVEL_ALL,
+    LOGGING_LEVEL_FAILED,
+    LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
+)
 
 
 class FakeLabel:
@@ -100,6 +105,19 @@ def test_build_config_fields_normalizes_legacy_logging_level_for_select_value(mo
     fields = uc.build_config_fields({"level": "Failures - without payloads"}, "k6.logging")
     level_row = fields[0]
     assert level_row.children[1].value == LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
+
+
+def test_build_config_fields_logging_select_keeps_canonical_values(monkeypatch):
+    _patch_ui_components(monkeypatch)
+    fields = uc.build_config_fields({"level": "all"}, "k6.logging")
+    level_row = fields[0]
+    option_values = [value for _, value in level_row.children[1].options]
+
+    assert option_values == [
+        LOGGING_LEVEL_ALL,
+        LOGGING_LEVEL_FAILED,
+        LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
+    ]
 
 
 def test_ui_method_select_uses_same_http_methods_as_validation(monkeypatch):

@@ -2,7 +2,13 @@
 import json
 from textual.widgets import Label, Switch, Select, Input, TextArea
 from textual.containers import Horizontal, Vertical
-from constants import HTTP_METHODS, AUTH_MODES, LOGGING_LEVELS, LOGGING_LEVEL_LABELS, normalize_logging_level
+from constants import (
+    HTTP_METHODS,
+    AUTH_MODES,
+    LOGGING_LEVELS,
+    LOGGING_LEVEL_LABELS,
+    normalize_logging_level,
+)
 
 def get_valid_id(key_path, prefix="input"):
     safe_path = key_path.replace(".", "__")
