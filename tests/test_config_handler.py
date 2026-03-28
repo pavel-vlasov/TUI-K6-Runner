@@ -4,6 +4,7 @@ from config_handler import ConfigHandler
 from constants import (
     DEFAULT_CONFIG,
     HTTP_METHODS,
+    LOGGING_LEVEL_ALL,
     LOGGING_LEVEL_FAILED,
     LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
 )
@@ -323,6 +324,44 @@ def test_build_runtime_config_falls_back_to_default_canonical_logging_level():
     )
 
     assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_FAILED
+
+
+def test_build_runtime_config_normalizes_logging_level_with_hyphens_to_canonical():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"mode": "none"},
+            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+            "k6": {
+                "executionType": "Constant VUs",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {"http_req_duration": ["p(95)<500"]},
+                "logging": {"enabled": True, "level": "failures-without-payloads"},
+            },
+        }
+    )
+
+    assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
+
+
+def test_build_runtime_config_normalizes_logging_level_with_spaces_to_canonical():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"mode": "none"},
+            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+            "k6": {
+                "executionType": "Constant VUs",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {"http_req_duration": ["p(95)<500"]},
+                "logging": {"enabled": True, "level": "  ALL  "},
+            },
+        }
+    )
+
+    assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_ALL
 
 
 def test_validate_runtime_config_rejects_non_canonical_logging_level():
