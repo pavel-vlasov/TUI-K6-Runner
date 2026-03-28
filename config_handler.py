@@ -4,11 +4,18 @@ import os
 import re
 import tempfile
 from collections.abc import Mapping
+from pathlib import Path
 from urllib.parse import urlparse
+
+from jsonschema import Draft202012Validator, FormatChecker
 
 from constants import AUTH_MODES, HTTP_METHODS, LOGGING_LEVELS, normalize_logging_level
 
 K6_DURATION_RE = re.compile(r"^\d+(ms|s|m|h)$")
+SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "test_config.schema.json"
+with SCHEMA_PATH.open("r", encoding="utf-8") as schema_file:
+    TEST_CONFIG_SCHEMA = json.load(schema_file)
+TEST_CONFIG_VALIDATOR = Draft202012Validator(TEST_CONFIG_SCHEMA, format_checker=FormatChecker())
 
 
 class ConfigHandler:
@@ -102,6 +109,7 @@ class ConfigHandler:
     def validate_runtime_config(config: dict) -> list[str]:
         errors: list[str] = []
 
+        errors.extend(ConfigHandler.validate_against_schema(config))
         errors.extend(ConfigHandler._validate_base_url(config.get("baseURL", "")))
         errors.extend(ConfigHandler._validate_auth(config.get("auth", {})))
 
@@ -115,6 +123,14 @@ class ConfigHandler:
         errors.extend(ConfigHandler._validate_k6_config(config.get("k6", {})))
 
         return errors
+
+    @staticmethod
+    def validate_against_schema(config: dict) -> list[str]:
+        schema_errors: list[str] = []
+        for error in sorted(TEST_CONFIG_VALIDATOR.iter_errors(config), key=lambda item: list(item.path)):
+            path = ".".join(str(part) for part in error.path) or "<root>"
+            schema_errors.append(f"schema[{path}]: {error.message}")
+        return schema_errors
 
     @staticmethod
     def save_to_file(config: dict, filename: str = "test_config.json") -> None:

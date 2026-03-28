@@ -42,3 +42,66 @@ The launch bootstrap is now in `main.py` only. The main UI and application behav
 - `k6/` — k6 run state, process control, parsing and service/presenter logic
 
 Please make future UI changes in these modules, not in legacy monolithic entrypoint implementations.
+
+## Config schema
+
+В проект добавлена JSON Schema: `schema/test_config.schema.json`.
+Она описывает обязательные поля рантайм-конфига, enum-значения (например, `auth.mode`, `requestEndpoints[].method`, `k6.executionType`, `k6.logging.level`) и условные требования для разных режимов запуска.
+
+Короткие примеры `k6` для каждого `executionType`:
+
+```json
+{
+  "executionType": "external executor",
+  "vus": 1,
+  "duration": "30s",
+  "thresholds": { "http_req_duration": ["p(95)<500"] }
+}
+```
+
+```json
+{
+  "executionType": "Spike Tests",
+  "spikeStages": [
+    { "duration": "30s", "target": 10 },
+    { "duration": "10s", "target": 50 }
+  ],
+  "thresholds": { "http_req_duration": ["p(95)<500"] }
+}
+```
+
+```json
+{
+  "executionType": "Constant VUs",
+  "vus": 5,
+  "duration": "1m",
+  "thresholds": { "http_req_duration": ["p(95)<500"] }
+}
+```
+
+```json
+{
+  "executionType": "Constant Arrival Rate",
+  "rate": 20,
+  "timeUnit": "1s",
+  "duration": "1m",
+  "preAllocatedVUs": 10,
+  "maxVUs": 50,
+  "thresholds": { "http_req_duration": ["p(95)<500"] }
+}
+```
+
+```json
+{
+  "executionType": "Ramping Arrival Rate",
+  "startRate": 1,
+  "timeUnit": "1s",
+  "preAllocatedVUs": 5,
+  "maxVUs": 30,
+  "rampingArrivalStages": [
+    { "duration": "30s", "target": 10 },
+    { "duration": "30s", "target": 20 }
+  ],
+  "thresholds": { "http_req_duration": ["p(95)<500"] }
+}
+```
