@@ -5,8 +5,9 @@ from textual.containers import Horizontal, Vertical
 from constants import HTTP_METHODS, AUTH_MODES, LOGGING_LEVELS, LOGGING_LEVEL_LABELS, normalize_logging_level
 
 def get_valid_id(key_path, prefix="input"):
-    safe_path = key_path.replace('.', '__')
+    safe_path = key_path.replace(".", "__")
     return f"{prefix}___{safe_path}"
+
 
 def build_config_fields(data, parent_path):
     items = []
@@ -15,18 +16,24 @@ def build_config_fields(data, parent_path):
     if parent_path.startswith("requestEndpoints."):
         priority = {"name": 0, "method": 1}
         position = {key: idx for idx, key in enumerate(data.keys())}
-        ordered_items.sort(key=lambda item: (priority.get(item[0], 2), position[item[0]]))
+        ordered_items.sort(
+            key=lambda item: (priority.get(item[0], 2), position[item[0]])
+        )
 
     for k, v in ordered_items:
         multiline_keys = ["headers", "body", "query", "thresholds"]
-        
+
         if isinstance(v, dict) and k not in multiline_keys:
             continue
-        
+
         full_key = f"{parent_path}.{k}"
-        
+
         if k in multiline_keys:
-            val_str = json.dumps(v, indent=2, ensure_ascii=False) if isinstance(v, (dict, list)) else str(v)
+            val_str = (
+                json.dumps(v, indent=2, ensure_ascii=False)
+                if isinstance(v, (dict, list))
+                else str(v)
+            )
 
             ta_widget = TextArea(
                 val_str,
@@ -38,20 +45,19 @@ def build_config_fields(data, parent_path):
             ta_widget.show_line_numbers = False
             ta_widget.highlight_cursor_line = False
 
-            items.append(Vertical(
-                Label(f"{k}:"),
-                ta_widget,
-                classes="field-row-multiline"
-            ))
+            items.append(
+                Vertical(Label(f"{k}:"), ta_widget, classes="field-row-multiline")
+            )
 
-            
         elif isinstance(v, bool):
             label = Label(f"{k}:", classes="field-label")
             widget = Switch(v, id=get_valid_id(full_key, "bool"))
             items.append(Horizontal(label, widget, classes="field-row"))
-            
-        elif k == "method" or (k == "level" and parent_path == "k6.logging") or (
-            k == "mode" and parent_path == "auth"
+
+        elif (
+            k == "method"
+            or (k == "level" and parent_path == "k6.logging")
+            or (k == "mode" and parent_path == "auth")
         ):
             label = Label(f"{k}:", classes="field-label")
             if k == "method":
@@ -66,11 +72,11 @@ def build_config_fields(data, parent_path):
                 v = normalize_logging_level(v)
             widget = Select(option_pairs, value=v, id=get_valid_id(full_key, "select"))
             items.append(Horizontal(label, widget, classes="field-row"))
-            
+
         else:
             label = Label(f"{k}:", classes="field-label")
             val_str = str(v)
             widget = Input(val_str, id=get_valid_id(full_key, "input"))
             items.append(Horizontal(label, widget, classes="field-row"))
-            
+
     return items

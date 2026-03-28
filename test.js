@@ -11,6 +11,7 @@ const requestEndpointsRaw = Array.isArray(config.requestEndpoints) ? config.requ
 const authConfig = config.auth || {};
 const k6cfg = config.k6 || {};
 let logConfig = k6cfg.logging || { enabled: false, level: 'off' };
+const LOGGING_LEVELS = ['all', 'failed', 'failures - without payloads'];
 
 // --- Normalize & validate logging config ---
 logConfig.enabled = String(logConfig.enabled).toLowerCase() === 'true' || logConfig.enabled === true;

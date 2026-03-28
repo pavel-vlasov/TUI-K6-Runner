@@ -1,6 +1,5 @@
 import asyncio
 from types import SimpleNamespace
-import asyncio
 
 from app_mixins.events_mixin import EventsMixin
 
@@ -49,6 +48,9 @@ class DummyLogView:
     def __init__(self):
         self.lines = [DummyLogLine("line 1"), DummyLogLine("line 2")]
 
+    def write(self, _message):
+        return None
+
 
 class DummyStatusBar:
     def update(self, _message):
@@ -58,16 +60,22 @@ class DummyStatusBar:
 class DummyButtonUI(EventsMixin):
     def __init__(self):
         self.notifications = []
+        self.scale_calls = []
         self.widgets = {
             "#output_log": DummyLogView(),
             "#status_bar": DummyStatusBar(),
+            "#vu_input": SimpleNamespace(value=""),
         }
+        self.run_controller = SimpleNamespace(is_running=False, scale=self._scale)
 
     def query_one(self, selector, _widget_type):
         return self.widgets[selector]
 
     def notify(self, message, severity="information"):
         self.notifications.append((message, severity))
+
+    async def _scale(self, vu_value, _on_log):
+        self.scale_calls.append(vu_value)
 
 
 def test_on_switch_changed_no_auth_disables_other_auth_modes():
@@ -90,7 +98,9 @@ def test_with_cache_busting_query_keeps_existing_params():
 
 def test_on_switch_changed_toggles_logging_fields_for_logging_switches():
     ui = DummyEventsUI()
-    event = SimpleNamespace(switch=SimpleNamespace(id="bool___k6__logging__enabled"), value=True)
+    event = SimpleNamespace(
+        switch=SimpleNamespace(id="bool___k6__logging__enabled"), value=True
+    )
 
     ui.on_switch_changed(event)
 
@@ -100,16 +110,19 @@ def test_on_switch_changed_toggles_logging_fields_for_logging_switches():
 def test_on_button_pressed_web_dashboard_rejects_invalid_url(monkeypatch):
     ui = DummyEventsUI()
     ui.full_config["k6"]["logging"]["webDashboardUrl"] = "bad-url"
-    opened_urls = []
+    ui.run_controller = SimpleNamespace(is_running=True)
+    event = SimpleNamespace(button=SimpleNamespace(id="web_dashboard_btn"))
+    monkeypatch.setattr("app_mixins.events_mixin.webbrowser.open", lambda _url: True)
 
-    def fake_open(url):
-        opened_urls.append(url)
-        return True
+    asyncio.run(ui.on_button_pressed(event))
 
-    assert ui.logging_toggle_count == 1
+    assert ui.notifications[-1][1] == "error"
+    assert "Web Dashboard URL is invalid" in ui.notifications[-1][0]
 
 
-def test_on_button_pressed_copy_btn_notify_warning_when_clipboard_copy_fails(monkeypatch):
+def test_on_button_pressed_copy_btn_notify_warning_when_clipboard_copy_fails(
+    monkeypatch,
+):
     ui = DummyButtonUI()
     event = SimpleNamespace(button=SimpleNamespace(id="copy_btn"))
 
@@ -122,3 +135,14 @@ def test_on_button_pressed_copy_btn_notify_warning_when_clipboard_copy_fails(mon
 
     assert ui.notifications[-1][1] == "warning"
     assert "clipboard backend" in ui.notifications[-1][0]
+
+
+def test_on_button_pressed_apply_vu_btn_invalid_input_shows_warning_and_does_not_scale():
+    ui = DummyButtonUI()
+    ui.widgets["#vu_input"].value = "abc"
+    event = SimpleNamespace(button=SimpleNamespace(id="apply_vu_btn"))
+
+    asyncio.run(ui.on_button_pressed(event))
+
+    assert ui.notifications[-1] == ("Please enter a valid VU value (positive integer).", "warning")
+    assert ui.scale_calls == []
