@@ -14,6 +14,7 @@ from textual.widgets import (
     TabPane,
 )
 
+from constants import LOGGING_LEVELS, LOGGING_LEVEL_LABELS, normalize_logging_level
 from ui_components import build_config_fields
 
 
@@ -101,10 +102,7 @@ class UIMixin:
             self.query_one(row_id, Horizontal).styles.display = "block" if oauth_enabled else "none"
 
     def _normalize_logging_level(self, raw_value: object) -> str:
-        allowed_levels = {"all", "failed", "Failures - without payloads"}
-        if raw_value in allowed_levels:
-            return str(raw_value)
-        return "failed"
+        return normalize_logging_level(raw_value)
 
     def toggle_logging_fields(self) -> None:
         logging_enabled_switch = self.query_one("#bool___k6__logging__enabled", Switch)
@@ -338,9 +336,8 @@ class UIMixin:
                                 Label("level:", classes="field-label", id="logging_level_label"),
                                 Select(
                                     [
-                                        ("all", "all"),
-                                        ("failed", "failed"),
-                                        ("Failures - without payloads", "Failures - without payloads"),
+                                        (LOGGING_LEVEL_LABELS[level], level)
+                                        for level in LOGGING_LEVELS
                                     ],
                                     value=self._normalize_logging_level(log_data.get("level", "failed")),
                                     id="select___k6__logging__level",

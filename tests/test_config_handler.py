@@ -2,7 +2,12 @@ from pathlib import Path
 from copy import deepcopy
 
 from config_handler import ConfigHandler
-from constants import DEFAULT_CONFIG, HTTP_METHODS
+from constants import (
+    DEFAULT_CONFIG,
+    HTTP_METHODS,
+    LOGGING_LEVEL_FAILED,
+    LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
+)
 
 
 def _base_runtime() -> dict:
@@ -207,6 +212,53 @@ def test_validate_runtime_config_rejects_invalid_web_dashboard_url_when_enabled(
     errors = ConfigHandler.validate_runtime_config(runtime)
 
     assert any("k6.logging.webDashboardUrl" in error for error in errors)
+
+
+def test_build_runtime_config_normalizes_legacy_logging_level_to_canonical_wire_format():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"mode": "none"},
+            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+            "k6": {
+                "executionType": "Constant VUs",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {"http_req_duration": ["p(95)<500"]},
+                "logging": {"enabled": True, "level": "Failures - without payloads"},
+            },
+        }
+    )
+
+    assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
+
+
+def test_build_runtime_config_falls_back_to_default_canonical_logging_level():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"mode": "none"},
+            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+            "k6": {
+                "executionType": "Constant VUs",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {"http_req_duration": ["p(95)<500"]},
+                "logging": {"enabled": True, "level": "INVALID"},
+            },
+        }
+    )
+
+    assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_FAILED
+
+
+def test_validate_runtime_config_rejects_non_canonical_logging_level():
+    runtime = _base_runtime()
+    runtime["k6"]["logging"] = {"enabled": True, "level": "Failures - without payloads"}
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert any("k6.logging.level is invalid" in error for error in errors)
 
 
 def test_validate_runtime_config_rejects_invalid_stage_shape():

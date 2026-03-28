@@ -146,6 +146,7 @@ def test_normalize_logging_level_falls_back_for_invalid_values():
 
     assert ui._normalize_logging_level("failed") == "failed"
     assert ui._normalize_logging_level("all") == "all"
+    assert ui._normalize_logging_level("Failures - without payloads") == "failed_without_payloads"
     assert ui._normalize_logging_level("Select.BLANK") == "failed"
     assert ui._normalize_logging_level("") == "failed"
     assert ui._normalize_logging_level(None) == "failed"

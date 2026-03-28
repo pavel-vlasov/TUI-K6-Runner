@@ -14,8 +14,29 @@ let logConfig = k6cfg.logging || { enabled: false, level: 'off' };
 
 // --- Normalize & validate logging config ---
 logConfig.enabled = String(logConfig.enabled).toLowerCase() === 'true' || logConfig.enabled === true;
-logConfig.level = (logConfig.level || 'off').toLowerCase();
-if (!['off', 'failed', 'all', 'failures - without payloads'].includes(logConfig.level)) logConfig.level = 'off';
+
+const LOG_LEVEL_OFF = 'off';
+const LOG_LEVEL_ALL = 'all';
+const LOG_LEVEL_FAILED = 'failed';
+const LOG_LEVEL_FAILED_WITHOUT_PAYLOADS = 'failed_without_payloads';
+
+function normalizeLoggingLevel(rawLevel) {
+  const key = String(rawLevel || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  const aliases = {
+    all: LOG_LEVEL_ALL,
+    failed: LOG_LEVEL_FAILED,
+    failed_without_payloads: LOG_LEVEL_FAILED_WITHOUT_PAYLOADS,
+    failures_without_payloads: LOG_LEVEL_FAILED_WITHOUT_PAYLOADS,
+  };
+
+  return aliases[key] || LOG_LEVEL_OFF;
+}
+
+logConfig.level = normalizeLoggingLevel(logConfig.level);
 
 function resolveAuthMode(auth) {
   const mode = String(auth.mode || '').trim();
@@ -128,9 +149,9 @@ function buildSingleRequest(endpoint, data, correlationId) {
 }
 
 function logRequestResult(req, res, ok, correlationId) {
-  const failedWithoutPayloads = logConfig.enabled && logConfig.level === 'failures - without payloads';
+  const failedWithoutPayloads = logConfig.enabled && logConfig.level === LOG_LEVEL_FAILED_WITHOUT_PAYLOADS;
 
-  if (logConfig.enabled && (logConfig.level === 'all' || (!ok && logConfig.level === 'failed'))) {
+  if (logConfig.enabled && (logConfig.level === LOG_LEVEL_ALL || (!ok && logConfig.level === LOG_LEVEL_FAILED))) {
     let prettyResBody;
     try {
       prettyResBody = JSON.stringify(JSON.parse(res.body), null, 2);

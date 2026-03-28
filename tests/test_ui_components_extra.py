@@ -1,5 +1,5 @@
 import ui_components as uc
-from constants import HTTP_METHODS
+from constants import HTTP_METHODS, LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
 
 
 class FakeLabel:
@@ -91,8 +91,15 @@ def test_build_config_fields_supports_multiline_and_bool_and_logging_level(monke
     assert switch_row.children[1].id.startswith("bool___")
 
     level_row = next(field for field in fields if isinstance(field.children[1], FakeSelect))
-    assert ("failed", "failed") in level_row.children[1].options
-    assert ("Failures - without payloads", "Failures - without payloads") in level_row.children[1].options
+    assert ("Failed only", "failed") in level_row.children[1].options
+    assert ("Failed (without payloads)", LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS) in level_row.children[1].options
+
+
+def test_build_config_fields_normalizes_legacy_logging_level_for_select_value(monkeypatch):
+    _patch_ui_components(monkeypatch)
+    fields = uc.build_config_fields({"level": "Failures - without payloads"}, "k6.logging")
+    level_row = fields[0]
+    assert level_row.children[1].value == LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
 
 
 def test_ui_method_select_uses_same_http_methods_as_validation(monkeypatch):

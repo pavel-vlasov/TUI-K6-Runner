@@ -6,7 +6,7 @@ import tempfile
 from collections.abc import Mapping
 from urllib.parse import urlparse
 
-from constants import AUTH_MODES, HTTP_METHODS
+from constants import AUTH_MODES, HTTP_METHODS, LOGGING_LEVELS, normalize_logging_level
 
 K6_DURATION_RE = re.compile(r"^\d+(ms|s|m|h)$")
 
@@ -229,7 +229,7 @@ class ConfigHandler:
         source = logging_cfg if isinstance(logging_cfg, dict) else {}
         return {
             "enabled": bool(source.get("enabled", False)),
-            "level": str(source.get("level", "failed")),
+            "level": normalize_logging_level(source.get("level", "failed")),
             "outputToUI": bool(source.get("outputToUI", True)),
             "webDashboard": bool(source.get("webDashboard", False)),
             "webDashboardUrl": str(source.get("webDashboardUrl", "http://localhost:5665")).strip(),
@@ -352,10 +352,15 @@ class ConfigHandler:
                     errors.append(int_error)
 
         logging_cfg = source.get("logging", {})
-        if isinstance(logging_cfg, dict) and bool(logging_cfg.get("webDashboard", False)):
-            dashboard_url = logging_cfg.get("webDashboardUrl", "")
-            if not ConfigHandler._is_valid_http_url(dashboard_url):
-                errors.append("k6.logging.webDashboardUrl must be a valid http/https URL when webDashboard is enabled.")
+        if isinstance(logging_cfg, dict):
+            logging_level = str(logging_cfg.get("level", "")).strip()
+            if logging_level and logging_level not in LOGGING_LEVELS:
+                errors.append(f"k6.logging.level is invalid: {logging_level}.")
+
+            if bool(logging_cfg.get("webDashboard", False)):
+                dashboard_url = logging_cfg.get("webDashboardUrl", "")
+                if not ConfigHandler._is_valid_http_url(dashboard_url):
+                    errors.append("k6.logging.webDashboardUrl must be a valid http/https URL when webDashboard is enabled.")
 
         return errors
 
