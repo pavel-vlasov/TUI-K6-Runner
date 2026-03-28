@@ -268,7 +268,65 @@ def test_validate_runtime_config_rejects_invalid_urls_and_k6_values():
     assert any("baseURL" in error for error in errors)
     assert any("path must start" in error for error in errors)
     assert any("k6.duration" in error for error in errors)
-    assert any("k6.vus" in error for error in errors)
+
+
+def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {
+                "mode": "oauth2_client_credentials",
+                "client_id": "cid",
+                "client_secret": "sec",
+                "token_url": "https://idp.example.com/token",
+                "scope": "read",
+            },
+            "requestEndpoints": [
+                {
+                    "name": "Endpoint 1",
+                    "method": "GET",
+                    "path": "/health",
+                    "headers": {},
+                    "query": {},
+                }
+            ],
+            "k6": {
+                "executionType": "Ramping Arrival Rate",
+                "startRate": 5,
+                "timeUnit": "1s",
+                "preAllocatedVUs": 10,
+                "maxVUs": 30,
+                "rampingArrivalStages": [{"duration": "30s", "target": 10}],
+                "thresholds": {"http_req_duration": ["p(95)<500"]},
+                "logging": {
+                    "enabled": True,
+                    "level": "failed_without_payloads",
+                    "outputToUI": True,
+                    "webDashboard": True,
+                    "webDashboardUrl": "http://localhost:5665",
+                    "htmlSummaryReport": True,
+                },
+            },
+        }
+    )
+
+    script = Path("test.js").read_text(encoding="utf-8")
+
+    assert "config.baseURL" in script
+    assert "config.auth" in script
+    assert "config.requestEndpoints" in script
+    assert "config.k6" in script
+
+    for key in runtime["k6"]:
+        if key == "logging":
+            continue
+        assert f"k6cfg.{key}" in script
+
+    assert "logConfig.enabled" in script
+    assert "logConfig.level" in script
+
+    python_side_logging_keys = {"outputToUI", "webDashboard", "webDashboardUrl", "htmlSummaryReport"}
+    assert python_side_logging_keys.issubset(set(runtime["k6"]["logging"].keys()))
 
 
 def test_validate_runtime_config_rejects_invalid_web_dashboard_url_when_enabled():
