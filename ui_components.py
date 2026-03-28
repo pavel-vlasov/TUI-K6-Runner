@@ -27,14 +27,14 @@ def build_config_fields(data, parent_path):
         
         if k in multiline_keys:
             val_str = json.dumps(v, indent=2, ensure_ascii=False) if isinstance(v, (dict, list)) else str(v)
-            
+
             ta_widget = TextArea(
-                val_str, 
-                id=get_valid_id(full_key, "input"), 
+                val_str,
+                id=get_valid_id(full_key, "input"),
                 language="json",
-                soft_wrap=True
             )
-            
+            if hasattr(ta_widget, "soft_wrap"):
+                ta_widget.soft_wrap = True
             ta_widget.show_line_numbers = False
             ta_widget.highlight_cursor_line = False
 
