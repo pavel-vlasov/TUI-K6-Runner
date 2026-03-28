@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import asyncio
 
 from app_mixins.events_mixin import EventsMixin
 
@@ -88,3 +89,80 @@ def test_on_switch_changed_toggles_logging_fields_for_logging_switches():
     ui.on_switch_changed(event)
 
     assert ui.logging_toggle_count == 1
+
+
+class DummyLogView:
+    def __init__(self):
+        self.cleared = 0
+        self.lines = []
+
+    def clear(self):
+        self.cleared += 1
+
+    def write(self, message):
+        self.lines.append(message)
+
+
+class DummyStatusBar:
+    def __init__(self):
+        self.messages = []
+
+    def update(self, message):
+        self.messages.append(message)
+
+
+class DummyRunController:
+    def __init__(self, ui):
+        self.is_running = False
+        self.ui = ui
+
+    async def start_run(self, _config, callbacks):
+        self.ui.events.append(("start_run", list(self.ui.run_state_updates)))
+        callbacks.on_run_state_changed(True)
+        callbacks.on_run_state_changed(False)
+
+    async def stop_run(self):
+        return None
+
+    async def scale(self, _vus, _on_log):
+        return None
+
+
+class DummyEventsRunUI(EventsMixin):
+    def __init__(self):
+        self.full_config = {"k6": {"logging": {}}}
+        self.log_view = DummyLogView()
+        self.status_bar = DummyStatusBar()
+        self.notifications = []
+        self.run_state_updates = []
+        self.events = []
+        self.run_controller = DummyRunController(self)
+
+    def query_one(self, selector, _widget_type):
+        if selector == "#output_log":
+            return self.log_view
+        if selector == "#status_bar":
+            return self.status_bar
+        raise KeyError(selector)
+
+    def action_save_config(self):
+        self.events.append(("save", None))
+        return True
+
+    def set_run_ui_state(self, running: bool):
+        self.run_state_updates.append(running)
+        self.events.append(("state", running))
+
+    def notify(self, message, severity="information"):
+        self.notifications.append((message, severity))
+
+
+def test_run_button_updates_ui_only_via_run_state_callback():
+    ui = DummyEventsRunUI()
+    event = SimpleNamespace(button=SimpleNamespace(id="run_btn"))
+
+    asyncio.run(ui.on_button_pressed(event))
+
+    assert ui.run_state_updates == [True, False]
+    assert ui.events == [("save", None), ("start_run", []), ("state", True), ("state", False)]
+    assert ui.log_view.cleared == 1

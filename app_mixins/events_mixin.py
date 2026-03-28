@@ -93,7 +93,6 @@ class EventsMixin:
             if not self.action_save_config():
                 return
 
-            self.set_run_ui_state(self.run_controller.is_running)
             log_view.clear()
             self.notify("Running K6 execution...")
 
