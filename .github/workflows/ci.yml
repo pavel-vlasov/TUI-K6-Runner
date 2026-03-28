@@ -28,13 +28,14 @@ jobs:
           pip install pip-audit
 
       - name: Smoke tests
-        id: smoke
+        id: smoke_tests
         continue-on-error: true
         run: |
           PYTHONPATH=. pytest -q tests/test_process_manager.py tests/test_k6_service.py
 
       - name: Lint (ruff check)
-        id: lint
+        id: lint_check
+        continue-on-error: true
         run: |
           ruff check .
 
@@ -51,7 +52,7 @@ jobs:
           PYTHONPATH=. pytest --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing
 
       - name: Dependency check
-        id: dependency
+        id: dependency_check
         continue-on-error: true
         run: |
           pip-audit
@@ -102,7 +103,7 @@ jobs:
             dist/tui-k6-runner-source.zip
 
       - name: Fail workflow if any stage failed
-        if: steps.smoke.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.unit_tests.outcome == 'failure' || steps.coverage.outcome == 'failure' || steps.dependency.outcome == 'failure' || steps.test_report.outcome == 'failure' || steps.build.outcome == 'failure'
+        if: always() && (steps.smoke_tests.outcome == 'failure' || steps.lint_check.outcome == 'failure' || steps.unit_tests.outcome == 'failure' || steps.coverage.outcome == 'failure' || steps.dependency_check.outcome == 'failure' || steps.test_report.outcome == 'failure' || steps.build.outcome == 'failure')
         run: |
           echo "One or more CI stages failed."
           exit 1
