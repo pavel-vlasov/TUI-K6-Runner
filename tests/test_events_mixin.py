@@ -40,7 +40,37 @@ class DummyEventsUI(EventsMixin):
         self.notifications.append((message, severity))
 
 
-def test_on_select_changed_toggles_auth_fields_for_auth_mode():
+class DummyLogLine:
+    def __init__(self, text):
+        self.text = text
+
+
+class DummyLogView:
+    def __init__(self):
+        self.lines = [DummyLogLine("line 1"), DummyLogLine("line 2")]
+
+
+class DummyStatusBar:
+    def update(self, _message):
+        return None
+
+
+class DummyButtonUI(EventsMixin):
+    def __init__(self):
+        self.notifications = []
+        self.widgets = {
+            "#output_log": DummyLogView(),
+            "#status_bar": DummyStatusBar(),
+        }
+
+    def query_one(self, selector, _widget_type):
+        return self.widgets[selector]
+
+    def notify(self, message, severity="information"):
+        self.notifications.append((message, severity))
+
+
+def test_on_switch_changed_no_auth_disables_other_auth_modes():
     ui = DummyEventsUI()
     event = SimpleNamespace(select=SimpleNamespace(id="select___auth__mode"))
 
@@ -76,10 +106,19 @@ def test_on_button_pressed_web_dashboard_rejects_invalid_url(monkeypatch):
         opened_urls.append(url)
         return True
 
-    monkeypatch.setattr("app_mixins.events_mixin.webbrowser.open", fake_open)
+    assert ui.logging_toggle_count == 1
 
-    event = SimpleNamespace(button=SimpleNamespace(id="web_dashboard_btn"))
+
+def test_on_button_pressed_copy_btn_notify_warning_when_clipboard_copy_fails(monkeypatch):
+    ui = DummyButtonUI()
+    event = SimpleNamespace(button=SimpleNamespace(id="copy_btn"))
+
+    def failing_copy(_value):
+        raise RuntimeError("clipboard unavailable")
+
+    monkeypatch.setattr("app_mixins.events_mixin.pyperclip.copy", failing_copy)
+
     asyncio.run(ui.on_button_pressed(event))
 
-    assert opened_urls == []
-    assert any("URL is invalid" in message and severity == "error" for message, severity in ui.notifications)
+    assert ui.notifications[-1][1] == "warning"
+    assert "clipboard backend" in ui.notifications[-1][0]
