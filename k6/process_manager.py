@@ -70,18 +70,42 @@ class K6ProcessManager:
                 web_dashboard_url,
             )
 
-    async def stop(self) -> bool:
-        if self.process and self.process.returncode is None:
-            try:
-                if platform.system() == "Windows":
-                    os.kill(self.process.pid, signal.CTRL_BREAK_EVENT)
-                else:
-                    self.process.send_signal(signal.SIGINT)
-                return True
-            except Exception:
-                if self.process:
-                    self.process.terminate()
-        return False
+    async def stop(self, timeout: float = 5.0) -> bool:
+        if not self.process:
+            return False
+
+        if self.process.returncode is not None:
+            return True
+
+        try:
+            if platform.system() == "Windows":
+                os.kill(self.process.pid, signal.CTRL_BREAK_EVENT)
+            else:
+                self.process.send_signal(signal.SIGINT)
+        except Exception:
+            logger.exception("Failed to send graceful stop signal, escalating to terminate().")
+            self.process.terminate()
+
+        try:
+            await asyncio.wait_for(self.process.wait(), timeout=timeout)
+            return self.process.returncode is not None
+        except asyncio.TimeoutError:
+            logger.warning("Graceful stop timed out after %.2fs, escalating to terminate().", timeout)
+
+        self.process.terminate()
+        try:
+            await asyncio.wait_for(self.process.wait(), timeout=timeout)
+            return self.process.returncode is not None
+        except asyncio.TimeoutError:
+            logger.warning("Terminate timed out after %.2fs, escalating to kill().", timeout)
+
+        self.process.kill()
+        try:
+            await asyncio.wait_for(self.process.wait(), timeout=timeout)
+            return self.process.returncode is not None
+        except asyncio.TimeoutError:
+            logger.error("Kill timed out after %.2fs.", timeout)
+            return False
 
     async def scale(self, target_vus: int) -> tuple[int, bytes, bytes]:
         process = await asyncio.create_subprocess_exec(
