@@ -1,12 +1,12 @@
 # TUI-K6-Runner
 
-[![CI / workflow status](https://img.shields.io/github/actions/workflow/status/<user>/<repo>/ci.yml?branch=main&label=ci)](../../actions/workflows/ci.yml)
-[![Lint status](https://img.shields.io/github/actions/workflow/status/<user>/<repo>/ci.yml?branch=main&label=lint)](../../actions/workflows/ci.yml)
-[![Unit tests status](https://img.shields.io/github/actions/workflow/status/<user>/<repo>/ci.yml?branch=main&label=unit%20tests)](../../actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/codecov/c/github/<user>/<repo>?label=coverage)](https://codecov.io/gh/<user>/<repo>)
+[![CI / workflow status](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![Lint status](https://img.shields.io/badge/lint-ruff%20check-informational)](../../actions/workflows/ci.yml)
+[![Unit tests status](https://img.shields.io/badge/tests-pytest-informational)](../../actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-generated%20in%20CI-blue)](../../actions/workflows/ci.yml)
 [![Python version](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/downloads/release/python-3110/)
-[![Dependency status](https://img.shields.io/github/dependabot/updates/<user>/<repo>?label=dependabot)](../../security/dependabot)
-[![Test report available](https://img.shields.io/badge/report-latest-success)](../../actions/workflows/ci.yml)
+[![Dependency status](https://img.shields.io/badge/dependency-pip--audit%20%2B%20Dependabot-informational)](../../security/dependabot)
+[![Test report available](https://img.shields.io/badge/report-pytest--report.xml-success)](../../actions/workflows/ci.yml)
 
 <img width="1102" height="618" alt="image" src="https://github.com/user-attachments/assets/c4d43c8a-66bf-4ee4-aac3-feb11462fb2d" />
 
