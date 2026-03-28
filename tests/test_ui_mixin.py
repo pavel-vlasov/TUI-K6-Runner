@@ -7,7 +7,7 @@ class DummyButton:
         self.display = True
 
 
-class DummySwitch:
+class DummyValueWidget:
     def __init__(self, value=False):
         self.value = value
 
@@ -28,7 +28,7 @@ class DummyWidget:
 
 
 class DummyUI(UIMixin):
-    def __init__(self, web_dashboard_enabled: bool, use_oauth2: bool = False, no_auth: bool = False):
+    def __init__(self, web_dashboard_enabled: bool, auth_mode: str = "none"):
         self.full_config = {"k6": {"logging": {"webDashboard": web_dashboard_enabled}}}
         self.buttons = {
             "#run_btn": DummyButton(),
@@ -36,9 +36,8 @@ class DummyUI(UIMixin):
             "#apply_vu_btn": DummyButton(),
             "#web_dashboard_btn": DummyButton(),
         }
-        self.auth_switches = {
-            "#bool___auth__useOAuth2": DummySwitch(use_oauth2),
-            "#auth_noauth_switch": DummySwitch(no_auth),
+        self.auth_selects = {
+            "#select___auth__mode": DummyValueWidget(auth_mode),
         }
         self.auth_rows = {
             "#auth_row__client_id": DummyRow(),
@@ -47,8 +46,8 @@ class DummyUI(UIMixin):
             "#auth_oauth_row__scope": DummyRow(),
         }
         self.logging_switches = {
-            "#bool___k6__logging__enabled": DummySwitch(False),
-            "#bool___k6__logging__webDashboard": DummySwitch(False),
+            "#bool___k6__logging__enabled": DummyValueWidget(False),
+            "#bool___k6__logging__webDashboard": DummyValueWidget(False),
         }
         self.logging_widgets = {
             "#logging_level_label": DummyWidget(),
@@ -60,8 +59,8 @@ class DummyUI(UIMixin):
     def query_one(self, selector, _widget_type):
         if selector in self.buttons:
             return self.buttons[selector]
-        if selector in self.auth_switches:
-            return self.auth_switches[selector]
+        if selector in self.auth_selects:
+            return self.auth_selects[selector]
         if selector in self.auth_rows:
             return self.auth_rows[selector]
         if selector in self.logging_switches:
@@ -90,7 +89,7 @@ def test_web_dashboard_button_visible_and_disabled_when_feature_off():
 
 
 def test_toggle_auth_fields_hides_client_fields_for_no_auth():
-    ui = DummyUI(web_dashboard_enabled=False, no_auth=True)
+    ui = DummyUI(web_dashboard_enabled=False, auth_mode="none")
 
     ui.toggle_auth_fields()
 
@@ -99,12 +98,21 @@ def test_toggle_auth_fields_hides_client_fields_for_no_auth():
 
 
 def test_toggle_auth_fields_shows_client_fields_when_auth_selected():
-    ui = DummyUI(web_dashboard_enabled=False, no_auth=False)
+    ui = DummyUI(web_dashboard_enabled=False, auth_mode="basic")
 
     ui.toggle_auth_fields()
 
     assert ui.auth_rows["#auth_row__client_id"].styles.display == "block"
     assert ui.auth_rows["#auth_row__client_secret"].styles.display == "block"
+
+
+def test_toggle_auth_fields_shows_oauth_rows_only_for_oauth_mode():
+    ui = DummyUI(web_dashboard_enabled=False, auth_mode="oauth2_client_credentials")
+
+    ui.toggle_auth_fields()
+
+    assert ui.auth_rows["#auth_oauth_row__token_url"].styles.display == "block"
+    assert ui.auth_rows["#auth_oauth_row__scope"].styles.display == "block"
 
 
 def test_toggle_logging_fields_hides_level_and_dashboard_url_when_switches_off():

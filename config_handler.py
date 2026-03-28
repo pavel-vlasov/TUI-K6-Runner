@@ -159,9 +159,6 @@ class ConfigHandler:
         mode = ConfigHandler._normalize_auth_mode(source)
         runtime = {
             "mode": mode,
-            "useOAuth2": mode == "oauth2_client_credentials",
-            "basicauth": mode == "basic",
-            "ClientId_Enforcement": mode == "client_id_enforcement",
             "client_id": str(source.get("client_id", "")).strip(),
             "client_secret": str(source.get("client_secret", "")).strip(),
         }
@@ -255,14 +252,6 @@ class ConfigHandler:
         explicit_mode = str(source.get("mode", "")).strip()
         if explicit_mode and explicit_mode not in AUTH_MODES:
             errors.append(f"auth.mode is invalid: {explicit_mode}.")
-
-        legacy_enabled = [
-            bool(source.get("useOAuth2")),
-            bool(source.get("basicauth")),
-            bool(source.get("ClientId_Enforcement")),
-        ]
-        if sum(legacy_enabled) > 1:
-            errors.append("Only one auth mode can be enabled at a time.")
 
         if mode in {"oauth2_client_credentials", "basic", "client_id_enforcement"}:
             if not str(source.get("client_id", "")).strip() or not str(source.get("client_secret", "")).strip():

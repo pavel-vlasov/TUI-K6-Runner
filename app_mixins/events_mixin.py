@@ -8,7 +8,6 @@ from textual.widgets import Button, Input, RichLog, Select, Static, Switch, Text
 
 from application import RunCallbacks
 from config_handler import ConfigHandler
-from constants import AUTH_MAP
 
 
 class EventsMixin:
@@ -16,32 +15,14 @@ class EventsMixin:
         if not event.switch.id:
             return
 
-        if event.switch.id == "auth_noauth_switch" and event.value is True:
-            for sw_id in AUTH_MAP:
-                self.query_one(f"#{sw_id}", Switch).value = False
-            self.toggle_auth_fields()
-            return
-
-        if event.switch.id in AUTH_MAP and event.value is True:
-            self.query_one("#auth_noauth_switch", Switch).value = False
-            for sw_id in AUTH_MAP:
-                if sw_id != event.switch.id:
-                    self.query_one(f"#{sw_id}", Switch).value = False
-
-        if event.switch.id in AUTH_MAP or event.switch.id == "auth_noauth_switch":
-            all_auth_switches = [self.query_one(f"#{sw_id}", Switch) for sw_id in AUTH_MAP]
-            no_auth_switch = self.query_one("#auth_noauth_switch", Switch)
-            if not any(sw.value for sw in [*all_auth_switches, no_auth_switch]):
-                event.switch.value = True
-                self.notify("At least one Auth mode must stay enabled.", severity="warning")
-            self.toggle_auth_fields()
-
         if event.switch.id in {"bool___k6__logging__enabled", "bool___k6__logging__webDashboard"}:
             self.toggle_logging_fields()
 
     def on_select_changed(self, event: Select.Changed):
         if event.select.id == "select___k6__executionType":
             self.toggle_execution_type_fields()
+        if event.select.id == "select___auth__mode":
+            self.toggle_auth_fields()
 
     async def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "web_dashboard_btn":

@@ -17,16 +17,24 @@ logConfig.enabled = String(logConfig.enabled).toLowerCase() === 'true' || logCon
 logConfig.level = (logConfig.level || 'off').toLowerCase();
 if (!['off', 'failed', 'all', 'failures - without payloads'].includes(logConfig.level)) logConfig.level = 'off';
 
-// --- Validate auth modes ---
-(function () {
-  const modes = [
-    authConfig.useOAuth2 ? 'OAuth2' : null,
-    authConfig.basicauth ? 'BasicAuth' : null,
-    authConfig.ClientId_Enforcement ? 'ClientId_Enforcement' : null,
+function resolveAuthMode(auth) {
+  const mode = String(auth.mode || '').trim();
+  if (mode) return mode;
+
+  const legacyModes = [
+    auth.useOAuth2 ? 'oauth2_client_credentials' : null,
+    auth.basicauth ? 'basic' : null,
+    auth.ClientId_Enforcement ? 'client_id_enforcement' : null,
   ].filter(Boolean);
-  if (modes.length > 1)
-    throw new Error('❌ Multiple auth modes enabled simultaneously: ' + modes.join(', '));
-})();
+
+  if (legacyModes.length === 1) return legacyModes[0];
+  if (legacyModes.length > 1) {
+    throw new Error('❌ Multiple legacy auth modes enabled simultaneously: ' + legacyModes.join(', '));
+  }
+  return 'none';
+}
+
+const authMode = resolveAuthMode(authConfig);
 
 function encodingBase64(str) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
@@ -244,23 +252,27 @@ export let options = {
 export function setup() {
   const headers = {};
 
-  if (!authConfig.useOAuth2 && !authConfig.basicauth && !authConfig.ClientId_Enforcement) {
+  if (authMode === 'none') {
     console.log('🔓 Using no auth');
     return { authType: 'none' };
   }
 
-  if (authConfig.basicauth) {
+  if (authMode === 'basic') {
     const encoded = encodingBase64(`${authConfig.client_id}:${authConfig.client_secret}`);
     headers['Authorization'] = `Basic ${encoded}`;
     console.log('🔐 Using Basic Auth');
     return { authType: 'basic', authHeaders: headers };
   }
 
-  if (authConfig.ClientId_Enforcement) {
+  if (authMode === 'client_id_enforcement') {
     headers['client_id'] = authConfig.client_id;
     headers['client_secret'] = authConfig.client_secret;
     console.log('🔐 Using ClientId_Enforcement (client_id and client_secret in headers)');
     return { authType: 'clientid_headers', authHeaders: headers };
+  }
+
+  if (authMode !== 'oauth2_client_credentials') {
+    throw new Error(`❌ Unsupported auth.mode: ${authMode}`);
   }
 
   const resp = http.post(authConfig.token_url, {
