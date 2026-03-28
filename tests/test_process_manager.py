@@ -197,3 +197,110 @@ def test_start_run_creates_summary_directory_when_needed(monkeypatch, tmp_path):
     )
 
     assert summary_file.parent.exists()
+
+
+def test_stop_returns_true_after_graceful_stop():
+    class DummyProcess:
+        def __init__(self):
+            self.returncode = None
+            self.pid = 123
+            self.sent_signal = None
+            self.terminate_called = False
+            self.kill_called = False
+
+        def send_signal(self, sig):
+            self.sent_signal = sig
+            self.returncode = 0
+
+        async def wait(self):
+            return self.returncode
+
+        def terminate(self):
+            self.terminate_called = True
+
+        def kill(self):
+            self.kill_called = True
+
+    manager = K6ProcessManager()
+    manager.process = DummyProcess()
+
+    result = asyncio.run(manager.stop(timeout=0.1))
+
+    assert result is True
+    assert manager.process.sent_signal is not None
+    assert manager.process.terminate_called is False
+    assert manager.process.kill_called is False
+
+
+def test_stop_escalates_to_terminate_on_timeout():
+    class DummyProcess:
+        def __init__(self):
+            self.returncode = None
+            self.pid = 123
+            self.sent_signal = None
+            self.terminate_called = False
+            self.kill_called = False
+            self.wait_attempts = 0
+
+        def send_signal(self, sig):
+            self.sent_signal = sig
+
+        async def wait(self):
+            self.wait_attempts += 1
+            if self.wait_attempts == 1:
+                await asyncio.sleep(0.05)
+            self.returncode = 0
+            return self.returncode
+
+        def terminate(self):
+            self.terminate_called = True
+            self.returncode = 0
+
+        def kill(self):
+            self.kill_called = True
+
+    manager = K6ProcessManager()
+    manager.process = DummyProcess()
+
+    result = asyncio.run(manager.stop(timeout=0.01))
+
+    assert result is True
+    assert manager.process.terminate_called is True
+    assert manager.process.kill_called is False
+
+
+def test_stop_escalates_to_kill_after_terminate_timeout():
+    class DummyProcess:
+        def __init__(self):
+            self.returncode = None
+            self.pid = 123
+            self.sent_signal = None
+            self.terminate_called = False
+            self.kill_called = False
+            self.wait_attempts = 0
+
+        def send_signal(self, sig):
+            self.sent_signal = sig
+
+        async def wait(self):
+            self.wait_attempts += 1
+            if self.wait_attempts <= 2:
+                await asyncio.sleep(0.05)
+            self.returncode = -9
+            return self.returncode
+
+        def terminate(self):
+            self.terminate_called = True
+
+        def kill(self):
+            self.kill_called = True
+            self.returncode = -9
+
+    manager = K6ProcessManager()
+    manager.process = DummyProcess()
+
+    result = asyncio.run(manager.stop(timeout=0.01))
+
+    assert result is True
+    assert manager.process.terminate_called is True
+    assert manager.process.kill_called is True
