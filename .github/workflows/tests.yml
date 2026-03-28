@@ -1,0 +1,47 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Smoke and unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Smoke tests
+        run: |
+          PYTHONPATH=. pytest -q tests/test_process_manager.py tests/test_k6_service.py
+
+      - name: Unit tests
+        run: |
+          PYTHONPATH=. pytest -q
+
+      - name: Test report
+        run: |
+          PYTHONPATH=. pytest --junitxml=pytest-report.xml
+
+      - name: Upload test report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-report
+          if-no-files-found: warn
+          path: pytest-report.xml
