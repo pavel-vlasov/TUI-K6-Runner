@@ -1,7 +1,8 @@
 from pathlib import Path
+from copy import deepcopy
 
 from config_handler import ConfigHandler
-from constants import HTTP_METHODS
+from constants import DEFAULT_CONFIG, HTTP_METHODS
 
 
 def _base_runtime() -> dict:

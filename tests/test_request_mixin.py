@@ -68,6 +68,7 @@ def test_get_request_endpoints_falls_back_to_legacy_and_default():
     default_ui = DummyRequestUI({})
     defaults = default_ui.get_request_endpoints()
     assert defaults[0]["name"] == "Endpoint 1"
+    assert defaults[0]["path"].startswith("/")
 
 
 def test_add_request_endpoint_tab_enforces_maximum():
