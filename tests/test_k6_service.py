@@ -232,3 +232,21 @@ def test_run_k6_process_external_terminal_mode_keeps_dashboard_and_summary_optio
     assert "K6_WEB_DASHBOARD_PORT=7777" in command
     assert "--summary-export" in command
     assert str(summary_json_path) in command
+
+
+def test_build_external_k6_command_windows_uses_powershell_env_syntax(monkeypatch, tmp_path):
+    service = K6Service()
+    monkeypatch.setattr("k6.service.platform.system", lambda: "Windows")
+
+    command = service._build_external_k6_command(
+        enable_web_dashboard=True,
+        web_dashboard_url="http://127.0.0.1:7777",
+        enable_html_summary=True,
+        summary_json_path=tmp_path / "summary.json",
+        shell_type="powershell",
+    )
+
+    assert "$env:K6_WEB_DASHBOARD_OPEN=false;" in command
+    assert "$env:K6_WEB_DASHBOARD_HOST=127.0.0.1;" in command
+    assert "$env:K6_WEB_DASHBOARD_PORT=7777;" in command
+    assert "k6 run test.js" in command
