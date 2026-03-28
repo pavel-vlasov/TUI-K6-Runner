@@ -173,3 +173,28 @@ def test_run_k6_process_generates_html_summary_when_enabled(tmp_path):
 
     assert summary_html_path.exists()
     assert any("HTML summary report generated" in line for line in logs)
+
+
+def test_build_external_terminal_command_for_macos(monkeypatch):
+    service = K6Service()
+    monkeypatch.setattr("k6.service.platform.system", lambda: "Darwin")
+    monkeypatch.setattr("k6.service.shutil.which", lambda name: "/usr/bin/osascript" if name == "osascript" else None)
+
+    command = service._build_external_terminal_command('k6 run "test.js"')
+
+    assert command[0] == "osascript"
+    assert "tell application \"Terminal\" to do script" in command[2]
+    assert 'k6 run \\"test.js\\"' in command[2]
+
+
+def test_build_external_terminal_command_for_macos_raises_when_osascript_missing(monkeypatch):
+    service = K6Service()
+    monkeypatch.setattr("k6.service.platform.system", lambda: "Darwin")
+    monkeypatch.setattr("k6.service.shutil.which", lambda _name: None)
+
+    try:
+        service._build_external_terminal_command("k6 run test.js")
+    except RuntimeError as error:
+        assert "osascript" in str(error)
+    else:
+        raise AssertionError("Expected RuntimeError when osascript is unavailable")

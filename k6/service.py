@@ -1,6 +1,8 @@
 import asyncio
 import json
+import os
 import platform
+import shutil
 import subprocess
 import time
 from datetime import datetime
@@ -125,16 +127,7 @@ class K6Service:
                     on_status(format_done_status(self.state.last_counter))
             else:
                 on_log("📤 k6 starting in external terminal.\n")
-
-                if platform.system() == "Windows":
-                    subprocess.Popen(
-                        'start powershell.exe -NoExit -Command "chcp 65001; k6 run test.js"',
-                        shell=True,
-                    )
-                else:
-                    subprocess.Popen(
-                        ["x-terminal-emulator", "-e", "bash", "-c", "k6 run test.js; exec bash"]
-                    )
+                self._spawn_external_terminal("k6 run test.js")
 
                 on_status("[bold green]📤 External terminal is started.[/bold green]")
 
@@ -149,6 +142,62 @@ class K6Service:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         artifacts_dir = Path("artifacts")
         return artifacts_dir / f"summary_{timestamp}.json", artifacts_dir / f"summary_{timestamp}.html"
+
+    def _build_external_terminal_command(self, command: str) -> list[str]:
+        system_name = platform.system()
+
+        if system_name == "Windows":
+            return ["powershell.exe", "-NoExit", "-Command", f"chcp 65001; {command}"]
+        if system_name == "Darwin":
+            if not shutil.which("osascript"):
+                raise RuntimeError("`osascript` was not found on PATH. Cannot open Terminal on macOS.")
+            escaped_command = command.replace("\\", "\\\\").replace('"', '\\"')
+            return [
+                "osascript",
+                "-e",
+                f'tell application "Terminal" to do script "{escaped_command}"',
+                "-e",
+                'tell application "Terminal" to activate',
+            ]
+
+        bash_command = f"{command}; exec bash"
+        preferred_terminal = os.environ.get("TERMINAL")
+        terminal_candidates: list[tuple[str, list[str]]] = []
+
+        if preferred_terminal:
+            terminal_candidates.append(
+                (preferred_terminal, ["-e", "bash", "-lc", bash_command])
+            )
+
+        terminal_candidates.extend(
+            [
+                ("x-terminal-emulator", ["-e", "bash", "-lc", bash_command]),
+                ("gnome-terminal", ["--", "bash", "-lc", bash_command]),
+                ("konsole", ["-e", "bash", "-lc", bash_command]),
+                ("xfce4-terminal", ["-e", "bash", "-lc", bash_command]),
+                ("xterm", ["-e", "bash", "-lc", bash_command]),
+                ("alacritty", ["-e", "bash", "-lc", bash_command]),
+                ("kitty", ["-e", "bash", "-lc", bash_command]),
+            ]
+        )
+
+        for terminal, args in terminal_candidates:
+            if shutil.which(terminal):
+                return [terminal, *args]
+
+        raise RuntimeError(
+            "No supported terminal emulator found. "
+            "Install one of: x-terminal-emulator, gnome-terminal, konsole, xfce4-terminal, xterm, alacritty, kitty."
+        )
+
+    def _spawn_external_terminal(self, command: str) -> subprocess.Popen:
+        terminal_command = self._build_external_terminal_command(command)
+
+        if platform.system() == "Windows":
+            create_new_console = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+            return subprocess.Popen(terminal_command, creationflags=create_new_console)
+
+        return subprocess.Popen(terminal_command)
 
 
     def _generate_html_summary_report(self, summary_json_path: Path, summary_html_path: Path, on_log) -> None:
