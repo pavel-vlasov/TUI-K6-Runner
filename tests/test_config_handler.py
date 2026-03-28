@@ -1,15 +1,22 @@
 from pathlib import Path
-from copy import deepcopy
 
 from config_handler import ConfigHandler
-from constants import DEFAULT_CONFIG, HTTP_METHODS
+from constants import HTTP_METHODS
 
 
 def _base_runtime() -> dict:
     return {
         "baseURL": "https://example.com",
         "auth": {"mode": "none", "client_id": "", "client_secret": ""},
-        "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+        "requestEndpoints": [
+            {
+                "name": "Endpoint 1",
+                "method": "GET",
+                "path": "/",
+                "headers": {},
+                "query": {},
+            }
+        ],
         "k6": {
             "executionType": "Constant VUs",
             "vus": 1,
@@ -49,7 +56,14 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
             "scope": "should-be-removed",
         },
         "requestEndpoints": [
-            {"name": "Endpoint 1", "method": "GET", "path": "/health", "headers": {}, "body": None, "query": {}},
+            {
+                "name": "Endpoint 1",
+                "method": "GET",
+                "path": "/health",
+                "headers": {},
+                "body": None,
+                "query": {},
+            },
         ],
         "k6": {
             "executionType": "Constant VUs",
@@ -57,7 +71,14 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
             "duration": "10s",
             "rate": 100,
             "thresholds": {"http_req_duration": ["p(95)<500"]},
-            "logging": {"enabled": True, "level": "all", "outputToUI": True, "webDashboard": False, "webDashboardUrl": "http://localhost:5665", "htmlSummaryReport": False},
+            "logging": {
+                "enabled": True,
+                "level": "all",
+                "outputToUI": True,
+                "webDashboard": False,
+                "webDashboardUrl": "http://localhost:5665",
+                "htmlSummaryReport": False,
+            },
         },
     }
 
@@ -123,8 +144,21 @@ def test_build_runtime_config_migrates_legacy_use_oauth2_flag_to_mode():
                 "token_url": "https://idp.example.com/token",
                 "scope": "read",
             },
-            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
-            "k6": {"executionType": "Constant VUs", "vus": 1, "duration": "10s", "thresholds": {}},
+            "requestEndpoints": [
+                {
+                    "name": "Endpoint 1",
+                    "method": "GET",
+                    "path": "/",
+                    "headers": {},
+                    "query": {},
+                }
+            ],
+            "k6": {
+                "executionType": "Constant VUs",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {},
+            },
         }
     )
     assert runtime["auth"]["mode"] == "oauth2_client_credentials"
@@ -135,8 +169,21 @@ def test_build_runtime_config_migrates_legacy_basic_flag_to_mode():
         {
             "baseURL": "https://example.com",
             "auth": {"basicauth": True, "client_id": "cid", "client_secret": "sec"},
-            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
-            "k6": {"executionType": "Constant VUs", "vus": 1, "duration": "10s", "thresholds": {}},
+            "requestEndpoints": [
+                {
+                    "name": "Endpoint 1",
+                    "method": "GET",
+                    "path": "/",
+                    "headers": {},
+                    "query": {},
+                }
+            ],
+            "k6": {
+                "executionType": "Constant VUs",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {},
+            },
         }
     )
     assert runtime["auth"]["mode"] == "basic"
@@ -146,9 +193,26 @@ def test_build_runtime_config_migrates_legacy_client_id_enforcement_flag_to_mode
     runtime = ConfigHandler.build_runtime_config(
         {
             "baseURL": "https://example.com",
-            "auth": {"ClientId_Enforcement": True, "client_id": "cid", "client_secret": "sec"},
-            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
-            "k6": {"executionType": "Constant VUs", "vus": 1, "duration": "10s", "thresholds": {}},
+            "auth": {
+                "ClientId_Enforcement": True,
+                "client_id": "cid",
+                "client_secret": "sec",
+            },
+            "requestEndpoints": [
+                {
+                    "name": "Endpoint 1",
+                    "method": "GET",
+                    "path": "/",
+                    "headers": {},
+                    "query": {},
+                }
+            ],
+            "k6": {
+                "executionType": "Constant VUs",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {},
+            },
         }
     )
     assert runtime["auth"]["mode"] == "client_id_enforcement"
@@ -156,7 +220,13 @@ def test_build_runtime_config_migrates_legacy_client_id_enforcement_flag_to_mode
 
 def test_validate_runtime_config_requires_fields_per_auth_mode():
     runtime = _base_runtime()
-    runtime["auth"] = {"mode": "oauth2_client_credentials", "client_id": "", "client_secret": "sec", "token_url": "bad", "scope": ""}
+    runtime["auth"] = {
+        "mode": "oauth2_client_credentials",
+        "client_id": "",
+        "client_secret": "sec",
+        "token_url": "bad",
+        "scope": "",
+    }
 
     errors = ConfigHandler.validate_runtime_config(runtime)
 
@@ -170,7 +240,10 @@ def test_validate_runtime_config_accepts_only_http_methods_from_constants():
         runtime = _base_runtime()
         runtime["requestEndpoints"][0]["method"] = method
         errors = ConfigHandler.validate_runtime_config(runtime)
-        assert not any("method is invalid" in error for error in errors), (method, errors)
+        assert not any("method is invalid" in error for error in errors), (
+            method,
+            errors,
+        )
 
     runtime = _base_runtime()
     runtime["requestEndpoints"][0]["method"] = "TRACE"
