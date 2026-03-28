@@ -9,7 +9,8 @@
 ## How to use
 
 - install Python 3.11 (supported version is fixed to 3.11.x)
-- install K6
+- install k6 and make sure the `k6` binary is available in your `PATH`
+  (official guide: https://grafana.com/docs/k6/latest/set-up/install-k6/)
 - install project dependencies:
 
   ```bash
@@ -21,6 +22,8 @@
   ```bash
   python main.py
   ```
+
+If k6 is not available in `PATH`, the app will fail at startup with a clear `RuntimeError` and installation link.
 
 ## Architecture note
 

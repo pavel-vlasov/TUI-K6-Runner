@@ -1,4 +1,5 @@
 import os
+import shutil
 import sys
 
 
@@ -14,6 +15,12 @@ def ensure_runtime_dependencies() -> None:
         deps = ", ".join(missing)
         raise RuntimeError(
             f"Missing runtime dependencies: {deps}. Install project dependencies via requirements.txt/pyproject before start."
+        )
+
+    if shutil.which("k6") is None:
+        raise RuntimeError(
+            "k6 binary was not found in PATH. Install k6 and ensure the `k6` command is available in your shell. "
+            "Install guide: https://grafana.com/docs/k6/latest/set-up/install-k6/"
         )
 
 
