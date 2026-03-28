@@ -16,6 +16,7 @@ def test_ensure_runtime_dependencies_passes_when_all_present(monkeypatch):
         return original_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
+    monkeypatch.setattr("app_bootstrap.shutil.which", lambda _: "/usr/local/bin/k6")
 
     ensure_runtime_dependencies()
 
@@ -31,11 +32,29 @@ def test_ensure_runtime_dependencies_raises_with_missing(monkeypatch):
         return original_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
+    monkeypatch.setattr("app_bootstrap.shutil.which", lambda _: "/usr/local/bin/k6")
 
     with pytest.raises(RuntimeError) as exc:
         ensure_runtime_dependencies()
 
     assert "pyperclip" in str(exc.value)
+
+
+def test_ensure_runtime_dependencies_raises_when_k6_missing(monkeypatch):
+    original_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name in {"textual", "pyperclip"}:
+            return object()
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    monkeypatch.setattr("app_bootstrap.shutil.which", lambda _: None)
+
+    with pytest.raises(RuntimeError) as exc:
+        ensure_runtime_dependencies()
+
+    assert "k6 binary was not found in PATH" in str(exc.value)
 
 
 def test_get_resource_path_prefers_meipass(monkeypatch):
