@@ -32,13 +32,14 @@ class RunController:
             return
 
         self._notify_run_state_changed(callbacks, True)
-        output_ui = config.get("k6", {}).get("logging", {}).get("outputToUI", True)
-        web_dashboard = config.get("k6", {}).get("logging", {}).get("webDashboard", False)
-        html_summary_report = config.get("k6", {}).get("logging", {}).get("htmlSummaryReport", False)
-        web_dashboard_url = config.get("k6", {}).get("logging", {}).get("webDashboardUrl", "")
+        run_task_coro = None
+        try:
+            output_ui = config.get("k6", {}).get("logging", {}).get("outputToUI", True)
+            web_dashboard = config.get("k6", {}).get("logging", {}).get("webDashboard", False)
+            html_summary_report = config.get("k6", {}).get("logging", {}).get("htmlSummaryReport", False)
+            web_dashboard_url = config.get("k6", {}).get("logging", {}).get("webDashboardUrl", "")
 
-        task = asyncio.create_task(
-            self.k6_service.run_k6_process(
+            run_task_coro = self.k6_service.run_k6_process(
                 on_log=callbacks.on_log,
                 on_status=callbacks.on_status,
                 output_to_ui=output_ui,
@@ -46,9 +47,14 @@ class RunController:
                 web_dashboard_url=web_dashboard_url,
                 enable_html_summary=html_summary_report,
             )
-        )
-        task.add_done_callback(lambda _: self._notify_run_state_changed(callbacks, False))
-        return task
+            task = asyncio.create_task(run_task_coro)
+            task.add_done_callback(lambda _: self._notify_run_state_changed(callbacks, False))
+            return task
+        except Exception:
+            if run_task_coro is not None:
+                run_task_coro.close()
+            self._notify_run_state_changed(callbacks, False)
+            raise
 
     async def stop_run(self):
         await self.k6_service.stop_k6_process()
