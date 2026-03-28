@@ -8,6 +8,12 @@ AUTH_MODES = (
     "client_id_enforcement",
 )
 
+LOGGING_LEVELS = (
+    "all",
+    "failed",
+    "Failures - without payloads",
+)
+
 DEFAULT_CONFIG = {
     "baseURL": "https://www.baseURL.com/",
     "auth": {
