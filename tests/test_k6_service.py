@@ -198,3 +198,37 @@ def test_build_external_terminal_command_for_macos_raises_when_osascript_missing
         assert "osascript" in str(error)
     else:
         raise AssertionError("Expected RuntimeError when osascript is unavailable")
+
+
+def test_run_k6_process_external_terminal_mode_keeps_dashboard_and_summary_options(tmp_path):
+    service = K6Service()
+    logs = []
+    statuses = []
+    captured = {}
+
+    summary_json_path = tmp_path / "nested" / "summary.json"
+    service._build_summary_paths = lambda: (summary_json_path, tmp_path / "nested" / "summary.html")
+
+    def fake_spawn_external_terminal(command: str):
+        captured["command"] = command
+        return None
+
+    service._spawn_external_terminal = fake_spawn_external_terminal
+
+    asyncio.run(
+        service.run_k6_process(
+            on_log=logs.append,
+            on_status=statuses.append,
+            output_to_ui=False,
+            enable_web_dashboard=True,
+            web_dashboard_url="http://127.0.0.1:7777",
+            enable_html_summary=True,
+        )
+    )
+
+    command = captured["command"]
+    assert "--out web-dashboard=period=5s&open=false" in command
+    assert "K6_WEB_DASHBOARD_HOST=127.0.0.1" in command
+    assert "K6_WEB_DASHBOARD_PORT=7777" in command
+    assert "--summary-export" in command
+    assert str(summary_json_path) in command

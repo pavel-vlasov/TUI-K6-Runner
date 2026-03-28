@@ -23,6 +23,8 @@ class EventsMixin:
             self.toggle_execution_type_fields()
         if event.select.id == "select___auth__mode":
             self.toggle_auth_fields()
+        if event.select.id == "select___k6__logging__outputToUI":
+            self.toggle_logging_fields()
 
     async def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "web_dashboard_btn":
