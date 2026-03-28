@@ -101,9 +101,19 @@ class EventsMixin:
                 )
         elif event.button.id == "apply_vu_btn":
             vu_input = self.query_one("#vu_input", Input)
-            if vu_input.value.isdigit():
-                await self.run_controller.scale(int(vu_input.value), log_view.write)
-                vu_input.value = ""
+            vu_raw_value = vu_input.value.strip()
+            if not vu_raw_value.isdigit():
+                self.notify("Please enter a valid VU value (positive integer).", severity="warning")
+                return
+
+            vu_value = int(vu_raw_value)
+            if vu_value < 1:
+                self.notify("VU value must be at least 1.", severity="error")
+                return
+
+            await self.run_controller.scale(vu_value, log_view.write)
+            self.notify(f"Scaled to {vu_value} VU(s).", severity="information")
+            vu_input.value = ""
 
     def _with_cache_busting_query(self, url: str) -> str:
         parsed = urlparse(url)
