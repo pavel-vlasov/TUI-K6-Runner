@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import platform
 import signal
@@ -6,6 +7,8 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
 
 
 class K6ProcessManager:
@@ -47,14 +50,25 @@ class K6ProcessManager:
 
     def _apply_web_dashboard_binding(self, env: dict[str, str], web_dashboard_url: str | None) -> None:
         if not web_dashboard_url:
+            logger.info("Web dashboard URL is not set, using k6 default binding.")
             return
 
         parsed = urlparse(web_dashboard_url)
         host = parsed.hostname
         if host:
             env["K6_WEB_DASHBOARD_HOST"] = host
+        else:
+            logger.warning(
+                "Could not determine web dashboard host from URL '%s'; using k6 default host.",
+                web_dashboard_url,
+            )
         if parsed.port:
             env["K6_WEB_DASHBOARD_PORT"] = str(parsed.port)
+        else:
+            logger.info(
+                "Web dashboard URL '%s' does not include a port; using k6 default port.",
+                web_dashboard_url,
+            )
 
     async def stop(self) -> bool:
         if self.process and self.process.returncode is None:

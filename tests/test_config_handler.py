@@ -1,7 +1,8 @@
 from pathlib import Path
+from copy import deepcopy
 
 from config_handler import ConfigHandler
-from constants import HTTP_METHODS
+from constants import DEFAULT_CONFIG, HTTP_METHODS
 
 
 def _base_runtime() -> dict:
@@ -41,9 +42,7 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
     ui_config = {
         "baseURL": "https://example.com",
         "auth": {
-            "ClientId_Enforcement": True,
-            "useOAuth2": False,
-            "basicauth": False,
+            "mode": "client_id_enforcement",
             "client_id": "cid",
             "client_secret": "sec",
             "token_url": "should-be-removed",
@@ -113,19 +112,46 @@ def test_validate_runtime_config_allows_auth_modes():
         assert not any(error.startswith("auth") for error in errors), (mode, errors)
 
 
-def test_validate_runtime_config_rejects_conflicting_legacy_auth_flags():
-    runtime = _base_runtime()
-    runtime["auth"] = {
-        "useOAuth2": True,
-        "basicauth": True,
-        "ClientId_Enforcement": False,
-        "client_id": "cid",
-        "client_secret": "sec",
-    }
+def test_build_runtime_config_migrates_legacy_use_oauth2_flag_to_mode():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {
+                "useOAuth2": True,
+                "client_id": "cid",
+                "client_secret": "sec",
+                "token_url": "https://idp.example.com/token",
+                "scope": "read",
+            },
+            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+            "k6": {"executionType": "Constant VUs", "vus": 1, "duration": "10s", "thresholds": {}},
+        }
+    )
+    assert runtime["auth"]["mode"] == "oauth2_client_credentials"
 
-    errors = ConfigHandler.validate_runtime_config(runtime)
 
-    assert "Only one auth mode can be enabled at a time." in errors
+def test_build_runtime_config_migrates_legacy_basic_flag_to_mode():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"basicauth": True, "client_id": "cid", "client_secret": "sec"},
+            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+            "k6": {"executionType": "Constant VUs", "vus": 1, "duration": "10s", "thresholds": {}},
+        }
+    )
+    assert runtime["auth"]["mode"] == "basic"
+
+
+def test_build_runtime_config_migrates_legacy_client_id_enforcement_flag_to_mode():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"ClientId_Enforcement": True, "client_id": "cid", "client_secret": "sec"},
+            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+            "k6": {"executionType": "Constant VUs", "vus": 1, "duration": "10s", "thresholds": {}},
+        }
+    )
+    assert runtime["auth"]["mode"] == "client_id_enforcement"
 
 
 def test_validate_runtime_config_requires_fields_per_auth_mode():
@@ -165,6 +191,22 @@ def test_validate_runtime_config_rejects_invalid_urls_and_k6_values():
     assert any("path must start" in error for error in errors)
     assert any("k6.duration" in error for error in errors)
     assert any("k6.vus" in error for error in errors)
+
+
+def test_validate_runtime_config_rejects_invalid_web_dashboard_url_when_enabled():
+    runtime = _base_runtime()
+    runtime["k6"]["logging"] = {
+        "enabled": True,
+        "level": "all",
+        "outputToUI": True,
+        "webDashboard": True,
+        "webDashboardUrl": "not-a-url",
+        "htmlSummaryReport": False,
+    }
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert any("k6.logging.webDashboardUrl" in error for error in errors)
 
 
 def test_validate_runtime_config_rejects_invalid_stage_shape():
