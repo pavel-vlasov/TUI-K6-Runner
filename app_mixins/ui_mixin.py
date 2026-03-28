@@ -25,10 +25,11 @@ class UIMixin:
         apply_btn = self.query_one("#apply_vu_btn", Button)
         web_dashboard_btn = self.query_one("#web_dashboard_btn", Button)
         web_dashboard_enabled = self.full_config.get("k6", {}).get("logging", {}).get("webDashboard", False)
+        external_terminal_mode = self._is_external_terminal_mode_selected()
 
         run_btn.disabled = running
-        stop_btn.disabled = not running
-        apply_btn.disabled = not running
+        stop_btn.disabled = (not running) or external_terminal_mode
+        apply_btn.disabled = (not running) or external_terminal_mode
         web_dashboard_btn.display = True
         web_dashboard_btn.disabled = (not running) or (not web_dashboard_enabled)
 
@@ -107,14 +108,26 @@ class UIMixin:
     def toggle_logging_fields(self) -> None:
         logging_enabled_switch = self.query_one("#bool___k6__logging__enabled", Switch)
         web_dashboard_switch = self.query_one("#bool___k6__logging__webDashboard", Switch)
+        output_to_ui_select = self.query_one("#select___k6__logging__outputToUI", Select)
 
         level_display = "block" if bool(logging_enabled_switch.value) else "none"
         web_dashboard_url_display = "block" if bool(web_dashboard_switch.value) else "none"
+        external_warning_display = "block" if output_to_ui_select.value is False else "none"
 
         self.query_one("#logging_level_label", Label).styles.display = level_display
         self.query_one("#select___k6__logging__level", Select).styles.display = level_display
         self.query_one("#logging_web_dashboard_url_label", Label).styles.display = web_dashboard_url_display
         self.query_one("#input___k6__logging__webDashboardUrl", Input).styles.display = web_dashboard_url_display
+        self.query_one("#logging_external_mode_warning", Static).styles.display = external_warning_display
+        self.set_run_ui_state(self.run_controller.is_running)
+
+    def _is_external_terminal_mode_selected(self) -> bool:
+        try:
+            output_mode_select = self.query_one("#select___k6__logging__outputToUI", Select)
+            return output_mode_select.value is False
+        except Exception:
+            output_to_ui = self.full_config.get("k6", {}).get("logging", {}).get("outputToUI", True)
+            return not bool(output_to_ui)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -326,7 +339,15 @@ class UIMixin:
                         other_logging_data = {
                             k: v
                             for k, v in log_data.items()
-                            if k not in ["enabled", "level", "webDashboard", "webDashboardUrl"]
+                            if k
+                            not in [
+                                "enabled",
+                                "level",
+                                "outputToUI",
+                                "webDashboard",
+                                "webDashboardUrl",
+                                "htmlSummaryReport",
+                            ]
                         }
 
                         yield ScrollableContainer(
@@ -345,12 +366,38 @@ class UIMixin:
                                 classes="field-row",
                             ),
                             Horizontal(
+                                Label("executionMode:", classes="field-label"),
+                                Select(
+                                    [
+                                        ("Embedded UI terminal", True),
+                                        ("External terminal (separate window)", False),
+                                    ],
+                                    value=bool(log_data.get("outputToUI", True)),
+                                    id="select___k6__logging__outputToUI",
+                                ),
+                                classes="field-row",
+                            ),
+                            Static(
+                                "⚠️ External terminal mode runs k6 outside this app. "
+                                "Stop and scale actions from UI are unavailable.",
+                                id="logging_external_mode_warning",
+                                classes="field-row",
+                            ),
+                            Horizontal(
                                 Label("webDashboard:", classes="field-label"),
                                 Switch(bool(log_data.get("webDashboard", False)), id="bool___k6__logging__webDashboard"),
                                 Label("webDashboardUrl:", classes="field-label", id="logging_web_dashboard_url_label"),
                                 Input(
                                     str(log_data.get("webDashboardUrl", "http://localhost:5665")),
                                     id="input___k6__logging__webDashboardUrl",
+                                ),
+                                classes="field-row",
+                            ),
+                            Horizontal(
+                                Label("htmlSummaryReport:", classes="field-label"),
+                                Switch(
+                                    bool(log_data.get("htmlSummaryReport", False)),
+                                    id="bool___k6__logging__htmlSummaryReport",
                                 ),
                                 classes="field-row",
                             ),

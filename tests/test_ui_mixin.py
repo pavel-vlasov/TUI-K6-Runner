@@ -29,7 +29,8 @@ class DummyWidget:
 
 class DummyUI(UIMixin):
     def __init__(self, web_dashboard_enabled: bool, auth_mode: str = "none"):
-        self.full_config = {"k6": {"logging": {"webDashboard": web_dashboard_enabled}}}
+        self.full_config = {"k6": {"logging": {"webDashboard": web_dashboard_enabled, "outputToUI": True}}}
+        self.run_controller = type("RC", (), {"is_running": False})()
         self.buttons = {
             "#run_btn": DummyButton(),
             "#stop_btn": DummyButton(),
@@ -49,11 +50,15 @@ class DummyUI(UIMixin):
             "#bool___k6__logging__enabled": DummyValueWidget(False),
             "#bool___k6__logging__webDashboard": DummyValueWidget(False),
         }
+        self.logging_selects = {
+            "#select___k6__logging__outputToUI": DummyValueWidget(True),
+        }
         self.logging_widgets = {
             "#logging_level_label": DummyWidget(),
             "#select___k6__logging__level": DummyWidget(),
             "#logging_web_dashboard_url_label": DummyWidget(),
             "#input___k6__logging__webDashboardUrl": DummyWidget(),
+            "#logging_external_mode_warning": DummyWidget(),
         }
 
     def query_one(self, selector, _widget_type):
@@ -65,6 +70,8 @@ class DummyUI(UIMixin):
             return self.auth_rows[selector]
         if selector in self.logging_switches:
             return self.logging_switches[selector]
+        if selector in self.logging_selects:
+            return self.logging_selects[selector]
         if selector in self.logging_widgets:
             return self.logging_widgets[selector]
         raise KeyError(selector)
@@ -139,6 +146,18 @@ def test_toggle_logging_fields_shows_level_and_dashboard_url_when_switches_on():
     assert ui.logging_widgets["#select___k6__logging__level"].styles.display == "block"
     assert ui.logging_widgets["#logging_web_dashboard_url_label"].styles.display == "block"
     assert ui.logging_widgets["#input___k6__logging__webDashboardUrl"].styles.display == "block"
+
+
+def test_toggle_logging_fields_shows_external_mode_warning_and_disables_stop_scale():
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.run_controller.is_running = True
+    ui.logging_selects["#select___k6__logging__outputToUI"].value = False
+
+    ui.toggle_logging_fields()
+
+    assert ui.logging_widgets["#logging_external_mode_warning"].styles.display == "block"
+    assert ui.buttons["#stop_btn"].disabled is True
+    assert ui.buttons["#apply_vu_btn"].disabled is True
 
 
 def test_normalize_logging_level_falls_back_for_invalid_values():

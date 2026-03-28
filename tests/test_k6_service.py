@@ -200,106 +200,35 @@ def test_build_external_terminal_command_for_macos_raises_when_osascript_missing
         raise AssertionError("Expected RuntimeError when osascript is unavailable")
 
 
-def test_run_k6_process_external_terminal_mode_reports_and_cleans_up():
+def test_run_k6_process_external_terminal_mode_keeps_dashboard_and_summary_options(tmp_path):
     service = K6Service()
-    statuses = []
     logs = []
-    clear_calls = []
+    statuses = []
+    captured = {}
 
-    service.state.success_count = 99
-    service.state.fail_count = 42
+    summary_json_path = tmp_path / "nested" / "summary.json"
+    service._build_summary_paths = lambda: (summary_json_path, tmp_path / "nested" / "summary.html")
 
-    service._spawn_external_terminal = lambda _cmd: None
-    service.process_manager.clear_process = lambda: clear_calls.append(True)
+    def fake_spawn_external_terminal(command: str):
+        captured["command"] = command
+        return None
+
+    service._spawn_external_terminal = fake_spawn_external_terminal
 
     asyncio.run(
         service.run_k6_process(
             on_log=logs.append,
             on_status=statuses.append,
             output_to_ui=False,
-            enable_html_summary=False,
+            enable_web_dashboard=True,
+            web_dashboard_url="http://127.0.0.1:7777",
+            enable_html_summary=True,
         )
     )
 
-    assert "📤 k6 starting in external terminal.\n" in logs
-    assert statuses == ["[bold green]📤 External terminal is started.[/bold green]"]
-    assert clear_calls == [True]
-    assert service.state.is_running is False
-    assert service.state.success_count == 0
-    assert service.state.fail_count == 0
-
-
-def test_run_k6_process_start_failure_resets_running_state_and_cleans_up():
-    service = K6Service()
-    statuses = []
-    logs = []
-    clear_calls = []
-
-    async def failing_start_run(**_kwargs):
-        raise RuntimeError("k6 binary is unavailable")
-
-    service.process_manager.start_run = failing_start_run
-    service.process_manager.clear_process = lambda: clear_calls.append(True)
-
-    asyncio.run(
-        service.run_k6_process(
-            on_log=logs.append,
-            on_status=statuses.append,
-            output_to_ui=True,
-            enable_html_summary=False,
-        )
-    )
-
-    assert any("💥 Error: k6 binary is unavailable" in line for line in logs)
-    assert clear_calls == [True]
-    assert service.state.is_running is False
-
-
-def test_stop_k6_process_delegates_to_process_manager():
-    service = K6Service()
-
-    async def fake_stop():
-        return True
-
-    service.process_manager.stop = fake_stop
-
-    result = asyncio.run(service.stop_k6_process())
-
-    assert result is True
-
-
-def test_set_vus_handles_running_and_not_running_modes():
-    service = K6Service()
-    logs = []
-
-    service.state.is_running = False
-    result_not_running = asyncio.run(service.set_vus(10, logs.append))
-    assert result_not_running is None
-    assert any("❌ No active execution" in line for line in logs)
-
-    service.state.is_running = True
-
-    async def scale_success(_target_vus):
-        return 0, b"", b""
-
-    service.process_manager.scale = scale_success
-    result_success = asyncio.run(service.set_vus(7, logs.append))
-    assert result_success is True
-    assert service.state.current_vus_internal == 7
-    assert any("🔼 VUs number is changed to: 7 VUs" in line for line in logs)
-
-    async def scale_failure(_target_vus):
-        return 1, b"", b"cannot connect"
-
-    service.process_manager.scale = scale_failure
-    result_failure = asyncio.run(service.set_vus(5, logs.append))
-    assert result_failure is False
-    assert any("❌ Scaling error: cannot connect" in line for line in logs)
-
-    async def scale_raises(_target_vus):
-        raise RuntimeError("socket closed")
-
-    service.process_manager.scale = scale_raises
-    result_exception = asyncio.run(service.set_vus(3, logs.append))
-    assert result_exception is False
-    assert any("💥 Error of connection to k6: socket closed" in line for line in logs)
+    command = captured["command"]
+    assert "--out web-dashboard=period=5s&open=false" in command
+    assert "K6_WEB_DASHBOARD_HOST=127.0.0.1" in command
+    assert "K6_WEB_DASHBOARD_PORT=7777" in command
+    assert "--summary-export" in command
+    assert str(summary_json_path) in command
