@@ -1,6 +1,21 @@
 from pathlib import Path
 
 from config_handler import ConfigHandler
+from constants import HTTP_METHODS
+
+
+def _base_runtime() -> dict:
+    return {
+        "baseURL": "https://example.com",
+        "auth": {"mode": "none", "client_id": "", "client_secret": ""},
+        "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+        "k6": {
+            "executionType": "Constant VUs",
+            "vus": 1,
+            "duration": "10s",
+            "thresholds": {"http_req_duration": ["p(95)<500"]},
+        },
+    }
 
 
 def test_update_from_fields_builds_nested_payload_without_ui_types():
@@ -49,6 +64,7 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
 
     runtime = ConfigHandler.build_runtime_config(ui_config)
 
+    assert runtime["auth"]["mode"] == "client_id_enforcement"
     assert "token_url" not in runtime["auth"]
     assert "scope" not in runtime["auth"]
     assert "rate" not in runtime["k6"]
@@ -57,18 +73,8 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
 
 
 def test_validate_runtime_config_rejects_invalid_thresholds():
-    runtime = {
-        "baseURL": "https://example.com",
-        "auth": {
-            "ClientId_Enforcement": True,
-            "useOAuth2": False,
-            "basicauth": False,
-            "client_id": "cid",
-            "client_secret": "sec",
-        },
-        "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/"}],
-        "k6": {"executionType": "Constant VUs", "thresholds": {"http_req_duration": [""]}},
-    }
+    runtime = _base_runtime()
+    runtime["k6"]["thresholds"] = {"http_req_duration": [""]}
 
     errors = ConfigHandler.validate_runtime_config(runtime)
 
@@ -84,20 +90,95 @@ def test_save_to_file_writes_json_to_target_file(tmp_path: Path):
     assert target.read_text(encoding="utf-8").strip().startswith("{")
 
 
-def test_validate_runtime_config_allows_no_auth_mode():
-    runtime = {
-        "baseURL": "https://example.com",
-        "auth": {
-            "ClientId_Enforcement": False,
-            "useOAuth2": False,
-            "basicauth": False,
-            "client_id": "",
-            "client_secret": "",
-        },
-        "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/"}],
-        "k6": {"executionType": "Constant VUs", "thresholds": {"http_req_duration": ["p(95)<500"]}},
+def test_validate_runtime_config_allows_auth_modes():
+    valid_modes = [
+        ("none", {}),
+        ("basic", {"client_id": "cid", "client_secret": "sec"}),
+        (
+            "oauth2_client_credentials",
+            {
+                "client_id": "cid",
+                "client_secret": "sec",
+                "token_url": "https://idp.example.com/token",
+                "scope": "read",
+            },
+        ),
+        ("client_id_enforcement", {"client_id": "cid", "client_secret": "sec"}),
+    ]
+
+    for mode, auth_fields in valid_modes:
+        runtime = _base_runtime()
+        runtime["auth"] = {"mode": mode, **auth_fields}
+        errors = ConfigHandler.validate_runtime_config(runtime)
+        assert not any(error.startswith("auth") for error in errors), (mode, errors)
+
+
+def test_validate_runtime_config_rejects_conflicting_legacy_auth_flags():
+    runtime = _base_runtime()
+    runtime["auth"] = {
+        "useOAuth2": True,
+        "basicauth": True,
+        "ClientId_Enforcement": False,
+        "client_id": "cid",
+        "client_secret": "sec",
     }
 
     errors = ConfigHandler.validate_runtime_config(runtime)
 
-    assert not any("auth" in error for error in errors)
+    assert "Only one auth mode can be enabled at a time." in errors
+
+
+def test_validate_runtime_config_requires_fields_per_auth_mode():
+    runtime = _base_runtime()
+    runtime["auth"] = {"mode": "oauth2_client_credentials", "client_id": "", "client_secret": "sec", "token_url": "bad", "scope": ""}
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert any("auth.client_id" in error for error in errors)
+    assert any("auth.token_url" in error for error in errors)
+    assert any("auth.scope" in error for error in errors)
+
+
+def test_validate_runtime_config_accepts_only_http_methods_from_constants():
+    for method in HTTP_METHODS:
+        runtime = _base_runtime()
+        runtime["requestEndpoints"][0]["method"] = method
+        errors = ConfigHandler.validate_runtime_config(runtime)
+        assert not any("method is invalid" in error for error in errors), (method, errors)
+
+    runtime = _base_runtime()
+    runtime["requestEndpoints"][0]["method"] = "TRACE"
+    errors = ConfigHandler.validate_runtime_config(runtime)
+    assert any("method is invalid" in error for error in errors)
+
+
+def test_validate_runtime_config_rejects_invalid_urls_and_k6_values():
+    runtime = _base_runtime()
+    runtime["baseURL"] = "not-url"
+    runtime["requestEndpoints"][0]["path"] = "relative"
+    runtime["k6"]["duration"] = "10"
+    runtime["k6"]["vus"] = 0
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert any("baseURL" in error for error in errors)
+    assert any("path must start" in error for error in errors)
+    assert any("k6.duration" in error for error in errors)
+    assert any("k6.vus" in error for error in errors)
+
+
+def test_validate_runtime_config_rejects_invalid_stage_shape():
+    runtime = _base_runtime()
+    runtime["k6"] = {
+        "executionType": "Ramping Arrival Rate",
+        "startRate": 1,
+        "timeUnit": "1s",
+        "preAllocatedVUs": 5,
+        "rampingArrivalStages": [{"duration": "", "target": -1}],
+        "thresholds": {"http_req_duration": ["p(95)<500"]},
+    }
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert any("rampingArrivalStages[0].duration" in error for error in errors)
+    assert any("rampingArrivalStages[0].target" in error for error in errors)

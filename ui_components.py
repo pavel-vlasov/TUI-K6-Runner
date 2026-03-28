@@ -2,6 +2,7 @@
 import json
 from textual.widgets import Label, Switch, Select, Input, TextArea
 from textual.containers import Horizontal, Vertical
+from constants import HTTP_METHODS
 
 def get_valid_id(key_path, prefix="input"):
     safe_path = key_path.replace('.', '__')
@@ -49,9 +50,16 @@ def build_config_fields(data, parent_path):
             widget = Switch(v, id=get_valid_id(full_key, "bool"))
             items.append(Horizontal(label, widget, classes="field-row"))
             
-        elif k == "method" or (k == "level" and parent_path == "k6.logging"):
+        elif k == "method" or (k == "level" and parent_path == "k6.logging") or (
+            k == "mode" and parent_path == "auth"
+        ):
             label = Label(f"{k}:", classes="field-label")
-            options = ["GET", "POST", "PUT", "PATCH"] if k == "method" else ["all", "failed", "Failures - without payloads"]
+            if k == "method":
+                options = list(HTTP_METHODS)
+            elif k == "mode":
+                options = ["none", "oauth2_client_credentials", "basic", "client_id_enforcement"]
+            else:
+                options = ["all", "failed", "Failures - without payloads"]
             widget = Select([(o, o) for o in options], value=v, id=get_valid_id(full_key, "select"))
             items.append(Horizontal(label, widget, classes="field-row"))
             

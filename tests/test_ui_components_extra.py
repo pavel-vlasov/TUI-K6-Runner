@@ -1,4 +1,5 @@
 import ui_components as uc
+from constants import HTTP_METHODS
 
 
 class FakeLabel:
@@ -92,3 +93,11 @@ def test_build_config_fields_supports_multiline_and_bool_and_logging_level(monke
     level_row = next(field for field in fields if isinstance(field.children[1], FakeSelect))
     assert ("failed", "failed") in level_row.children[1].options
     assert ("Failures - without payloads", "Failures - without payloads") in level_row.children[1].options
+
+
+def test_ui_method_select_uses_same_http_methods_as_validation(monkeypatch):
+    _patch_ui_components(monkeypatch)
+    fields = uc.build_config_fields({"method": "GET"}, "requestEndpoints.0")
+    method_row = fields[0]
+    options = [value for _, value in method_row.children[1].options]
+    assert tuple(options) == HTTP_METHODS

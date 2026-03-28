@@ -1,7 +1,17 @@
 # constants.py
+HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
+
+AUTH_MODES = (
+    "none",
+    "oauth2_client_credentials",
+    "basic",
+    "client_id_enforcement",
+)
+
 DEFAULT_CONFIG = {
     "baseURL": "https://www.baseURL.com/",
     "auth": {
+        "mode": "client_id_enforcement",
         "useOAuth2": False,
         "basicauth": False,
         "ClientId_Enforcement": True,

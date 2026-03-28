@@ -36,6 +36,12 @@ class UIMixin:
         self.toggle_execution_type_fields()
         self.toggle_auth_fields()
         self.toggle_logging_fields()
+        if getattr(self, "config_load_error", None):
+            message = self.config_load_error
+            details = getattr(self, "config_load_error_details", None)
+            if details:
+                message = f"{message} {details} Using default config and leaving the source file untouched."
+            self.notify(message, severity="warning")
 
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
         if self._get_request_tab_panes():

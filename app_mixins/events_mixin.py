@@ -71,13 +71,15 @@ class EventsMixin:
             self.add_spike_stage()
             return
         if event.button.id == "remove_last_spike_stage_btn":
-            self.remove_last_spike_stage()
+            if not self.remove_last_spike_stage():
+                self.notify("At least one spike stage must remain.", severity="warning")
             return
         if event.button.id == "add_arrival_stage_btn":
             self.add_arrival_stage()
             return
         if event.button.id == "remove_last_arrival_stage_btn":
-            self.remove_last_arrival_stage()
+            if not self.remove_last_arrival_stage():
+                self.notify("At least one arrival stage must remain.", severity="warning")
             return
 
         log_view = self.query_one("#output_log", RichLog)
