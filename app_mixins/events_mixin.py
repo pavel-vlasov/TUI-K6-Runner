@@ -108,8 +108,14 @@ class EventsMixin:
             await self.run_controller.stop_run()
             self.notify("Stop command sent", severity="warning")
         elif event.button.id == "copy_btn":
-            pyperclip.copy("\n".join([str(line.text) for line in log_view.lines]))
-            self.notify("Logs copied")
+            try:
+                pyperclip.copy("\n".join([str(line.text) for line in log_view.lines]))
+                self.notify("Logs copied")
+            except Exception:
+                self.notify(
+                    "Unable to copy logs to clipboard. Please install/configure a clipboard backend for pyperclip.",
+                    severity="warning",
+                )
         elif event.button.id == "apply_vu_btn":
             vu_input = self.query_one("#vu_input", Input)
             if vu_input.value.isdigit():

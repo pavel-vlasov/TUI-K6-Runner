@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 from app_mixins.events_mixin import EventsMixin
@@ -29,6 +30,36 @@ class DummyEventsUI(EventsMixin):
 
     def toggle_logging_fields(self):
         self.logging_toggle_count += 1
+
+    def notify(self, message, severity="information"):
+        self.notifications.append((message, severity))
+
+
+class DummyLogLine:
+    def __init__(self, text):
+        self.text = text
+
+
+class DummyLogView:
+    def __init__(self):
+        self.lines = [DummyLogLine("line 1"), DummyLogLine("line 2")]
+
+
+class DummyStatusBar:
+    def update(self, _message):
+        return None
+
+
+class DummyButtonUI(EventsMixin):
+    def __init__(self):
+        self.notifications = []
+        self.widgets = {
+            "#output_log": DummyLogView(),
+            "#status_bar": DummyStatusBar(),
+        }
+
+    def query_one(self, selector, _widget_type):
+        return self.widgets[selector]
 
     def notify(self, message, severity="information"):
         self.notifications.append((message, severity))
@@ -88,3 +119,18 @@ def test_on_switch_changed_toggles_logging_fields_for_logging_switches():
     ui.on_switch_changed(event)
 
     assert ui.logging_toggle_count == 1
+
+
+def test_on_button_pressed_copy_btn_notify_warning_when_clipboard_copy_fails(monkeypatch):
+    ui = DummyButtonUI()
+    event = SimpleNamespace(button=SimpleNamespace(id="copy_btn"))
+
+    def failing_copy(_value):
+        raise RuntimeError("clipboard unavailable")
+
+    monkeypatch.setattr("app_mixins.events_mixin.pyperclip.copy", failing_copy)
+
+    asyncio.run(ui.on_button_pressed(event))
+
+    assert ui.notifications[-1][1] == "warning"
+    assert "clipboard backend" in ui.notifications[-1][0]
