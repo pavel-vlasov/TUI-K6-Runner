@@ -282,6 +282,57 @@ def test_validate_runtime_config_rejects_invalid_web_dashboard_url_when_enabled(
     assert any("k6.logging.webDashboardUrl" in error for error in errors)
 
 
+def test_validate_runtime_config_rejects_invalid_logging_level():
+    runtime = _base_runtime()
+    runtime["k6"]["logging"] = {
+        "enabled": True,
+        "level": "verbose",
+        "outputToUI": True,
+        "webDashboard": False,
+        "webDashboardUrl": "http://localhost:5665",
+        "htmlSummaryReport": False,
+    }
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert any("k6.logging.level" in error for error in errors)
+
+
+def test_validate_runtime_config_rejects_non_boolean_logging_flags():
+    runtime = _base_runtime()
+    runtime["k6"]["logging"] = {
+        "enabled": "true",
+        "level": "all",
+        "outputToUI": 1,
+        "webDashboard": "false",
+        "webDashboardUrl": "http://localhost:5665",
+        "htmlSummaryReport": "0",
+    }
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert any("k6.logging.enabled must be a boolean." in error for error in errors)
+    assert any("k6.logging.outputToUI must be a boolean." in error for error in errors)
+    assert any("k6.logging.webDashboard must be a boolean." in error for error in errors)
+    assert any("k6.logging.htmlSummaryReport must be a boolean." in error for error in errors)
+
+
+def test_validate_runtime_config_accepts_valid_full_logging_config():
+    runtime = _base_runtime()
+    runtime["k6"]["logging"] = {
+        "enabled": True,
+        "level": "Failures - without payloads",
+        "outputToUI": False,
+        "webDashboard": True,
+        "webDashboardUrl": "http://localhost:5665",
+        "htmlSummaryReport": True,
+    }
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert not any(error.startswith("k6.logging") for error in errors), errors
+
+
 def test_validate_runtime_config_rejects_invalid_stage_shape():
     runtime = _base_runtime()
     runtime["k6"] = {

@@ -2,7 +2,7 @@
 import json
 from textual.widgets import Label, Switch, Select, Input, TextArea
 from textual.containers import Horizontal, Vertical
-from constants import HTTP_METHODS
+from constants import HTTP_METHODS, LOGGING_LEVELS
 
 
 def get_valid_id(key_path, prefix="input"):
