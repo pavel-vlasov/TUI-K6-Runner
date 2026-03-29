@@ -324,7 +324,7 @@ def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
     for key in runtime["k6"]:
         if key == "logging":
             continue
-        assert f"k6cfg.{key}" in script
+        assert f"source.{key}" in script or f"k6cfg.{key}" in script
 
     assert "logConfig.enabled" in script
     assert "logConfig.level" in script
@@ -513,3 +513,51 @@ def test_schema_validation_accepts_minimal_and_full_runtime_configs():
 
     assert ConfigHandler.validate_against_schema(minimal_runtime) == []
     assert ConfigHandler.validate_against_schema(full_runtime) == []
+
+
+def test_build_runtime_config_includes_endpoint_level_scenario():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"mode": "none"},
+            "requestEndpoints": [
+                {
+                    "name": "Endpoint 1",
+                    "method": "GET",
+                    "path": "/health",
+                    "headers": {},
+                    "query": {},
+                    "scenario": {
+                        "executionType": "Constant Arrival Rate",
+                        "rate": 20,
+                        "timeUnit": "1s",
+                        "duration": "30s",
+                        "preAllocatedVUs": 5,
+                    },
+                }
+            ],
+            "k6": {
+                "executionType": "Constant VUs",
+                "requestMode": "scenarios",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {"http_req_duration": ["p(95)<500"]},
+            },
+        }
+    )
+
+    assert runtime["requestEndpoints"][0]["scenario"]["executionType"] == "Constant Arrival Rate"
+    assert runtime["requestEndpoints"][0]["scenario"]["rate"] == 20
+
+
+def test_validate_runtime_config_rejects_invalid_endpoint_level_scenario():
+    runtime = _base_runtime()
+    runtime["requestEndpoints"][0]["scenario"] = {
+        "executionType": "Constant Arrival Rate",
+        "duration": "10s",
+    }
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert any("requestEndpoints[0].scenario.rate is required" in error for error in errors)
+    assert any("requestEndpoints[0].scenario.preAllocatedVUs is required" in error for error in errors)

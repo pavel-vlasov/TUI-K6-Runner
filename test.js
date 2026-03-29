@@ -89,6 +89,7 @@ function normalizeEndpoints() {
       headers: endpoint.headers && typeof endpoint.headers === 'object' ? endpoint.headers : {},
       body: endpoint.body,
       query: endpoint.query,
+      scenario: endpoint.scenario && typeof endpoint.scenario === 'object' ? endpoint.scenario : null,
     }));
 }
 
@@ -203,11 +204,18 @@ Response Headers: ${JSON.stringify(res.headers, null, 2)}
 
 const executionType = k6cfg.executionType || 'external executor';
 const requestMode = String(k6cfg.requestMode || 'batch').trim().toLowerCase() === 'scenarios' ? 'scenarios' : 'batch';
-const spikeStages = Array.isArray(k6cfg.spikeStages) ? k6cfg.spikeStages : [];
 
 function buildBaseScenario() {
-  if (executionType === 'Spike Tests') {
-    const stages = spikeStages
+  return buildScenarioFromConfig(k6cfg);
+}
+
+function buildScenarioFromConfig(scenarioConfig) {
+  const source = scenarioConfig && typeof scenarioConfig === 'object' ? scenarioConfig : {};
+  const currentExecutionType = source.executionType || executionType;
+  const currentSpikeStages = Array.isArray(source.spikeStages) ? source.spikeStages : [];
+
+  if (currentExecutionType === 'Spike Tests') {
+    const stages = currentSpikeStages
       .map((stage) => ({
         duration: String((stage && stage.duration) || '').trim(),
         target: Number(stage && stage.target),
@@ -223,27 +231,27 @@ function buildBaseScenario() {
     };
   }
 
-  if (executionType === 'Constant VUs') {
+  if (currentExecutionType === 'Constant VUs') {
     return {
       executor: 'constant-vus',
-      vus: Number(k6cfg.vus) || 1,
-      duration: String(k6cfg.duration || '60s'),
+      vus: Number(source.vus) || 1,
+      duration: String(source.duration || '60s'),
     };
   }
 
-  if (executionType === 'Constant Arrival Rate') {
+  if (currentExecutionType === 'Constant Arrival Rate') {
     return {
       executor: 'constant-arrival-rate',
-      rate: Number(k6cfg.rate) || 10,
-      timeUnit: String(k6cfg.timeUnit || '1s'),
-      duration: String(k6cfg.duration || '60s'),
-      preAllocatedVUs: Number(k6cfg.preAllocatedVUs) || 10,
-      maxVUs: Number(k6cfg.maxVUs) || 50,
+      rate: Number(source.rate) || 10,
+      timeUnit: String(source.timeUnit || '1s'),
+      duration: String(source.duration || '60s'),
+      preAllocatedVUs: Number(source.preAllocatedVUs) || 10,
+      maxVUs: Number(source.maxVUs) || 50,
     };
   }
 
-  if (executionType === 'Ramping Arrival Rate') {
-    const stages = (Array.isArray(k6cfg.rampingArrivalStages) ? k6cfg.rampingArrivalStages : [])
+  if (currentExecutionType === 'Ramping Arrival Rate') {
+    const stages = (Array.isArray(source.rampingArrivalStages) ? source.rampingArrivalStages : [])
       .map((stage) => ({
         duration: String((stage && stage.duration) || '').trim(),
         target: Number(stage && stage.target),
@@ -253,19 +261,19 @@ function buildBaseScenario() {
 
     return {
       executor: 'ramping-arrival-rate',
-      startRate: Number(k6cfg.startRate) || 1,
-      timeUnit: String(k6cfg.timeUnit || '1s'),
-      preAllocatedVUs: Number(k6cfg.preAllocatedVUs) || 10,
-      maxVUs: Number(k6cfg.maxVUs) || 50,
+      startRate: Number(source.startRate) || 1,
+      timeUnit: String(source.timeUnit || '1s'),
+      preAllocatedVUs: Number(source.preAllocatedVUs) || 10,
+      maxVUs: Number(source.maxVUs) || 50,
       stages: stages.length ? stages : [{ duration: '30s', target: 10 }],
     };
   }
 
   return {
     executor: 'externally-controlled',
-    vus: k6cfg.vus || 1,
-    maxVUs: k6cfg.maxVUs || 50,
-    duration: k6cfg.duration || '60s',
+    vus: source.vus || 1,
+    maxVUs: source.maxVUs || 50,
+    duration: source.duration || '60s',
   };
 }
 
@@ -280,7 +288,8 @@ function sanitizeScenarioKey(name, index) {
 
 function buildScenariosConfig() {
   if (requestMode !== 'scenarios') {
-    return { default: buildBaseScenario() };
+    const defaultScenario = requestEndpoints[0] && requestEndpoints[0].scenario ? requestEndpoints[0].scenario : k6cfg;
+    return { default: buildScenarioFromConfig(defaultScenario) };
   }
 
   const usedKeys = new Set();
@@ -293,7 +302,7 @@ function buildScenariosConfig() {
     }
     usedKeys.add(key);
     acc[key] = {
-      ...buildBaseScenario(),
+      ...buildScenarioFromConfig(endpoint.scenario || k6cfg),
       exec: `endpoint_${index + 1}`,
     };
     return acc;
