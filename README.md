@@ -32,6 +32,13 @@
 
 If k6 is not available in `PATH`, the app will fail at startup with a clear `RuntimeError` and installation link.
 
+
+## Coverage policy
+
+- CI workflow `Coverage` запускает `pytest` с `--cov-fail-under=80`.
+- Порог также централизован в `.coveragerc` (`[report] fail_under = 80`) для локального и CI запуска с единым значением.
+- Если итоговое покрытие ниже 80%, шаг Coverage завершается с ошибкой, и весь workflow получает статус **failed**.
+
 ## Architecture note
 
 The launch bootstrap is now in `main.py` only. The main UI and application behavior live in:
