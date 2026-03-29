@@ -20,8 +20,10 @@
   (official guide: https://grafana.com/docs/k6/latest/set-up/install-k6/)
 - install project dependencies:
 
+- canonical dependency source: `requirements.txt` (used both locally and in CI)
+
   ```bash
-  pip install -r requirements.txt
+  python -m pip install -r requirements.txt
   ```
 
 - run app using the only supported entrypoint:
