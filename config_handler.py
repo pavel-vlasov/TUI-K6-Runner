@@ -193,16 +193,19 @@ class ConfigHandler:
             if not isinstance(endpoint, dict):
                 continue
             method = str(endpoint.get("method", "GET")).upper().strip()
-            runtime_endpoints.append(
-                {
-                    "name": str(endpoint.get("name", f"Endpoint {index}")).strip() or f"Endpoint {index}",
-                    "method": method,
-                    "path": str(endpoint.get("path", "")).strip(),
-                    "headers": endpoint.get("headers", {}) if isinstance(endpoint.get("headers", {}), dict) else {},
-                    "body": endpoint.get("body"),
-                    "query": endpoint.get("query"),
-                }
-            )
+            runtime_endpoint = {
+                "name": str(endpoint.get("name", f"Endpoint {index}")).strip() or f"Endpoint {index}",
+                "method": method,
+                "path": str(endpoint.get("path", "")).strip(),
+                "headers": endpoint.get("headers", {}) if isinstance(endpoint.get("headers", {}), dict) else {},
+                "body": endpoint.get("body"),
+                "query": endpoint.get("query"),
+            }
+
+            if isinstance(endpoint.get("scenario"), dict):
+                runtime_endpoint["scenario"] = ConfigHandler._build_k6_config(endpoint.get("scenario", {}))
+
+            runtime_endpoints.append(runtime_endpoint)
         return runtime_endpoints
 
     @staticmethod
@@ -312,6 +315,64 @@ class ConfigHandler:
             if value is not None and not isinstance(value, dict):
                 errors.append(f"{path}.{field_name} must be an object.")
 
+        scenario = endpoint.get("scenario")
+        if scenario is not None:
+            errors.extend(ConfigHandler._validate_endpoint_scenario(scenario, path))
+
+        return errors
+
+    @staticmethod
+    def _validate_endpoint_scenario(scenario: object, endpoint_path: str) -> list[str]:
+        if not isinstance(scenario, dict):
+            return [f"{endpoint_path}.scenario must be an object."]
+
+        errors: list[str] = []
+        execution_type = str(scenario.get("executionType", "")).strip()
+        if not execution_type:
+            return [f"{endpoint_path}.scenario.executionType is required."]
+
+        mode_rules: dict[str, list[tuple[str, str]]] = {
+            "external executor": [("vus", "int"), ("duration", "duration")],
+            "Spike Tests": [("spikeStages", "stages")],
+            "Constant VUs": [("vus", "int"), ("duration", "duration")],
+            "Constant Arrival Rate": [
+                ("rate", "int"),
+                ("timeUnit", "duration"),
+                ("duration", "duration"),
+                ("preAllocatedVUs", "int"),
+            ],
+            "Ramping Arrival Rate": [
+                ("startRate", "int"),
+                ("timeUnit", "duration"),
+                ("preAllocatedVUs", "int"),
+                ("rampingArrivalStages", "stages"),
+            ],
+        }
+
+        if execution_type not in mode_rules:
+            return [f"{endpoint_path}.scenario.executionType is invalid: {execution_type}."]
+
+        for field, rule_type in mode_rules[execution_type]:
+            field_path = f"{endpoint_path}.scenario.{field}"
+            if field not in scenario:
+                errors.append(f"{field_path} is required for executionType={execution_type}.")
+                continue
+            if rule_type == "int":
+                int_error = ConfigHandler._validate_positive_int(scenario.get(field), field_path)
+                if int_error:
+                    errors.append(int_error)
+            elif rule_type == "duration":
+                dur_error = ConfigHandler._validate_duration(scenario.get(field), field_path)
+                if dur_error:
+                    errors.append(dur_error)
+            elif rule_type == "stages":
+                errors.extend(ConfigHandler._validate_scenario_stages(scenario.get(field), field_path))
+
+        if "maxVUs" in scenario and scenario.get("maxVUs") is not None:
+            int_error = ConfigHandler._validate_positive_int(scenario.get("maxVUs"), f"{endpoint_path}.scenario.maxVUs")
+            if int_error:
+                errors.append(int_error)
+
         return errors
 
     @staticmethod
@@ -417,6 +478,28 @@ class ConfigHandler:
                 errors.append(duration_error)
 
             target_error = ConfigHandler._validate_positive_int(stage.get("target"), f"{path}.target")
+            if target_error:
+                errors.append(target_error)
+
+        return errors
+
+    @staticmethod
+    def _validate_scenario_stages(stages: object, field_path: str) -> list[str]:
+        errors: list[str] = []
+        if not isinstance(stages, list) or not stages:
+            return [f"{field_path} must be a non-empty list."]
+
+        for idx, stage in enumerate(stages):
+            stage_path = f"{field_path}[{idx}]"
+            if not isinstance(stage, dict):
+                errors.append(f"{stage_path} must be an object.")
+                continue
+
+            duration_error = ConfigHandler._validate_duration(stage.get("duration"), f"{stage_path}.duration")
+            if duration_error:
+                errors.append(duration_error)
+
+            target_error = ConfigHandler._validate_positive_int(stage.get("target"), f"{stage_path}.target")
             if target_error:
                 errors.append(target_error)
 
