@@ -18,12 +18,12 @@
 - install Python 3.11 (supported version is fixed to 3.11.x)
 - install k6 and make sure the `k6` binary is available in your `PATH`
   (official guide: https://grafana.com/docs/k6/latest/set-up/install-k6/)
-- install project dependencies:
+- install project dependencies from lock files (runtime + dev):
 
 - canonical dependency source: `requirements.txt` (used both locally and in CI)
 
   ```bash
-  python -m pip install -r requirements.txt
+  pip install --require-hashes -r requirements-dev.txt
   ```
 
 - run app using the only supported entrypoint:
@@ -34,6 +34,30 @@
 
 If k6 is not available in `PATH`, the app will fail at startup with a clear `RuntimeError` and installation link.
 
+
+
+## Dependency management
+
+This project uses **pip-tools** as a single source of truth for dependencies.
+
+- `requirements.in` — top-level runtime dependencies
+- `requirements-dev.in` — top-level dev dependencies (includes runtime via `-r requirements.in`)
+- `requirements.txt` — compiled runtime lock file (pinned + hashes)
+- `requirements-dev.txt` — compiled dev lock file (pinned + hashes)
+
+### Update dependencies
+
+Use the helper script to re-lock both files:
+
+```bash
+./scripts/update-dependencies.sh
+```
+
+Then install with:
+
+```bash
+pip install --require-hashes -r requirements-dev.txt
+```
 
 ## Coverage policy
 
