@@ -1,4 +1,6 @@
 import inspect
+import json
+from copy import deepcopy
 from textual.containers import ScrollableContainer
 from textual.widgets import Static, TabbedContent, TabPane
 
@@ -61,13 +63,61 @@ class RequestMixin:
         )
 
     def _collect_request_endpoint_data_from_ui(self) -> list[dict]:
-        endpoints = self.get_request_endpoints()
-        for index, endpoint in enumerate(endpoints):
+        endpoint_defaults = deepcopy(DEFAULT_CONFIG["request"])
+        endpoints: list[dict] = []
+        request_tabs_count = len(self._get_request_tab_panes())
+
+        def _read_value(widget_id: str, attr: str = "value"):
             try:
-                endpoint_name = self.query_one(f"#input___requestEndpoints__{index}__name")
-                endpoint["name"] = str(endpoint_name.value).strip() or f"Endpoint {index + 1}"
+                widget = self.query_one(f"#{widget_id}")
+                return getattr(widget, attr)
             except Exception:
-                endpoint["name"] = str(endpoint.get("name", "")).strip() or f"Endpoint {index + 1}"
+                return None
+
+        for index in range(request_tabs_count):
+            endpoint = deepcopy(endpoint_defaults)
+            endpoint["name"] = f"Endpoint {index + 1}"
+
+            for field_key, default_value in endpoint_defaults.items():
+                prefix = "input"
+                attr = "value"
+                if field_key == "method":
+                    prefix = "select"
+                elif field_key in {"headers", "body", "query"}:
+                    prefix = "textarea"
+                    attr = "text"
+
+                raw_value = _read_value(
+                    f"{prefix}___requestEndpoints__{index}__{field_key}",
+                    attr=attr,
+                )
+
+                if raw_value is None:
+                    endpoint[field_key] = deepcopy(default_value)
+                    continue
+
+                if field_key in {"name", "path"}:
+                    normalized = str(raw_value).strip()
+                    if normalized:
+                        endpoint[field_key] = normalized
+                elif field_key == "method":
+                    endpoint[field_key] = str(raw_value).upper().strip() or default_value
+                elif field_key in {"headers", "body", "query"}:
+                    parsed_value = deepcopy(default_value)
+                    text_value = str(raw_value).strip()
+                    if text_value:
+                        try:
+                            loaded = json.loads(text_value)
+                            if isinstance(loaded, dict):
+                                parsed_value = loaded
+                        except Exception:
+                            pass
+                    endpoint[field_key] = parsed_value
+                else:
+                    endpoint[field_key] = raw_value
+
+            endpoints.append(endpoint)
+
         return endpoints
 
 
