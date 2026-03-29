@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  tests:
-    name: Smoke and unit tests
+  smoke:
+    name: Smoke tests (quick gate)
     runs-on: ubuntu-latest
 
     steps:
@@ -20,6 +20,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
 
       - name: Install dependencies
         run: |
@@ -27,21 +29,60 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Smoke tests
+        env:
+          PYTHONPATH: .
         run: |
-          PYTHONPATH=. pytest -q tests/test_process_manager.py tests/test_k6_service.py
+          pytest -q tests/test_process_manager.py tests/test_k6_service.py
 
-      - name: Unit tests
-        run: |
-          PYTHONPATH=. pytest -q
+  tests:
+    name: Unit tests (${{ matrix.os }})
+    needs: smoke
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
-      - name: Test report
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
         run: |
-          PYTHONPATH=. pytest --junitxml=pytest-report.xml
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run unit tests and build JUnit report
+        env:
+          PYTHONPATH: .
+        run: |
+          pytest -q --junitxml=pytest-report.xml
 
       - name: Upload test report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-report
+          name: pytest-report-${{ matrix.os }}
           if-no-files-found: warn
           path: pytest-report.xml
+
+      - name: Publish tests summary
+        if: always()
+        run: |
+          {
+            echo "### Test job (${{ matrix.os }})"
+            echo
+            echo "- Smoke gate: \\`needs.smoke\\`"
+            echo "- JUnit artifact: \\`pytest-report-${{ matrix.os }}\\`"
+          } >> "$GITHUB_STEP_SUMMARY"
