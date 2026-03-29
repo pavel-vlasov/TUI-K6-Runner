@@ -1,6 +1,7 @@
 import asyncio
 
 from app_mixins.request_mixin import RequestMixin
+from constants import DEFAULT_CONFIG
 
 
 class DummyTabPane:
@@ -130,3 +131,33 @@ def test_sync_k6_scenario_tabs_uses_endpoint_names():
     second_title = str(getattr(ui.k6_scenarios_subtabs._panes[1], "_title", ""))
     assert "Users" in first_title
     assert "Endpoint 2" in second_title
+
+
+def test_collect_request_endpoint_data_from_ui_uses_tab_count_as_source_of_truth():
+    ui = DummyRequestUI(
+        {
+            "requestEndpoints": [
+                {"name": "A"},
+                {"name": "B"},
+                {"name": "C"},
+            ]
+        },
+        pane_count=2,
+    )
+
+    endpoints = ui._collect_request_endpoint_data_from_ui()
+
+    assert len(endpoints) == 2
+    assert endpoints[0]["name"] == "A"
+    assert endpoints[1]["name"] == "B"
+
+
+def test_collect_request_endpoint_data_from_ui_falls_back_to_endpoint_defaults():
+    ui = DummyRequestUI({"requestEndpoints": []}, pane_count=1)
+
+    endpoints = ui._collect_request_endpoint_data_from_ui()
+
+    assert len(endpoints) == 1
+    assert endpoints[0]["name"] == "Endpoint 1"
+    assert endpoints[0]["method"] == DEFAULT_CONFIG["request"]["method"]
+    assert endpoints[0]["path"] == DEFAULT_CONFIG["request"]["path"]

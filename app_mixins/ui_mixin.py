@@ -36,7 +36,7 @@ class UIMixin:
     async def on_mount(self) -> None:
         self.set_run_ui_state(False)
         self.toggle_execution_type_fields()
-        self.toggle_request_mode_fields()
+        await self.toggle_request_mode_fields()
         self.toggle_auth_fields()
         self.toggle_logging_fields()
         if getattr(self, "config_load_error", None):
@@ -93,9 +93,11 @@ class UIMixin:
             "block" if show_ramping_arrival_fields else "none"
         )
 
-    def toggle_request_mode_fields(self) -> None:
+    async def toggle_request_mode_fields(self) -> None:
         request_mode_select = self.query_one("#select___k6__requestMode", Select)
         scenarios_mode_enabled = request_mode_select.value == "scenarios"
+        if scenarios_mode_enabled:
+            await self.sync_k6_scenario_tabs()
         self.query_one("#k6_scenarios_tabs_row", Vertical).styles.display = "block" if scenarios_mode_enabled else "none"
 
     def toggle_auth_fields(self) -> None:

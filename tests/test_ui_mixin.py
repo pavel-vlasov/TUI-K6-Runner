@@ -1,3 +1,5 @@
+import asyncio
+
 from app_mixins.ui_mixin import UIMixin
 
 
@@ -62,6 +64,7 @@ class DummyUI(UIMixin):
             "#logging_external_mode_warning": DummyWidget(),
         }
         self.request_mode_widgets = {"#k6_scenarios_tabs_row": DummyWidget()}
+        self.scenario_sync_count = 0
 
     def query_one(self, selector, _widget_type):
         if selector in self.buttons:
@@ -79,6 +82,9 @@ class DummyUI(UIMixin):
         if selector in self.request_mode_widgets:
             return self.request_mode_widgets[selector]
         raise KeyError(selector)
+
+    async def sync_k6_scenario_tabs(self):
+        self.scenario_sync_count += 1
 
 
 def test_web_dashboard_button_disabled_when_not_running():
@@ -179,9 +185,11 @@ def test_toggle_request_mode_fields_shows_scenario_tabs_only_for_scenarios_mode(
     ui = DummyUI(web_dashboard_enabled=False)
 
     ui.auth_selects["#select___k6__requestMode"].value = "batch"
-    ui.toggle_request_mode_fields()
+    asyncio.run(ui.toggle_request_mode_fields())
     assert ui.request_mode_widgets["#k6_scenarios_tabs_row"].styles.display == "none"
+    assert ui.scenario_sync_count == 0
 
     ui.auth_selects["#select___k6__requestMode"].value = "scenarios"
-    ui.toggle_request_mode_fields()
+    asyncio.run(ui.toggle_request_mode_fields())
     assert ui.request_mode_widgets["#k6_scenarios_tabs_row"].styles.display == "block"
+    assert ui.scenario_sync_count == 1

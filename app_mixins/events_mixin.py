@@ -18,7 +18,7 @@ class EventsMixin:
         if event.switch.id in {"bool___k6__logging__enabled", "bool___k6__logging__webDashboard"}:
             self.toggle_logging_fields()
 
-    def on_select_changed(self, event: Select.Changed):
+    async def on_select_changed(self, event: Select.Changed):
         if event.select.id == "select___k6__executionType":
             self.toggle_execution_type_fields()
         if event.select.id and event.select.id.startswith("select___requestEndpoints__") and event.select.id.endswith(
@@ -28,7 +28,8 @@ class EventsMixin:
             if len(parts) >= 3 and parts[1].isdigit():
                 self.toggle_endpoint_execution_type_fields(int(parts[1]))
         if event.select.id == "select___k6__requestMode":
-            self.toggle_request_mode_fields()
+            await self.toggle_request_mode_fields()
+            await self.sync_k6_scenario_tabs()
         if event.select.id == "select___auth__mode":
             self.toggle_auth_fields()
         if event.select.id == "select___k6__logging__outputToUI":
