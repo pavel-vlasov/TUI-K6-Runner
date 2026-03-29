@@ -37,7 +37,7 @@ class DummyEventsUI(EventsMixin):
     def toggle_logging_fields(self):
         self.logging_toggle_count += 1
 
-    def toggle_request_mode_fields(self):
+    async def toggle_request_mode_fields(self):
         self.request_mode_toggle_count += 1
 
     async def sync_k6_scenario_tabs(self):
@@ -90,7 +90,7 @@ def test_on_switch_changed_no_auth_disables_other_auth_modes():
     ui = DummyEventsUI()
     event = SimpleNamespace(select=SimpleNamespace(id="select___auth__mode"))
 
-    ui.on_select_changed(event)
+    asyncio.run(ui.on_select_changed(event))
 
     assert ui.auth_toggle_count == 1
 
@@ -99,9 +99,10 @@ def test_on_select_changed_toggles_request_mode_fields():
     ui = DummyEventsUI()
     event = SimpleNamespace(select=SimpleNamespace(id="select___k6__requestMode"))
 
-    ui.on_select_changed(event)
+    asyncio.run(ui.on_select_changed(event))
 
     assert ui.request_mode_toggle_count == 1
+    assert ui.scenario_sync_count == 1
 
 
 def test_on_input_changed_syncs_scenarios_for_endpoint_name():
