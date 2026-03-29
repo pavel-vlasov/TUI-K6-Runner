@@ -209,9 +209,13 @@ class ConfigHandler:
     def _build_k6_config(k6cfg: object) -> dict:
         source = k6cfg if isinstance(k6cfg, dict) else {}
         execution_type = str(source.get("executionType", "external executor")).strip()
+        request_mode = str(source.get("requestMode", "batch")).strip()
+        if request_mode not in {"batch", "scenarios"}:
+            request_mode = "batch"
 
         runtime = {
             "executionType": execution_type,
+            "requestMode": request_mode,
             "thresholds": source.get("thresholds", {}),
             "logging": ConfigHandler._build_logging_config(source.get("logging", {})),
         }
@@ -317,6 +321,9 @@ class ConfigHandler:
         execution_type = str(source.get("executionType", "")).strip()
         if not execution_type:
             return ["k6.executionType is required."]
+        request_mode = str(source.get("requestMode", "")).strip()
+        if request_mode not in {"batch", "scenarios"}:
+            errors.append(f"k6.requestMode is invalid: {request_mode}.")
 
         thresholds = source.get("thresholds")
         threshold_error = ConfigHandler._validate_thresholds(thresholds)

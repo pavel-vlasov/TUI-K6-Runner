@@ -4,8 +4,9 @@ from app_mixins.request_mixin import RequestMixin
 
 
 class DummyTabPane:
-    def __init__(self, id_value):
+    def __init__(self, id_value, title="tab"):
         self.id = id_value
+        self.title = title
 
 
 class DummyTabbedContent:
@@ -29,10 +30,18 @@ class DummyRequestUI(RequestMixin):
         self.notifications = []
         panes = [DummyTabPane(f"tab_req_endpoint_{i}") for i in range(pane_count)]
         self.request_subtabs = DummyTabbedContent(panes)
+        self.k6_scenarios_subtabs = DummyTabbedContent([])
 
-    def query_one(self, selector, _widget_type):
+    def query_one(self, selector, _widget_type=None):
         if selector == "#request_subtabs":
             return self.request_subtabs
+        if selector == "#k6_scenarios_subtabs":
+            return self.k6_scenarios_subtabs
+        if selector.startswith("#input___requestEndpoints__") and selector.endswith("__name"):
+            idx = int(selector.split("__")[2])
+            endpoint = self.full_config.get("requestEndpoints", [])
+            value = endpoint[idx].get("name", "") if idx < len(endpoint) else ""
+            return type("NameInput", (), {"value": value})()
         raise KeyError(selector)
 
     def notify(self, message, severity=None):
@@ -82,7 +91,7 @@ def test_add_request_endpoint_tab_enforces_maximum():
 def test_remove_last_request_endpoint_tab_enforces_minimum():
     ui = DummyRequestUI({}, pane_count=1)
 
-    ui.remove_last_request_endpoint_tab()
+    asyncio.run(ui.remove_last_request_endpoint_tab())
 
     assert ui.notifications == [("At least 1 endpoint must remain", "warning")]
 
@@ -90,7 +99,27 @@ def test_remove_last_request_endpoint_tab_enforces_minimum():
 def test_remove_last_request_endpoint_tab_sets_previous_active():
     ui = DummyRequestUI({}, pane_count=3)
 
-    ui.remove_last_request_endpoint_tab()
+    asyncio.run(ui.remove_last_request_endpoint_tab())
 
     assert len(ui.request_subtabs._panes) == 2
     assert ui.request_subtabs.active == "tab_req_endpoint_1"
+
+
+def test_sync_k6_scenario_tabs_uses_endpoint_names():
+    ui = DummyRequestUI(
+        {
+            "requestEndpoints": [
+                {"name": "Users", "method": "GET", "path": "/users"},
+                {"name": "", "method": "POST", "path": "/orders"},
+            ]
+        },
+        pane_count=2,
+    )
+
+    asyncio.run(ui.sync_k6_scenario_tabs())
+
+    assert len(ui.k6_scenarios_subtabs._panes) == 2
+    first_title = str(getattr(ui.k6_scenarios_subtabs._panes[0], "_title", ""))
+    second_title = str(getattr(ui.k6_scenarios_subtabs._panes[1], "_title", ""))
+    assert "Users" in first_title
+    assert "Endpoint 2" in second_title

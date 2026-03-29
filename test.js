@@ -202,6 +202,7 @@ Response Headers: ${JSON.stringify(res.headers, null, 2)}
 }
 
 const executionType = k6cfg.executionType || 'external executor';
+const requestMode = String(k6cfg.requestMode || 'batch').trim().toLowerCase() === 'scenarios' ? 'scenarios' : 'batch';
 const spikeStages = Array.isArray(k6cfg.spikeStages) ? k6cfg.spikeStages : [];
 
 function buildBaseScenario() {
@@ -268,9 +269,40 @@ function buildBaseScenario() {
   };
 }
 
+function sanitizeScenarioKey(name, index) {
+  const normalized = String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return normalized || `endpoint_${index + 1}`;
+}
+
+function buildScenariosConfig() {
+  if (requestMode !== 'scenarios') {
+    return { default: buildBaseScenario() };
+  }
+
+  const usedKeys = new Set();
+  return requestEndpoints.reduce((acc, endpoint, index) => {
+    let key = sanitizeScenarioKey(endpoint.name, index);
+    let suffix = 2;
+    while (usedKeys.has(key)) {
+      key = `${sanitizeScenarioKey(endpoint.name, index)}_${suffix}`;
+      suffix += 1;
+    }
+    usedKeys.add(key);
+    acc[key] = {
+      ...buildBaseScenario(),
+      exec: `endpoint_${index + 1}`,
+    };
+    return acc;
+  }, {});
+}
+
 export let options = {
   thresholds: k6cfg.thresholds || { 'http_req_duration': ['p(95)<5000'] },
-  scenarios: { default: buildBaseScenario() },
+  scenarios: buildScenariosConfig(),
 };
 
 // --- setup ---
@@ -315,6 +347,11 @@ export function setup() {
 export default function (data) {
   const correlationId = uuidv4();
   if (!requestEndpoints.length) throw new Error('❌ No request endpoints configured.');
+  if (requestMode === 'scenarios') {
+    runScenarioEndpoint(0, data, correlationId);
+    sleep(Math.random() * 0.4 + 0.1);
+    return;
+  }
 
   const batchRequests = requestEndpoints.map((endpoint) => buildSingleRequest(endpoint, data, correlationId));
   const responses = http.batch(batchRequests.map((req) => ({
@@ -333,6 +370,37 @@ export default function (data) {
   });
 
   sleep(Math.random() * 0.4 + 0.1);
+}
+
+function runScenarioEndpoint(index, data, correlationId = uuidv4()) {
+  const endpoint = requestEndpoints[index];
+  if (!endpoint) return;
+  const req = buildSingleRequest(endpoint, data, correlationId);
+  const response = http.request(req.method, req.url, req.body, req.params);
+  const ok = check(response, {
+    [`${req.name} status 200`]: (r) => r.status === 200,
+  });
+  logRequestResult(req, response, ok, correlationId);
+}
+
+export function endpoint_1(data) {
+  runScenarioEndpoint(0, data);
+}
+
+export function endpoint_2(data) {
+  runScenarioEndpoint(1, data);
+}
+
+export function endpoint_3(data) {
+  runScenarioEndpoint(2, data);
+}
+
+export function endpoint_4(data) {
+  runScenarioEndpoint(3, data);
+}
+
+export function endpoint_5(data) {
+  runScenarioEndpoint(4, data);
 }
 
 export function handleSummary(data) {

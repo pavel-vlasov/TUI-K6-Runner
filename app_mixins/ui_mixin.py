@@ -36,6 +36,7 @@ class UIMixin:
     async def on_mount(self) -> None:
         self.set_run_ui_state(False)
         self.toggle_execution_type_fields()
+        self.toggle_request_mode_fields()
         self.toggle_auth_fields()
         self.toggle_logging_fields()
         if getattr(self, "config_load_error", None):
@@ -47,11 +48,13 @@ class UIMixin:
 
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
         if self._get_request_tab_panes():
+            await self.sync_k6_scenario_tabs()
             return
 
         request_endpoints = self.get_request_endpoints()
         for index, request_data in enumerate(request_endpoints):
             await request_subtabs.add_pane(self.build_request_subtab(index, request_data))
+        await self.sync_k6_scenario_tabs()
 
     def toggle_execution_type_fields(self) -> None:
         execution_select = self.query_one("#select___k6__executionType", Select)
@@ -89,6 +92,11 @@ class UIMixin:
         self.query_one("#arrival_stages_group", Vertical).styles.display = (
             "block" if show_ramping_arrival_fields else "none"
         )
+
+    def toggle_request_mode_fields(self) -> None:
+        request_mode_select = self.query_one("#select___k6__requestMode", Select)
+        scenarios_mode_enabled = request_mode_select.value == "scenarios"
+        self.query_one("#k6_scenarios_tabs_row", Vertical).styles.display = "block" if scenarios_mode_enabled else "none"
 
     def toggle_auth_fields(self) -> None:
         auth_mode_select = self.query_one("#select___auth__mode", Select)
@@ -207,6 +215,9 @@ class UIMixin:
                     with TabPane("K6", id="tab_k6"):
                         k6_config = self.full_config.get("k6", {})
                         execution_type = k6_config.get("executionType", "external executor")
+                        request_mode = str(k6_config.get("requestMode", "batch")).strip()
+                        if request_mode not in ["batch", "scenarios"]:
+                            request_mode = "batch"
                         if execution_type not in [
                             "external executor",
                             "Spike Tests",
@@ -236,6 +247,18 @@ class UIMixin:
                         }
 
                         yield ScrollableContainer(
+                            Horizontal(
+                                Label("request mode:", classes="field-label"),
+                                Select(
+                                    [
+                                        ("batch", "batch"),
+                                        ("scenarios", "scenarios"),
+                                    ],
+                                    value=request_mode,
+                                    id="select___k6__requestMode",
+                                ),
+                                classes="field-row",
+                            ),
                             Horizontal(
                                 Label("execution type:", classes="field-label"),
                                 Select(
@@ -327,6 +350,10 @@ class UIMixin:
                                     classes="field-row",
                                 ),
                                 id="spike_stages_group",
+                            ),
+                            Vertical(
+                                TabbedContent(id="k6_scenarios_subtabs"),
+                                id="k6_scenarios_tabs_row",
                             ),
                             *build_config_fields(k6_other_data, "k6"),
                             classes="tab-container",

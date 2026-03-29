@@ -74,7 +74,7 @@
     "k6": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["executionType", "thresholds"],
+      "required": ["executionType", "requestMode", "thresholds"],
       "properties": {
         "executionType": {
           "type": "string",
@@ -85,6 +85,10 @@
             "Constant Arrival Rate",
             "Ramping Arrival Rate"
           ]
+        },
+        "requestMode": {
+          "type": "string",
+          "enum": ["batch", "scenarios"]
         },
         "vus": {"type": "integer", "minimum": 1},
         "maxVUs": {"type": "integer", "minimum": 1},

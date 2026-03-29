@@ -39,6 +39,7 @@ class DummyUI(UIMixin):
         }
         self.auth_selects = {
             "#select___auth__mode": DummyValueWidget(auth_mode),
+            "#select___k6__requestMode": DummyValueWidget("batch"),
         }
         self.auth_rows = {
             "#auth_row__client_id": DummyRow(),
@@ -60,6 +61,7 @@ class DummyUI(UIMixin):
             "#input___k6__logging__webDashboardUrl": DummyWidget(),
             "#logging_external_mode_warning": DummyWidget(),
         }
+        self.request_mode_widgets = {"#k6_scenarios_tabs_row": DummyWidget()}
 
     def query_one(self, selector, _widget_type):
         if selector in self.buttons:
@@ -74,6 +76,8 @@ class DummyUI(UIMixin):
             return self.logging_selects[selector]
         if selector in self.logging_widgets:
             return self.logging_widgets[selector]
+        if selector in self.request_mode_widgets:
+            return self.request_mode_widgets[selector]
         raise KeyError(selector)
 
 
@@ -169,3 +173,15 @@ def test_normalize_logging_level_falls_back_for_invalid_values():
     assert ui._normalize_logging_level("Select.BLANK") == "failed"
     assert ui._normalize_logging_level("") == "failed"
     assert ui._normalize_logging_level(None) == "failed"
+
+
+def test_toggle_request_mode_fields_shows_scenario_tabs_only_for_scenarios_mode():
+    ui = DummyUI(web_dashboard_enabled=False)
+
+    ui.auth_selects["#select___k6__requestMode"].value = "batch"
+    ui.toggle_request_mode_fields()
+    assert ui.request_mode_widgets["#k6_scenarios_tabs_row"].styles.display == "none"
+
+    ui.auth_selects["#select___k6__requestMode"].value = "scenarios"
+    ui.toggle_request_mode_fields()
+    assert ui.request_mode_widgets["#k6_scenarios_tabs_row"].styles.display == "block"

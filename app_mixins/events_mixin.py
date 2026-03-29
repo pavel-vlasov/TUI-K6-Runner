@@ -21,10 +21,18 @@ class EventsMixin:
     def on_select_changed(self, event: Select.Changed):
         if event.select.id == "select___k6__executionType":
             self.toggle_execution_type_fields()
+        if event.select.id == "select___k6__requestMode":
+            self.toggle_request_mode_fields()
         if event.select.id == "select___auth__mode":
             self.toggle_auth_fields()
         if event.select.id == "select___k6__logging__outputToUI":
             self.toggle_logging_fields()
+
+    async def on_input_changed(self, event: Input.Changed):
+        if not event.input.id:
+            return
+        if event.input.id.startswith("input___requestEndpoints__") and event.input.id.endswith("__name"):
+            await self.sync_k6_scenario_tabs()
 
     async def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "web_dashboard_btn":
@@ -51,7 +59,7 @@ class EventsMixin:
             await self.add_request_endpoint_tab()
             return
         if event.button.id == "remove_request_endpoint_btn":
-            self.remove_last_request_endpoint_tab()
+            await self.remove_last_request_endpoint_tab()
             return
         if event.button.id == "add_spike_stage_btn":
             self.add_spike_stage()

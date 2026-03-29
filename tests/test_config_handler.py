@@ -25,6 +25,7 @@ def _base_runtime() -> dict:
         ],
         "k6": {
             "executionType": "Constant VUs",
+            "requestMode": "batch",
             "vus": 1,
             "duration": "10s",
             "thresholds": {"http_req_duration": ["p(95)<500"]},
@@ -71,10 +72,11 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
                 "query": {},
             },
         ],
-        "k6": {
-            "executionType": "Constant VUs",
-            "vus": 3,
-            "duration": "10s",
+            "k6": {
+                "executionType": "Constant VUs",
+                "requestMode": "batch",
+                "vus": 3,
+                "duration": "10s",
             "rate": 100,
             "thresholds": {"http_req_duration": ["p(95)<500"]},
             "logging": {
@@ -94,6 +96,7 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
     assert "token_url" not in runtime["auth"]
     assert "scope" not in runtime["auth"]
     assert "rate" not in runtime["k6"]
+    assert runtime["k6"]["requestMode"] == "batch"
     assert runtime["k6"]["vus"] == 3
     assert runtime["k6"]["duration"] == "10s"
 
@@ -448,6 +451,34 @@ def test_validate_runtime_config_rejects_invalid_stage_shape():
     assert any("rampingArrivalStages[0].target" in error for error in errors)
 
 
+def test_build_runtime_config_normalizes_invalid_request_mode_to_batch():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"mode": "none"},
+            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+            "k6": {
+                "executionType": "Constant VUs",
+                "requestMode": "unknown",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {"http_req_duration": ["p(95)<500"]},
+            },
+        }
+    )
+
+    assert runtime["k6"]["requestMode"] == "batch"
+
+
+def test_validate_runtime_config_rejects_invalid_request_mode():
+    runtime = _base_runtime()
+    runtime["k6"]["requestMode"] = "unknown"
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert any("k6.requestMode is invalid" in error for error in errors)
+
+
 def test_schema_validation_accepts_minimal_and_full_runtime_configs():
     minimal_runtime = {
         "baseURL": "https://example.com",
@@ -463,6 +494,7 @@ def test_schema_validation_accepts_minimal_and_full_runtime_configs():
         ],
         "k6": {
             "executionType": "Constant VUs",
+            "requestMode": "batch",
             "vus": 1,
             "duration": "10s",
             "thresholds": {"http_req_duration": ["p(95)<500"]},

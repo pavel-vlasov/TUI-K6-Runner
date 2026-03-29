@@ -15,6 +15,8 @@ class DummyEventsUI(EventsMixin):
         self.switches = {}
         self.auth_toggle_count = 0
         self.logging_toggle_count = 0
+        self.request_mode_toggle_count = 0
+        self.scenario_sync_count = 0
         self.notifications = []
         self.full_config = {
             "k6": {
@@ -34,6 +36,12 @@ class DummyEventsUI(EventsMixin):
 
     def toggle_logging_fields(self):
         self.logging_toggle_count += 1
+
+    def toggle_request_mode_fields(self):
+        self.request_mode_toggle_count += 1
+
+    async def sync_k6_scenario_tabs(self):
+        self.scenario_sync_count += 1
 
     def notify(self, message, severity="information"):
         self.notifications.append((message, severity))
@@ -85,6 +93,24 @@ def test_on_switch_changed_no_auth_disables_other_auth_modes():
     ui.on_select_changed(event)
 
     assert ui.auth_toggle_count == 1
+
+
+def test_on_select_changed_toggles_request_mode_fields():
+    ui = DummyEventsUI()
+    event = SimpleNamespace(select=SimpleNamespace(id="select___k6__requestMode"))
+
+    ui.on_select_changed(event)
+
+    assert ui.request_mode_toggle_count == 1
+
+
+def test_on_input_changed_syncs_scenarios_for_endpoint_name():
+    ui = DummyEventsUI()
+    event = SimpleNamespace(input=SimpleNamespace(id="input___requestEndpoints__0__name"))
+
+    asyncio.run(ui.on_input_changed(event))
+
+    assert ui.scenario_sync_count == 1
 
 
 def test_with_cache_busting_query_keeps_existing_params():
