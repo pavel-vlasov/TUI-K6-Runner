@@ -202,6 +202,7 @@ Response Headers: ${JSON.stringify(res.headers, null, 2)}
 }
 
 const executionType = k6cfg.executionType || 'external executor';
+const requestMode = k6cfg.requestMode === 'scenarios' ? 'scenarios' : 'batch';
 const spikeStages = Array.isArray(k6cfg.spikeStages) ? k6cfg.spikeStages : [];
 
 function buildBaseScenario() {
@@ -268,9 +269,33 @@ function buildBaseScenario() {
   };
 }
 
+function buildScenarios() {
+  const baseScenario = buildBaseScenario();
+  if (requestMode !== 'scenarios') {
+    return { default: baseScenario };
+  }
+
+  const scenarios = {};
+  requestEndpoints.forEach((endpoint, index) => {
+    const scenarioName = `endpoint_${index + 1}`;
+    scenarios[scenarioName] = {
+      ...baseScenario,
+      exec: 'runEndpointScenario',
+      env: {
+        ENDPOINT_INDEX: String(index),
+        ENDPOINT_NAME: endpoint.name,
+      },
+      tags: {
+        endpoint: endpoint.name,
+      },
+    };
+  });
+  return scenarios;
+}
+
 export let options = {
   thresholds: k6cfg.thresholds || { 'http_req_duration': ['p(95)<5000'] },
-  scenarios: { default: buildBaseScenario() },
+  scenarios: buildScenarios(),
 };
 
 // --- setup ---
@@ -332,6 +357,21 @@ export default function (data) {
     logRequestResult(req, res, ok, correlationId);
   });
 
+  sleep(Math.random() * 0.4 + 0.1);
+}
+
+export function runEndpointScenario(data) {
+  const correlationId = uuidv4();
+  if (!requestEndpoints.length) throw new Error('❌ No request endpoints configured.');
+
+  const endpointIndex = Number.parseInt(String(__ENV.ENDPOINT_INDEX || '0'), 10);
+  const endpoint = requestEndpoints[endpointIndex] || requestEndpoints[0];
+  const req = buildSingleRequest(endpoint, data, correlationId);
+  const res = http.request(req.method, req.url, req.body, req.params);
+  const ok = check(res, {
+    [`${req.name} status 200`]: (r) => r.status === 200,
+  });
+  logRequestResult(req, res, ok, correlationId);
   sleep(Math.random() * 0.4 + 0.1);
 }
 

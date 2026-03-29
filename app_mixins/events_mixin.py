@@ -21,10 +21,17 @@ class EventsMixin:
     def on_select_changed(self, event: Select.Changed):
         if event.select.id == "select___k6__executionType":
             self.toggle_execution_type_fields()
+        if event.select.id == "select___k6__requestMode":
+            self.toggle_request_mode_fields()
         if event.select.id == "select___auth__mode":
             self.toggle_auth_fields()
         if event.select.id == "select___k6__logging__outputToUI":
             self.toggle_logging_fields()
+
+    def on_input_changed(self, event: Input.Changed):
+        widget_id = event.input.id or ""
+        if widget_id.startswith("input___requestEndpoints__") and widget_id.endswith("__name"):
+            self.call_after_refresh(self.sync_k6_scenario_tabs)
 
     async def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "web_dashboard_btn":

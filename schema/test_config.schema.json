@@ -86,6 +86,10 @@
             "Ramping Arrival Rate"
           ]
         },
+        "requestMode": {
+          "type": "string",
+          "enum": ["batch", "scenarios"]
+        },
         "vus": {"type": "integer", "minimum": 1},
         "maxVUs": {"type": "integer", "minimum": 1},
         "duration": {"type": "string", "pattern": "^\\d+(ms|s|m|h)$"},
