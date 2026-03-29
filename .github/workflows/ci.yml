@@ -1,0 +1,187 @@
+name: Quality Pipeline
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ruff lint check
+        run: |
+          ruff check . 2>&1 | tee lint-report.txt
+
+      - name: Upload lint report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          if-no-files-found: warn
+          path: lint-report.txt
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Smoke tests
+        run: |
+          PYTHONPATH=. pytest -q tests/test_process_manager.py tests/test_k6_service.py
+
+      - name: Unit tests
+        run: |
+          PYTHONPATH=. pytest -q
+
+      - name: Test report
+        run: |
+          PYTHONPATH=. pytest --junitxml=pytest-report.xml
+
+      - name: Upload test report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-report
+          if-no-files-found: warn
+          path: pytest-report.xml
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Coverage report
+        run: |
+          PYTHONPATH=. pytest --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          if-no-files-found: warn
+          path: coverage.xml
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pip-audit
+
+      - name: Dependency check
+        run: |
+          pip-audit 2>&1 | tee security-report.txt
+
+      - name: Upload security report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          if-no-files-found: warn
+          path: security-report.txt
+
+  quality-summary:
+    name: Quality summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - lint
+      - tests
+      - coverage
+      - security
+
+    steps:
+      - name: Build pipeline summary
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          TESTS_RESULT: ${{ needs.tests.result }}
+          COVERAGE_RESULT: ${{ needs.coverage.result }}
+          SECURITY_RESULT: ${{ needs.security.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          overall="passed"
+          if [ "$LINT_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ] || [ "$COVERAGE_RESULT" != "success" ] || [ "$SECURITY_RESULT" != "success" ]; then
+            overall="failed"
+          fi
+
+          {
+            echo "# Quality Pipeline"
+            echo
+            echo "**Report badge status:** $overall"
+            echo
+            echo "| Stage | Status | Report |"
+            echo "|---|---|---|"
+            echo "| Lint | $LINT_RESULT | [lint-report]($RUN_URL#artifacts) |"
+            echo "| Tests | $TESTS_RESULT | [pytest-report]($RUN_URL#artifacts) |"
+            echo "| Coverage | $COVERAGE_RESULT | [coverage-report]($RUN_URL#artifacts) |"
+            echo "| Security | $SECURITY_RESULT | [security-report]($RUN_URL#artifacts) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail summary job when any stage failed
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          TESTS_RESULT: ${{ needs.tests.result }}
+          COVERAGE_RESULT: ${{ needs.coverage.result }}
+          SECURITY_RESULT: ${{ needs.security.result }}
+        run: |
+          if [ "$LINT_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ] || [ "$COVERAGE_RESULT" != "success" ] || [ "$SECURITY_RESULT" != "success" ]; then
+            echo "Quality Pipeline failed"
+            exit 1
+          fi

@@ -1,5 +1,6 @@
 # TUI-K6-Runner
 
+[![Report](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml/badge.svg)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
 [![Lint](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/lint.yml/badge.svg)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/lint.yml)
 [![Tests](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/tests.yml/badge.svg)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/tests.yml)
 [![Coverage](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/coverage.yml/badge.svg)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/coverage.yml)
