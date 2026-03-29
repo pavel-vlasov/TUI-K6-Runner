@@ -19,6 +19,10 @@ from ui_components import build_config_fields
 
 
 class UIMixin:
+    def _is_scale_supported_execution_type(self) -> bool:
+        execution_type = self.full_config.get("k6", {}).get("executionType", "external executor")
+        return execution_type == "external executor"
+
     def set_run_ui_state(self, running: bool) -> None:
         run_btn = self.query_one("#run_btn", Button)
         stop_btn = self.query_one("#stop_btn", Button)
@@ -26,10 +30,11 @@ class UIMixin:
         web_dashboard_btn = self.query_one("#web_dashboard_btn", Button)
         web_dashboard_enabled = self.full_config.get("k6", {}).get("logging", {}).get("webDashboard", False)
         external_terminal_mode = self._is_external_terminal_mode_selected()
+        scale_supported_execution_type = self._is_scale_supported_execution_type()
 
         run_btn.disabled = running
         stop_btn.disabled = (not running) or external_terminal_mode
-        apply_btn.disabled = (not running) or external_terminal_mode
+        apply_btn.disabled = (not running) or external_terminal_mode or (not scale_supported_execution_type)
         web_dashboard_btn.display = True
         web_dashboard_btn.disabled = (not running) or (not web_dashboard_enabled)
 
