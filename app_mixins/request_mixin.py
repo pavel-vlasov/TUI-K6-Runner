@@ -1,3 +1,4 @@
+import inspect
 from textual.containers import ScrollableContainer
 from textual.widgets import Static, TabbedContent, TabPane
 
@@ -69,6 +70,12 @@ class RequestMixin:
                 endpoint["name"] = str(endpoint.get("name", "")).strip() or f"Endpoint {index + 1}"
         return endpoints
 
+
+    async def _remove_pane(self, tabbed_content: TabbedContent, pane_id: str) -> None:
+        removal = tabbed_content.remove_pane(pane_id)
+        if inspect.isawaitable(removal):
+            await removal
+
     async def sync_k6_scenario_tabs(self) -> None:
         try:
             scenario_subtabs = self.query_one("#k6_scenarios_subtabs", TabbedContent)
@@ -77,7 +84,7 @@ class RequestMixin:
 
         existing_tabs = list(scenario_subtabs.query(TabPane))
         for pane in existing_tabs:
-            scenario_subtabs.remove_pane(pane.id)
+            await self._remove_pane(scenario_subtabs, pane.id)
 
         endpoints = self._collect_request_endpoint_data_from_ui()
         for index, request_data in enumerate(endpoints):
@@ -111,6 +118,6 @@ class RequestMixin:
             return
 
         last_tab = existing_tabs[-1]
-        request_subtabs.remove_pane(last_tab.id)
+        await self._remove_pane(request_subtabs, last_tab.id)
         request_subtabs.active = existing_tabs[-2].id
         await self.sync_k6_scenario_tabs()
