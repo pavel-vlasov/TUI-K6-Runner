@@ -113,11 +113,14 @@ class UIMixin:
     def toggle_logging_fields(self) -> None:
         logging_enabled_switch = self.query_one("#bool___k6__logging__enabled", Switch)
         web_dashboard_switch = self.query_one("#bool___k6__logging__webDashboard", Switch)
-        output_to_ui_select = self.query_one("#select___k6__logging__outputToUI", Select)
+        try:
+            output_to_ui_value = self.query_one("#bool___k6__logging__outputToUI", Switch).value
+        except Exception:
+            output_to_ui_value = self.query_one("#select___k6__logging__outputToUI", Select).value
 
         level_display = "block" if bool(logging_enabled_switch.value) else "none"
         web_dashboard_url_display = "block" if bool(web_dashboard_switch.value) else "none"
-        external_warning_display = "block" if output_to_ui_select.value is False else "none"
+        external_warning_display = "block" if output_to_ui_value is False else "none"
 
         self.query_one("#logging_level_label", Label).styles.display = level_display
         self.query_one("#select___k6__logging__level", Select).styles.display = level_display
@@ -128,11 +131,15 @@ class UIMixin:
 
     def _is_external_terminal_mode_selected(self) -> bool:
         try:
-            output_mode_select = self.query_one("#select___k6__logging__outputToUI", Select)
-            return output_mode_select.value is False
+            output_mode_switch = self.query_one("#bool___k6__logging__outputToUI", Switch)
+            return output_mode_switch.value is False
         except Exception:
-            output_to_ui = self.full_config.get("k6", {}).get("logging", {}).get("outputToUI", True)
-            return not bool(output_to_ui)
+            try:
+                output_mode_select = self.query_one("#select___k6__logging__outputToUI", Select)
+                return output_mode_select.value is False
+            except Exception:
+                output_to_ui = self.full_config.get("k6", {}).get("logging", {}).get("outputToUI", True)
+                return not bool(output_to_ui)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -246,18 +253,15 @@ class UIMixin:
                         yield ScrollableContainer(
                             Horizontal(
                                 Label("requestMode:", classes="field-label"),
-                                Select(
-                                    [("batch", "batch"), ("scenarios", "scenarios")],
-                                    value=request_mode,
-                                    id="select___k6__requestMode",
-                                ),
+                                Switch(request_mode == "scenarios", id="k6_request_mode_switch"),
+                                Label("scenarios", classes="field-label"),
                                 classes="field-row",
                             ),
                             classes="tab-container",
                         )
 
                         with TabbedContent(id="k6_scenario_subtabs"):
-                            with TabPane("Base Scenario", id="tab_k6_base"):
+                            with TabPane("Endpoint 1", id="tab_k6_base"):
                                 yield ScrollableContainer(
                                     Horizontal(
                                         Label("execution type:", classes="field-label"),
@@ -393,14 +397,7 @@ class UIMixin:
                             ),
                             Horizontal(
                                 Label("executionMode:", classes="field-label"),
-                                Select(
-                                    [
-                                        ("Embedded UI terminal", True),
-                                        ("External terminal (separate window)", False),
-                                    ],
-                                    value=bool(log_data.get("outputToUI", True)),
-                                    id="select___k6__logging__outputToUI",
-                                ),
+                                Switch(bool(log_data.get("outputToUI", True)), id="bool___k6__logging__outputToUI"),
                                 classes="field-row",
                             ),
                             Static(

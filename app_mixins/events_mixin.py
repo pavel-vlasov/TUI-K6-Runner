@@ -17,12 +17,14 @@ class EventsMixin:
 
         if event.switch.id in {"bool___k6__logging__enabled", "bool___k6__logging__webDashboard"}:
             self.toggle_logging_fields()
+        if event.switch.id == "bool___k6__logging__outputToUI":
+            self.toggle_logging_fields()
+        if event.switch.id == "k6_request_mode_switch":
+            self.toggle_request_mode_fields()
 
     def on_select_changed(self, event: Select.Changed):
         if event.select.id == "select___k6__executionType":
             self.toggle_execution_type_fields()
-        if event.select.id == "select___k6__requestMode":
-            self.toggle_request_mode_fields()
         if event.select.id == "select___auth__mode":
             self.toggle_auth_fields()
         if event.select.id == "select___k6__logging__outputToUI":
@@ -143,6 +145,9 @@ class EventsMixin:
         return field_values
 
     def action_save_config(self) -> bool:
+        request_mode_switch = self.query_one("#k6_request_mode_switch", Switch)
+        self.full_config.setdefault("k6", {})["requestMode"] = "scenarios" if request_mode_switch.value else "batch"
+
         spike_rows_count = len(self.query_one("#spike_stages_container", ScrollableContainer).children)
         self.full_config.setdefault("k6", {})["spikeStages"] = [{} for _ in range(spike_rows_count)]
 

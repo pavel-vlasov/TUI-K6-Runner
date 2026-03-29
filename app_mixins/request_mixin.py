@@ -7,6 +7,11 @@ from ui_components import build_config_fields
 
 class RequestMixin:
     def get_request_mode(self) -> str:
+        try:
+            request_mode_switch = self.query_one("#k6_request_mode_switch")
+            return "scenarios" if bool(request_mode_switch.value) else "batch"
+        except Exception:
+            pass
         mode = str(self.full_config.get("k6", {}).get("requestMode", "batch")).strip().lower()
         return mode if mode in {"batch", "scenarios"} else "batch"
 
@@ -91,18 +96,22 @@ class RequestMixin:
         mode = self.get_request_mode()
         endpoint_tabs = self._get_request_tab_panes()
         existing = {pane.id: pane for pane in self._get_k6_scenario_tab_panes()}
+        base_pane = self.query_one("#tab_k6_base", TabPane)
+
+        if endpoint_tabs:
+            base_pane.title = self._resolve_endpoint_name(0)
 
         if mode != "scenarios":
             for pane_id in list(existing):
                 scenario_subtabs.remove_pane(pane_id)
             return
 
-        for index in range(len(endpoint_tabs), len(existing)):
-            pane_id = f"tab_k6_endpoint_{index}"
-            if pane_id in existing:
+        valid_ids = {f"tab_k6_endpoint_{index}" for index in range(1, len(endpoint_tabs))}
+        for pane_id in list(existing):
+            if pane_id not in valid_ids:
                 scenario_subtabs.remove_pane(pane_id)
 
-        for index, _ in enumerate(endpoint_tabs):
+        for index in range(1, len(endpoint_tabs)):
             pane_id = f"tab_k6_endpoint_{index}"
             endpoint_name = self._resolve_endpoint_name(index)
             if pane_id in existing:
@@ -112,16 +121,30 @@ class RequestMixin:
             await scenario_subtabs.add_pane(
                 TabPane(
                     endpoint_name,
-                    ScrollableContainer(
-                        Static(
-                            f"Scenario bound to request endpoint: {endpoint_name}",
-                            classes="field-row",
-                        ),
-                        classes="tab-container",
-                    ),
+                    self._build_scenario_settings_preview(endpoint_name),
                     id=pane_id,
                 )
             )
+
+    def _build_scenario_settings_preview(self, endpoint_name: str) -> ScrollableContainer:
+        k6_config = self.full_config.get("k6", {})
+        settings = [
+            f"executionType: {k6_config.get('executionType', '')}",
+            f"vus: {k6_config.get('vus', '')}",
+            f"duration: {k6_config.get('duration', '')}",
+            f"maxVUs: {k6_config.get('maxVUs', '')}",
+            f"rate: {k6_config.get('rate', '')}",
+            f"timeUnit: {k6_config.get('timeUnit', '')}",
+            f"preAllocatedVUs: {k6_config.get('preAllocatedVUs', '')}",
+            f"startRate: {k6_config.get('startRate', '')}",
+            f"spikeStages: {k6_config.get('spikeStages', [])}",
+            f"rampingArrivalStages: {k6_config.get('rampingArrivalStages', [])}",
+        ]
+        return ScrollableContainer(
+            Static(f"Scenario for endpoint: {endpoint_name}", classes="field-row"),
+            Static("\n".join(settings), classes="field-row"),
+            classes="tab-container",
+        )
 
     def _resolve_endpoint_name(self, index: int) -> str:
         endpoint_name = f"Endpoint {index + 1}"
