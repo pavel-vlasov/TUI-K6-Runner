@@ -47,6 +47,13 @@ class DummyRequestUI(RequestMixin):
     def notify(self, message, severity=None):
         self.notifications.append((message, severity))
 
+    def build_k6_scenario_subtab(self, index: int, request_data: dict):
+        title = request_data.get("name") or f"Endpoint {index + 1}"
+        pane = type("Pane", (), {})()
+        pane.id = f"tab_k6_scenario_{index}"
+        pane._title = title
+        return pane
+
 
 def test_get_request_endpoints_from_config_with_limit_and_default_names():
     ui = DummyRequestUI(
