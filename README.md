@@ -20,6 +20,8 @@
   (official guide: https://grafana.com/docs/k6/latest/set-up/install-k6/)
 - install project dependencies from lock files (runtime + dev):
 
+- canonical dependency source: `requirements.txt` (used both locally and in CI)
+
   ```bash
   pip install --require-hashes -r requirements-dev.txt
   ```

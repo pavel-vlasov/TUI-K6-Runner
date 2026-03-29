@@ -28,8 +28,15 @@ class DummyWidget:
 
 
 class DummyUI(UIMixin):
-    def __init__(self, web_dashboard_enabled: bool, auth_mode: str = "none"):
-        self.full_config = {"k6": {"logging": {"webDashboard": web_dashboard_enabled, "outputToUI": True}}}
+    def __init__(
+        self, web_dashboard_enabled: bool, auth_mode: str = "none", execution_type: str = "external executor"
+    ):
+        self.full_config = {
+            "k6": {
+                "executionType": execution_type,
+                "logging": {"webDashboard": web_dashboard_enabled, "outputToUI": True},
+            }
+        }
         self.run_controller = type("RC", (), {"is_running": False})()
         self.buttons = {
             "#run_btn": DummyButton(),
@@ -157,6 +164,24 @@ def test_toggle_logging_fields_shows_external_mode_warning_and_disables_stop_sca
 
     assert ui.logging_widgets["#logging_external_mode_warning"].styles.display == "block"
     assert ui.buttons["#stop_btn"].disabled is True
+    assert ui.buttons["#apply_vu_btn"].disabled is True
+
+
+def test_set_run_ui_state_enables_apply_for_supported_execution_type_when_running():
+    ui = DummyUI(web_dashboard_enabled=False, execution_type="external executor")
+    ui.run_controller.is_running = True
+
+    ui.set_run_ui_state(True)
+
+    assert ui.buttons["#apply_vu_btn"].disabled is False
+
+
+def test_set_run_ui_state_disables_apply_for_unsupported_execution_type_when_running():
+    ui = DummyUI(web_dashboard_enabled=False, execution_type="Constant VUs")
+    ui.run_controller.is_running = True
+
+    ui.set_run_ui_state(True)
+
     assert ui.buttons["#apply_vu_btn"].disabled is True
 
 
