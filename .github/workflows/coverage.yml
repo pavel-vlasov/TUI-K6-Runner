@@ -28,7 +28,7 @@ jobs:
 
       - name: Coverage
         run: |
-          PYTHONPATH=. pytest --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing
+          PYTHONPATH=. pytest --cov=. --cov-config=.coveragerc --cov-fail-under=80 --cov-report=xml:coverage.xml --cov-report=term-missing
 
       - name: Upload coverage artifact
         if: always()
