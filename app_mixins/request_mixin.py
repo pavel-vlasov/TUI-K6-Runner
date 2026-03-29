@@ -1,4 +1,6 @@
 import inspect
+import json
+from copy import deepcopy
 from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.widgets import Input, Label, Select, Static, TabbedContent, TabPane
 
