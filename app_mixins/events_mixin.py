@@ -21,6 +21,12 @@ class EventsMixin:
     async def on_select_changed(self, event: Select.Changed):
         if event.select.id == "select___k6__executionType":
             self.toggle_execution_type_fields()
+        if event.select.id and event.select.id.startswith("select___requestEndpoints__") and event.select.id.endswith(
+            "__scenario__executionType"
+        ):
+            parts = event.select.id.split("__")
+            if len(parts) >= 3 and parts[1].isdigit():
+                self.toggle_endpoint_execution_type_fields(int(parts[1]))
         if event.select.id == "select___k6__requestMode":
             await self.toggle_request_mode_fields()
             await self.sync_k6_scenario_tabs()
