@@ -1,13 +1,13 @@
 # TUI-K6-Runner
 
-[![Quality Pipeline](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Lint](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Lint&label=Lint)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Tests (summary)](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests&label=Tests%20(summary))](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Tests Ubuntu](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20(ubuntu-latest)&label=Tests%20ubuntu)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Tests Windows](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20(windows-latest)&label=Tests%20windows)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Tests macOS](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20(macos-latest)&label=Tests%20macos)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Coverage&label=Coverage)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Security](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Security&label=Security)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Quality Pipeline](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Lint](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&job=Lint&label=Lint)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests (summary)](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&job=Tests&label=Tests%20(summary))](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests Ubuntu](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&job=Tests%20(ubuntu-latest)&label=Tests%20ubuntu)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests Windows](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&job=Tests%20(windows-latest)&label=Tests%20windows)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests macOS](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&job=Tests%20(macos-latest)&label=Tests%20macos)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&job=Coverage&label=Coverage)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Security](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&job=Security&label=Security)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
 [![Python version](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/downloads/release/python-3110/)
 
 <img width="1102" height="618" alt="image" src="https://github.com/user-attachments/assets/c4d43c8a-66bf-4ee4-aac3-feb11462fb2d" />
