@@ -36,7 +36,7 @@ def test_maps_5xx_not_500_category_from_non_200_status():
 
 def test_non_200_status_zero_is_counted_as_fail_with_category():
     line = 'time="2025-01-01" level=error msg="❌ Non-200 Response (Endpoint 1) | Correlation-Id: c1 | Status: 0"'
-    assert get_fail_category(line) == "status 0"
+    assert get_fail_category(line) == "transport/no_status"
     assert is_fail_line(line)
 
 

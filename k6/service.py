@@ -311,7 +311,11 @@ class K6Service:
         # failure counting and UI log filtering are independent stages.
         # 1) Failure counting uses a single source of truth: get_fail_category(clean_text).
         fail_category = get_fail_category(clean_text)
-        if fail_category:
+        # k6 can emit a paired helper line like `Non-200 ...` without an HTTP status
+        # right after a concrete transport error (`Request Failed ... EOF/timeout/...`).
+        # Counting `transport/no_status` as an independent failure duplicates one request
+        # into two categories, so we skip that synthetic bucket in counters.
+        if fail_category and fail_category != "transport/no_status":
             self.state.fail_count += 1
             self.state.fail_categories[fail_category] = self.state.fail_categories.get(fail_category, 0) + 1
             self._refresh_counter()
