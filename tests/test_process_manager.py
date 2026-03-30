@@ -301,6 +301,91 @@ def test_stop_escalates_to_kill_after_terminate_timeout():
     assert manager.process.kill_called is True
 
 
+def test_stop_returns_false_when_process_is_none():
+    manager = K6ProcessManager()
+    manager.process = None
+
+    result = asyncio.run(manager.stop())
+
+    assert result is False
+
+
+def test_stop_returns_true_when_process_already_finished():
+    class DummyProcess:
+        returncode = 0
+
+    manager = K6ProcessManager()
+    manager.process = DummyProcess()
+
+    result = asyncio.run(manager.stop())
+
+    assert result is True
+
+
+def test_stop_uses_terminate_when_graceful_signal_raises(monkeypatch):
+    class DummyProcess:
+        def __init__(self):
+            self.returncode = None
+            self.pid = 123
+            self.terminate_called = False
+            self.kill_called = False
+
+        def send_signal(self, _sig):
+            raise RuntimeError("cannot send signal")
+
+        async def wait(self):
+            self.returncode = 0
+            return self.returncode
+
+        def terminate(self):
+            self.terminate_called = True
+            self.returncode = 0
+
+        def kill(self):
+            self.kill_called = True
+
+    monkeypatch.setattr("k6.process_manager.platform.system", lambda: "Linux")
+    manager = K6ProcessManager()
+    manager.process = DummyProcess()
+
+    result = asyncio.run(manager.stop(timeout=0.01))
+
+    assert result is True
+    assert manager.process.terminate_called is True
+    assert manager.process.kill_called is False
+
+
+def test_stop_returns_false_when_kill_wait_times_out():
+    class DummyProcess:
+        def __init__(self):
+            self.returncode = None
+            self.pid = 123
+            self.terminate_called = False
+            self.kill_called = False
+
+        def send_signal(self, _sig):
+            pass
+
+        async def wait(self):
+            await asyncio.sleep(0.05)
+            return self.returncode
+
+        def terminate(self):
+            self.terminate_called = True
+
+        def kill(self):
+            self.kill_called = True
+
+    manager = K6ProcessManager()
+    manager.process = DummyProcess()
+
+    result = asyncio.run(manager.stop(timeout=0.01))
+
+    assert result is False
+    assert manager.process.terminate_called is True
+    assert manager.process.kill_called is True
+
+
 def test_scale_returns_stdout_stderr_when_returncode_is_non_zero(monkeypatch):
     class DummyProcess:
         returncode = 42
@@ -339,3 +424,14 @@ def test_status_returns_stdout_stderr_when_returncode_is_non_zero(monkeypatch):
     assert returncode == 3
     assert stdout == b'{"vus": 10}'
     assert stderr == b"status stderr"
+
+
+def test_apply_web_dashboard_binding_logs_warning_for_url_without_host(caplog):
+    manager = K6ProcessManager()
+    env = {}
+    caplog.set_level(logging.WARNING)
+
+    manager._apply_web_dashboard_binding(env, "http://:7777")
+
+    assert "Could not determine web dashboard host" in caplog.text
+    assert "K6_WEB_DASHBOARD_HOST" not in env

@@ -170,6 +170,53 @@ def test_run_k6_process_updates_success_and_fail_counters_from_stdout_stderr():
     assert "EOF: 1" in service.state.last_counter
 
 
+def test_run_k6_process_blocks_rerun_when_already_running():
+    service = K6Service()
+    service.state.is_running = True
+    statuses = []
+    logs = []
+
+    async def fake_start_run(**_kwargs):
+        raise AssertionError("start_run must not be called when state.is_running=True")
+
+    service.process_manager.start_run = fake_start_run
+
+    asyncio.run(
+        service.run_k6_process(
+            on_log=logs.append,
+            on_status=statuses.append,
+            output_to_ui=True,
+            enable_html_summary=False,
+        )
+    )
+
+    assert any("already running" in status for status in statuses)
+    assert any("Re-run blocked" in log for log in logs)
+
+
+def test_run_k6_process_safely_finishes_when_start_callbacks_raise():
+    service = K6Service()
+    service.state.is_running = True
+
+    def bad_on_log(_message):
+        raise RuntimeError("log callback failed")
+
+    def bad_on_status(_message):
+        raise RuntimeError("status callback failed")
+
+    asyncio.run(
+        service.run_k6_process(
+            on_log=bad_on_log,
+            on_status=bad_on_status,
+            output_to_ui=True,
+            enable_html_summary=False,
+        )
+    )
+
+    assert service.state.is_running is True
+    assert service.process_manager.process is None
+
+
 def test_run_k6_process_generates_html_summary_when_enabled(tmp_path):
     service = K6Service()
     statuses = []
@@ -257,7 +304,8 @@ def test_run_k6_process_external_terminal_mode_keeps_dashboard_and_summary_optio
     )
 
     command = captured["command"]
-    assert "--out web-dashboard=period=5s&open=false" in command
+    assert "--out" in command
+    assert "web-dashboard=period=5s&open=false" in command
     assert "K6_WEB_DASHBOARD_HOST=127.0.0.1" in command
     assert "K6_WEB_DASHBOARD_PORT=7777" in command
     assert "--summary-export" in command
@@ -276,10 +324,10 @@ def test_build_external_k6_command_windows_uses_powershell_env_syntax(monkeypatc
         shell_type="powershell",
     )
 
-    assert "$env:K6_WEB_DASHBOARD_OPEN=false;" in command
-    assert "$env:K6_WEB_DASHBOARD_HOST=127.0.0.1;" in command
-    assert "$env:K6_WEB_DASHBOARD_PORT=7777;" in command
-    assert "k6 run test.js" in command
+    assert "$env:K6_WEB_DASHBOARD_OPEN='false';" in command
+    assert "$env:K6_WEB_DASHBOARD_HOST='127.0.0.1';" in command
+    assert "$env:K6_WEB_DASHBOARD_PORT='7777';" in command
+    assert "'k6' 'run' 'test.js'" in command
 
 
 def test_build_external_k6_command_posix_quotes_web_dashboard_out_as_single_token(tmp_path):
@@ -379,3 +427,60 @@ def test_get_current_vus_returns_internal_value_when_status_stdout_is_invalid_js
     vus = asyncio.run(service.get_current_vus())
 
     assert vus == 5
+
+
+def test_handle_status_lines_throttles_ui_updates_by_interval(monkeypatch):
+    service = K6Service()
+    statuses = []
+    fake_time = {"current": 0.0}
+
+    monkeypatch.setattr("k6.service.time.time", lambda: fake_time["current"])
+
+    handled = service._handle_status_lines("running (10s), 01/10 VUs", statuses.append)
+    assert handled is True
+    assert len(statuses) == 0
+
+    fake_time["current"] = 0.11
+    handled = service._handle_status_lines("default [ 10% ] 1/10 VUs", statuses.append)
+    assert handled is True
+    assert len(statuses) == 1
+
+
+def test_handle_status_lines_updates_running_and_default_status_fields():
+    service = K6Service()
+    statuses = []
+
+    service._handle_status_lines("running (5s), 01/05 VUs", statuses.append)
+    service._handle_status_lines("default [ 20% ] 1/5 VUs", statuses.append)
+
+    assert service.state.status_running == "running (5s), 01/05 VUs"
+    assert service.state.status_default == "default [ 20% ] 1/5 VUs"
+
+
+def test_generate_html_summary_logs_warning_when_json_file_missing(tmp_path):
+    service = K6Service()
+    logs = []
+    json_path = tmp_path / "missing.json"
+    html_path = tmp_path / "summary.html"
+
+    service._generate_html_summary_report(json_path, html_path, logs.append)
+
+    assert any("HTML summary skipped" in line for line in logs)
+    assert not html_path.exists()
+
+
+def test_generate_html_summary_logs_red_error_when_builder_raises(tmp_path, monkeypatch):
+    service = K6Service()
+    logs = []
+    json_path = tmp_path / "summary.json"
+    html_path = tmp_path / "summary.html"
+    json_path.write_text('{"metrics": {}, "root_group": {"checks": [], "groups": []}}', encoding="utf-8")
+
+    def fake_build_html_summary(_summary_json):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("k6.service.build_html_summary", fake_build_html_summary)
+
+    service._generate_html_summary_report(json_path, html_path, logs.append)
+
+    assert any("[bold red]❌ Failed to build HTML summary:" in line for line in logs)
