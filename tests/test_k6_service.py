@@ -48,21 +48,33 @@ def test_handle_counter_lines_accumulates_categories_and_totals():
         'time="2025" level=warning msg="Request Failed" error="Get "https://x": EOF"',
         statuses.append,
     )
+    service._handle_counter_lines(
+        'time="2025" level=warning msg="Request Failed" error="Get "https://x": context deadline exceeded"',
+        statuses.append,
+    )
+    service._handle_counter_lines(
+        'time="2025" level=error msg="❌ Non-200 Response (ep) | Correlation-Id: c4 | Status: 0"',
+        statuses.append,
+    )
 
-    assert service.state.fail_count == 4
+    assert service.state.fail_count == 6
     assert service.state.fail_categories["4xx"] == 1
     assert service.state.fail_categories["500"] == 1
     assert service.state.fail_categories["5xx (not 500)"] == 1
     assert service.state.fail_categories["EOF"] == 1
+    assert service.state.fail_categories["timeout"] == 1
+    assert service.state.fail_categories["status 0"] == 1
     assert "errors:" in service.state.last_counter
     assert "4xx: 1" in service.state.last_counter
     assert "500: 1" in service.state.last_counter
     assert "5xx (not 500): 1" in service.state.last_counter
     assert "EOF: 1" in service.state.last_counter
+    assert "timeout: 1" in service.state.last_counter
+    assert "status 0: 1" in service.state.last_counter
     assert "\n" not in service.state.last_counter
 
 
-def test_request_failed_without_eof_is_not_double_counted():
+def test_request_failed_without_eof_is_counted_with_category():
     service = K6Service()
     statuses = []
 
@@ -71,11 +83,11 @@ def test_request_failed_without_eof_is_not_double_counted():
         statuses.append,
     )
 
-    assert service.state.fail_count == 0
-    assert service.state.fail_categories == {}
+    assert service.state.fail_count == 1
+    assert service.state.fail_categories == {"timeout": 1}
 
 
-def test_non_200_status_zero_is_filtered_from_ui_and_not_counted():
+def test_non_200_status_zero_is_filtered_from_ui_but_counted():
     service = K6Service()
     statuses = []
 
@@ -85,8 +97,23 @@ def test_non_200_status_zero_is_filtered_from_ui_and_not_counted():
     )
 
     assert handled is True
-    assert service.state.fail_count == 0
-    assert service.state.fail_categories == {}
+    assert service.state.fail_count == 1
+    assert service.state.fail_categories == {"status 0": 1}
+
+
+def test_request_failed_can_be_hidden_from_ui_but_still_updates_counters():
+    service = K6Service()
+    statuses = []
+
+    handled = service._handle_counter_lines(
+        'time="2026-03-12T14:07:46+03:00" level=warning msg="Request Failed" error="Get "https://x": lookup api.example.test: no such host"',
+        statuses.append,
+    )
+
+    assert handled is True
+    assert service.state.fail_count == 1
+    assert service.state.fail_categories == {"dns": 1}
+    assert "dns: 1" in service.state.last_counter
 
 
 def test_handle_counter_lines_throttles_status_updates_but_keeps_totals(monkeypatch):
@@ -150,7 +177,7 @@ def test_run_k6_process_updates_success_and_fail_counters_from_stdout_stderr():
             ],
             stderr_lines=[
                 'time="2026" level=error msg="❌ Non-200 Response (ep) | Correlation-Id: c1 | Status: 404"\n',
-                'time="2026" level=warning msg="Request Failed" error="Get "https://x": EOF"\n',
+                'time="2026" level=warning msg="Request Failed" error="Get "https://x": context deadline exceeded"\n',
             ],
         )
 
@@ -167,10 +194,10 @@ def test_run_k6_process_updates_success_and_fail_counters_from_stdout_stderr():
 
     assert service.state.success_count == 1
     assert service.state.fail_count == 2
-    assert service.state.fail_categories == {"4xx": 1, "EOF": 1}
+    assert service.state.fail_categories == {"4xx": 1, "timeout": 1}
     assert any("✅ Done." in status for status in statuses)
     assert "4xx: 1" in service.state.last_counter
-    assert "EOF: 1" in service.state.last_counter
+    assert "timeout: 1" in service.state.last_counter
 
 
 def test_run_k6_process_blocks_rerun_when_already_running():
