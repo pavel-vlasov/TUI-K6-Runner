@@ -247,10 +247,13 @@ class K6Service:
             command_parts.extend(["--summary-export", str(summary_json_path)])
 
         if shell_type == "powershell":
-            command_text = " ".join(command_parts)
+            def _ps_quote(value: str) -> str:
+                return "'" + value.replace("'", "''") + "'"
+
+            command_text = " ".join(_ps_quote(part) for part in command_parts)
             if not env_parts:
                 return command_text
-            env_commands = [f"$env:{name}={value};" for name, value in env_parts]
+            env_commands = [f"$env:{name}={_ps_quote(value)};" for name, value in env_parts]
             return f"{' '.join(env_commands)} {command_text}"
 
         command_text = " ".join(
