@@ -2,10 +2,10 @@
 
 [![Quality Pipeline](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
 [![Lint](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Lint&label=Lint)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Tests (summary)](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests&label=Tests%20(summary))](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Tests Ubuntu](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20(ubuntu-latest)&label=Tests%20ubuntu)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Tests Windows](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20(windows-latest)&label=Tests%20windows)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Tests macOS](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20(macos-latest)&label=Tests%20macos)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests Summary](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20Summary&label=Tests%20(summary))](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests Ubuntu](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20Ubuntu&label=Tests%20ubuntu)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests Windows](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20Windows&label=Tests%20windows)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests macOS](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20macOS&label=Tests%20macos)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Coverage&label=Coverage)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
 [![Security](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Security&label=Security)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
 [![Python version](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/downloads/release/python-3110/)
@@ -18,8 +18,10 @@
 
 ## CI test badges
 
-- `Tests (summary)` — **strict gate**: job `Tests` (tests-summary) падает, если smoke или любая платформа в матрице tests завершились с ошибкой.
-- `Tests ubuntu/windows/macos` — статусы отдельных платформ из матричного job `Tests (${{ matrix.os }})` для отслеживания частичных успехов.
+- `Tests Summary` badge → job `Tests Summary` (`tests-summary`): строгий агрегирующий гейт; падает, если упал `tests-smoke` или хотя бы один matrix-runner в `tests`.
+- `Tests Ubuntu` badge → job-name `Tests Ubuntu` (матрица `tests`, `matrix.os=ubuntu-latest`).
+- `Tests Windows` badge → job-name `Tests Windows` (матрица `tests`, `matrix.os=windows-latest`).
+- `Tests macOS` badge → job-name `Tests macOS` (матрица `tests`, `matrix.os=macos-latest`).
 
 ## How to use
 
