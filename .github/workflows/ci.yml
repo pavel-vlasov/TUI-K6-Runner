@@ -11,6 +11,8 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    outputs:
+      lint_artifact_url: ${{ steps.upload_lint_report.outputs.artifact-url }}
 
     steps:
       - name: Checkout
@@ -33,6 +35,7 @@ jobs:
           ruff check . 2>&1 | tee lint-report.txt
 
       - name: Upload lint report artifact
+        id: upload_lint_report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -113,6 +116,8 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    outputs:
+      coverage_artifact_url: ${{ steps.upload_coverage_report.outputs.artifact-url }}
 
     steps:
       - name: Checkout
@@ -137,6 +142,7 @@ jobs:
           pytest --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing
 
       - name: Upload coverage artifact
+        id: upload_coverage_report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -147,6 +153,8 @@ jobs:
   security:
     name: Security (runtime + dev)
     runs-on: ubuntu-latest
+    outputs:
+      security_artifact_url: ${{ steps.upload_security_report.outputs.artifact-url }}
 
     steps:
       - name: Checkout
@@ -173,6 +181,7 @@ jobs:
           pip-audit --require-hashes -r requirements-dev.txt 2>&1 | tee security-dev-report.txt
 
       - name: Upload security report artifact
+        id: upload_security_report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -201,11 +210,34 @@ jobs:
           TESTS_RESULT: ${{ needs.tests.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
           SECURITY_RESULT: ${{ needs.security.result }}
+          LINT_ARTIFACT_URL: ${{ needs.lint.outputs.lint_artifact_url }}
+          COVERAGE_ARTIFACT_URL: ${{ needs.coverage.outputs.coverage_artifact_url }}
+          SECURITY_ARTIFACT_URL: ${{ needs.security.outputs.security_artifact_url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           overall="passed"
           if [ "$LINT_RESULT" != "success" ] || [ "$SMOKE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ] || [ "$COVERAGE_RESULT" != "success" ] || [ "$SECURITY_RESULT" != "success" ]; then
             overall="failed"
+          fi
+
+          lint_report_link="${LINT_ARTIFACT_URL:-not available}"
+          if [ "$lint_report_link" != "not available" ]; then
+            lint_report_link="[lint-report]($lint_report_link)"
+          fi
+
+          tests_report_link="not available"
+          if [ -n "$RUN_URL" ]; then
+            tests_report_link="[pytest-report-ubuntu-latest, pytest-report-windows-latest, pytest-report-macos-latest]($RUN_URL#artifacts)"
+          fi
+
+          coverage_report_link="${COVERAGE_ARTIFACT_URL:-not available}"
+          if [ "$coverage_report_link" != "not available" ]; then
+            coverage_report_link="[coverage-report]($coverage_report_link)"
+          fi
+
+          security_report_link="${SECURITY_ARTIFACT_URL:-not available}"
+          if [ "$security_report_link" != "not available" ]; then
+            security_report_link="[security-report]($security_report_link)"
           fi
 
           {
