@@ -6,7 +6,6 @@ import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 // === CONFIG ===
 const config = JSON.parse(open('./test_config.json'));
 const baseURL = config.baseURL || '';
-const reqConfig = config.request || {};
 const requestEndpointsRaw = Array.isArray(config.requestEndpoints) ? config.requestEndpoints : [];
 const authConfig = config.auth || {};
 const k6cfg = config.k6 || {};
@@ -78,8 +77,7 @@ function encodingBase64(str) {
 }
 
 function normalizeEndpoints() {
-  const source = requestEndpointsRaw.length ? requestEndpointsRaw : [reqConfig];
-  return source
+  return requestEndpointsRaw
     .filter((endpoint) => endpoint && typeof endpoint === 'object')
     .slice(0, 5)
     .map((endpoint, index) => ({
@@ -93,6 +91,9 @@ function normalizeEndpoints() {
 }
 
 const requestEndpoints = normalizeEndpoints();
+if (requestEndpoints.length === 0) {
+  throw new Error('❌ config.requestEndpoints must contain at least one valid endpoint object.');
+}
 
 function buildQuery(queryConfig) {
   if (!queryConfig) return '';
