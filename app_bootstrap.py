@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+from pathlib import Path
 
 
 def ensure_runtime_dependencies() -> None:
@@ -26,4 +27,5 @@ def ensure_runtime_dependencies() -> None:
 
 def get_resource_path(relative_path: str) -> str:
     base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base_path, relative_path)
+    resource_path = os.path.join(base_path, relative_path)
+    return Path(resource_path).as_posix()
