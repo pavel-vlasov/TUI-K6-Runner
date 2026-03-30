@@ -247,11 +247,11 @@ jobs:
             echo
             echo "| Stage | Status | Report |"
             echo "|---|---|---|"
-            echo "| Lint | $LINT_RESULT | $lint_report_link |"
-            echo "| Smoke | $SMOKE_RESULT | logs |"
-            echo "| Tests (matrix) | $TESTS_RESULT | $tests_report_link |"
-            echo "| Coverage | $COVERAGE_RESULT | $coverage_report_link |"
-            echo "| Security | $SECURITY_RESULT | $security_report_link |"
+            echo "| Lint | $LINT_RESULT | [Artifacts on run page]($RUN_URL) — `lint-report` |"
+            echo "| Smoke | $SMOKE_RESULT | [Open run logs]($RUN_URL) |"
+            echo "| Tests (matrix) | $TESTS_RESULT | [Open run (Artifacts section)]($RUN_URL) — artifact: `pytest-report-<os>` |"
+            echo "| Coverage | $COVERAGE_RESULT | [Artifacts on run page]($RUN_URL) — `coverage-report` |"
+            echo "| Security | $SECURITY_RESULT | [Artifacts on run page]($RUN_URL) — `security-report` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail summary job when any stage failed
