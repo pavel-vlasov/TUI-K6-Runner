@@ -194,7 +194,7 @@ def test_start_run_creates_summary_directory_when_needed(monkeypatch, tmp_path):
     assert summary_file.parent.exists()
 
 
-def test_stop_returns_true_after_graceful_stop():
+def test_stop_returns_true_after_graceful_stop(monkeypatch):
     class DummyProcess:
         def __init__(self):
             self.returncode = None
@@ -216,13 +216,15 @@ def test_stop_returns_true_after_graceful_stop():
         def kill(self):
             self.kill_called = True
 
+    monkeypatch.setattr("k6.process_manager.platform.system", lambda: "Windows")
+    monkeypatch.setattr("k6.process_manager.signal.CTRL_BREAK_EVENT", 21, raising=False)
     manager = K6ProcessManager()
     manager.process = DummyProcess()
 
     result = asyncio.run(manager.stop(timeout=0.1))
 
     assert result is True
-    assert manager.process.sent_signal is not None
+    assert manager.process.sent_signal == 21
     assert manager.process.terminate_called is False
     assert manager.process.kill_called is False
 
@@ -345,6 +347,41 @@ def test_stop_uses_terminate_when_graceful_signal_raises(monkeypatch):
             self.kill_called = True
 
     monkeypatch.setattr("k6.process_manager.platform.system", lambda: "Linux")
+    manager = K6ProcessManager()
+    manager.process = DummyProcess()
+
+    result = asyncio.run(manager.stop(timeout=0.01))
+
+    assert result is True
+    assert manager.process.terminate_called is True
+    assert manager.process.kill_called is False
+
+
+def test_stop_uses_terminate_when_windows_control_signal_unavailable(monkeypatch):
+    class DummyProcess:
+        def __init__(self):
+            self.returncode = None
+            self.pid = 123
+            self.terminate_called = False
+            self.kill_called = False
+
+        def send_signal(self, _sig):
+            raise AssertionError("send_signal should not be called when control signal is unavailable")
+
+        async def wait(self):
+            self.returncode = 0
+            return self.returncode
+
+        def terminate(self):
+            self.terminate_called = True
+            self.returncode = 0
+
+        def kill(self):
+            self.kill_called = True
+
+    monkeypatch.setattr("k6.process_manager.platform.system", lambda: "Windows")
+    monkeypatch.delattr("k6.process_manager.signal.CTRL_BREAK_EVENT", raising=False)
+    monkeypatch.delattr("k6.process_manager.signal.CTRL_C_EVENT", raising=False)
     manager = K6ProcessManager()
     manager.process = DummyProcess()
 

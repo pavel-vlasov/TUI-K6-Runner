@@ -79,7 +79,14 @@ class K6ProcessManager:
 
         try:
             if platform.system() == "Windows":
-                os.kill(self.process.pid, signal.CTRL_BREAK_EVENT)
+                graceful_signal = getattr(
+                    signal,
+                    "CTRL_BREAK_EVENT",
+                    getattr(signal, "CTRL_C_EVENT", None),
+                )
+                if graceful_signal is None:
+                    raise RuntimeError("No Windows console control signal available.")
+                self.process.send_signal(graceful_signal)
             else:
                 self.process.send_signal(signal.SIGINT)
         except Exception:
