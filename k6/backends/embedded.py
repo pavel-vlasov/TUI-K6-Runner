@@ -4,7 +4,8 @@ import asyncio
 from pathlib import Path
 from typing import Callable
 
-from k6.backends.base import BackendCapabilities, ExecutionBackend
+from k6.backends.base import ExecutionBackend
+from k6.backends.capabilities import ExecutionCapabilities
 from k6.output_parser import clean_cursor_sequences, is_run_complete_line
 from k6.process_manager import K6ProcessManager
 
@@ -14,8 +15,8 @@ class EmbeddedProcessBackend(ExecutionBackend):
         self.process_manager = process_manager or K6ProcessManager()
 
     @property
-    def capabilities(self) -> BackendCapabilities:
-        return BackendCapabilities(supports_stop=True, supports_scale=True, supports_status=True)
+    def capabilities(self) -> ExecutionCapabilities:
+        return ExecutionCapabilities(can_stop=True, can_scale=True, can_capture_logs=True, can_read_metrics=True)
 
     async def start_run(
         self,

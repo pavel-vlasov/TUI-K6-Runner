@@ -7,6 +7,7 @@ from textual.widgets import Button, Input, Select, Static
 
 from app import K6TestApp
 from application import RunCallbacks
+from k6.backends import ExecutionCapabilities
 
 
 class FakeRunController:
@@ -17,6 +18,12 @@ class FakeRunController:
         self.stop_calls = 0
         self.saved_configs: list[dict] = []
         self._callbacks: RunCallbacks | None = None
+        self.execution_capabilities = ExecutionCapabilities(
+            can_stop=True,
+            can_scale=True,
+            can_capture_logs=True,
+            can_read_metrics=True,
+        )
 
     def save_config(self, config: dict) -> None:
         self.saved_configs.append(config)
@@ -25,6 +32,9 @@ class FakeRunController:
         self.start_calls.append(config)
         self.is_running = True
         self._callbacks = callbacks
+        self.execution_capabilities = self.resolve_capabilities(config)
+        if callbacks.on_capabilities_changed is not None:
+            callbacks.on_capabilities_changed(self.execution_capabilities)
         callbacks.on_run_state_changed(True)
 
     async def stop_run(self):
@@ -36,6 +46,22 @@ class FakeRunController:
     async def scale(self, vus: int, _on_log):
         self.scale_calls.append(vus)
 
+    def resolve_capabilities(self, config: dict | None = None) -> ExecutionCapabilities:
+        output_to_ui = bool((config or {}).get("k6", {}).get("logging", {}).get("outputToUI", True))
+        if output_to_ui:
+            return ExecutionCapabilities(
+                can_stop=True,
+                can_scale=True,
+                can_capture_logs=True,
+                can_read_metrics=True,
+            )
+        return ExecutionCapabilities(
+            can_stop=False,
+            can_scale=False,
+            can_capture_logs=False,
+            can_read_metrics=False,
+        )
+
 
 def test_start_stop_toggles_run_controls_state() -> None:
     async def scenario() -> None:
@@ -44,6 +70,7 @@ def test_start_stop_toggles_run_controls_state() -> None:
         notifications: list[tuple[str, str]] = []
 
         app.run_controller = fake_controller
+        app.runtime_config = app.full_config
         app.action_save_config = MethodType(lambda _self: True, app)
         app.notify = MethodType(
             lambda _self, message, severity="information", **_kwargs: notifications.append((message, severity)), app

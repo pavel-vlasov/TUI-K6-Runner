@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from k6.backends import ExecutionBackend, select_backend
+from k6.backends import ExecutionBackend, ExecutionCapabilities, select_backend
 from k6.html_summary_report import build_html_summary
 from k6.output_parser import (
     get_fail_category,
@@ -41,6 +41,12 @@ class K6Service:
     async def stop_k6_process(self):
         return await self.backend.stop()
 
+    def get_execution_capabilities(self) -> ExecutionCapabilities:
+        return self.backend.capabilities
+
+    def resolve_capabilities(self, config: dict | None = None) -> ExecutionCapabilities:
+        return select_backend(config).capabilities
+
     async def run_k6_process(
         self,
         on_log,
@@ -74,7 +80,7 @@ class K6Service:
             on_status(format_done_status(self.state.last_counter))
 
         try:
-            if self.backend.capabilities.supports_status:
+            if self.backend.capabilities.can_capture_logs:
                 on_status(format_start_status())
                 on_log(format_start_log())
 
@@ -89,7 +95,7 @@ class K6Service:
                 on_run_complete=_on_run_complete,
             )
 
-            if self.backend.capabilities.supports_status:
+            if self.backend.capabilities.can_capture_logs:
                 self._update_ui(on_status)
         except Exception as e:
             on_log(f"[bold red]💥 Error: {str(e)}[/bold red]")
@@ -188,7 +194,7 @@ class K6Service:
         )
 
     async def get_current_vus(self):
-        if not self.backend.capabilities.supports_status:
+        if not self.backend.capabilities.can_read_metrics:
             return self.state.current_vus_internal
 
         try:
@@ -208,7 +214,7 @@ class K6Service:
             on_log("[bold red]❌ No active execution[/bold red]\n")
             return
 
-        if not self.backend.capabilities.supports_scale:
+        if not self.backend.capabilities.can_scale:
             on_log("[bold yellow]⚠️ Scaling is unavailable for current backend.[/bold yellow]\n")
             return False
 

@@ -9,13 +9,14 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import urlparse
 
-from k6.backends.base import BackendCapabilities, ExecutionBackend
+from k6.backends.base import ExecutionBackend
+from k6.backends.capabilities import ExecutionCapabilities
 
 
 class ExternalTerminalBackend(ExecutionBackend):
     @property
-    def capabilities(self) -> BackendCapabilities:
-        return BackendCapabilities(supports_stop=False, supports_scale=False, supports_status=False)
+    def capabilities(self) -> ExecutionCapabilities:
+        return ExecutionCapabilities(can_stop=False, can_scale=False, can_capture_logs=False, can_read_metrics=False)
 
     async def start_run(
         self,

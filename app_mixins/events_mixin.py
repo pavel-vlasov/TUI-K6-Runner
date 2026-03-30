@@ -24,6 +24,7 @@ class EventsMixin:
         if event.select.id == "select___auth__mode":
             self.toggle_auth_fields()
         if event.select.id == "select___k6__logging__outputToUI":
+            self.refresh_execution_capabilities(self.full_config)
             self.toggle_logging_fields()
 
     async def on_button_pressed(self, event: Button.Pressed):
@@ -86,6 +87,7 @@ class EventsMixin:
                 on_log=log_view.write,
                 on_status=status_bar.update,
                 on_run_state_changed=self.set_run_ui_state,
+                on_capabilities_changed=lambda capabilities: setattr(self, "execution_capabilities", capabilities),
             )
             await self.run_controller.start_run(self.runtime_config, callbacks)
 

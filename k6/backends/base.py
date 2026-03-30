@@ -1,22 +1,16 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-
-@dataclass(frozen=True)
-class BackendCapabilities:
-    supports_stop: bool
-    supports_scale: bool
-    supports_status: bool
+from k6.backends.capabilities import ExecutionCapabilities
 
 
 class ExecutionBackend(ABC):
     @property
     @abstractmethod
-    def capabilities(self) -> BackendCapabilities:
+    def capabilities(self) -> ExecutionCapabilities:
         raise NotImplementedError
 
     @abstractmethod
