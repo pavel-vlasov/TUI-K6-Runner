@@ -422,10 +422,6 @@ class ConfigHandler:
         return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
     @staticmethod
-    def _is_valid_http_url(value: object) -> bool:
-        return ConfigHandler.is_valid_http_url(value)
-
-    @staticmethod
     def _validate_thresholds(thresholds: object) -> str | None:
         if not isinstance(thresholds, dict) or not thresholds:
             return "k6.thresholds must be a non-empty JSON object."
