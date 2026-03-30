@@ -256,10 +256,7 @@ class K6Service:
             env_commands = [f"$env:{name}={_powershell_quote(value)};" for name, value in env_parts]
             return f"{' '.join(env_commands)} {command_text}"
 
-        command_text = " ".join(
-            part if part == "web-dashboard=period=5s&open=false" else shlex.quote(part)
-            for part in command_parts
-        )
+        command_text = shlex.join(command_parts)
         if not env_parts:
             return command_text
         env_prefix = " ".join(f"{name}={shlex.quote(value)}" for name, value in env_parts)

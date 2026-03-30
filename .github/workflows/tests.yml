@@ -80,6 +80,28 @@ jobs:
         env:
           JUNIT_ARTIFACT_URL: ${{ steps.upload_test_report.outputs.artifact-url }}
         run: |
+          md_cell() {
+            local value="${1-}"
+            if [[ -z "$value" ]]; then
+              printf '%s' 'N/A'
+              return
+            fi
+            value="${value//$'\n'/ }"
+            value="${value//|/\\|}"
+            value="${value//`/\\`}"
+            printf '%s' "$value"
+          }
+
+          smoke_gate="$(md_cell "$SMOKE_GATE")"
+          artifact_name="$(md_cell "$ARTIFACT_NAME")"
+
+          if [[ -n "${ARTIFACT_URL:-}" ]]; then
+            artifact_url="$(md_cell "$ARTIFACT_URL")"
+            junit_artifact="[${artifact_name}](${artifact_url})"
+          else
+            junit_artifact="$artifact_name"
+          fi
+
           {
             echo "### Test job (${{ matrix.os }})"
             echo
