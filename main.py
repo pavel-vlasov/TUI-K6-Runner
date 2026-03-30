@@ -1,11 +1,14 @@
 from app_bootstrap import ensure_runtime_dependencies
 
 
-def main() -> None:
+def main(app_cls=None) -> None:
     ensure_runtime_dependencies()
-    from app import K6TestApp
+    if app_cls is None:
+        from app import K6TestApp
 
-    K6TestApp().run()
+        app_cls = K6TestApp
+
+    app_cls().run()
 
 
 if __name__ == "__main__":
