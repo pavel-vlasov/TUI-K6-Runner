@@ -1,6 +1,6 @@
 -r requirements.in
+colorama==0.4.6
 pytest
 pytest-cov
 ruff
 pip-audit
-
