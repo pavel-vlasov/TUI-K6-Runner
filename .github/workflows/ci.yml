@@ -65,8 +65,13 @@ jobs:
           pip install --require-hashes -r requirements-dev.txt
 
       - name: Ruff lint check
+        id: ruff_lint
         run: |
+          set +e
           ruff check . 2>&1 | tee lint-report.txt
+          ruff_exit_code=${PIPESTATUS[0]}
+          echo "exit_code=${ruff_exit_code}" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Upload lint report artifact
         id: upload_lint_report
@@ -76,6 +81,12 @@ jobs:
           name: lint-report
           if-no-files-found: warn
           path: lint-report.txt
+
+      - name: Fail lint stage if Ruff found issues
+        if: steps.ruff_lint.outputs.exit_code != '0'
+        run: |
+          echo "Ruff found lint issues."
+          exit 1
 
   tests-smoke:
     name: Smoke tests (quick gate)
