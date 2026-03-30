@@ -1,4 +1,7 @@
+import os
 from pathlib import Path
+
+import pytest
 
 from config_handler import ConfigHandler
 from constants import (
@@ -559,3 +562,76 @@ def test_schema_validation_accepts_minimal_and_full_runtime_configs():
 
     assert ConfigHandler.validate_against_schema(minimal_runtime) == []
     assert ConfigHandler.validate_against_schema(full_runtime) == []
+
+
+
+def test_save_to_file_removes_temp_file_when_replace_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    target = tmp_path / "test_config.json"
+    created_temp_files: list[Path] = []
+
+    class _TmpFileWrapper:
+        def __init__(self, path: Path):
+            self.name = str(path)
+            self._handle = open(path, "w", encoding="utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self._handle.close()
+
+        def write(self, data: str) -> int:
+            return self._handle.write(data)
+
+        def flush(self) -> None:
+            self._handle.flush()
+
+        def fileno(self) -> int:
+            return self._handle.fileno()
+
+    def _fake_named_temporary_file(*args, **kwargs):
+        temp_path = tmp_path / "config.tmp.json"
+        created_temp_files.append(temp_path)
+        return _TmpFileWrapper(temp_path)
+
+    monkeypatch.setattr("config_handler.tempfile.NamedTemporaryFile", _fake_named_temporary_file)
+    monkeypatch.setattr("config_handler.os.replace", lambda src, dst: (_ for _ in ()).throw(OSError("boom")))
+
+    with pytest.raises(OSError, match="boom"):
+        ConfigHandler.save_to_file({"ok": True}, str(target))
+
+    assert created_temp_files, "Temporary file should be created through patched NamedTemporaryFile."
+    assert not os.path.exists(created_temp_files[0])
+
+
+def test_validate_against_schema_returns_prefixed_errors_for_invalid_payload():
+    errors = ConfigHandler.validate_against_schema({"baseURL": "https://example.com"})
+
+    assert errors
+    assert all(error.startswith("schema[") for error in errors)
+
+
+def test_normalize_auth_mode_returns_none_when_multiple_legacy_flags_enabled():
+    assert (
+        ConfigHandler._normalize_auth_mode(
+            {"useOAuth2": True, "basicauth": True, "ClientId_Enforcement": False}
+        )
+        == "none"
+    )
+
+
+def test_build_logging_config_uses_normalize_logging_level_for_unknown_values(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    received: list[str] = []
+
+    def _fake_normalize(level: object) -> str:
+        received.append(str(level))
+        return "normalized-from-fake"
+
+    monkeypatch.setattr("config_handler.normalize_logging_level", _fake_normalize)
+
+    logging_cfg = ConfigHandler._build_logging_config({"enabled": True, "level": "???"})
+
+    assert received == ["???"]
+    assert logging_cfg["level"] == "normalized-from-fake"
