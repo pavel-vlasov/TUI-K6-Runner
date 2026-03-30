@@ -1,5 +1,6 @@
 import asyncio
 import json
+import shlex
 from pathlib import Path
 
 from k6.service import K6Service
@@ -250,3 +251,24 @@ def test_build_external_k6_command_windows_uses_powershell_env_syntax(monkeypatc
     assert "$env:K6_WEB_DASHBOARD_HOST=127.0.0.1;" in command
     assert "$env:K6_WEB_DASHBOARD_PORT=7777;" in command
     assert "k6 run test.js" in command
+
+
+def test_build_external_k6_command_posix_quotes_web_dashboard_out_as_single_token(tmp_path):
+    service = K6Service()
+    summary_json_path = tmp_path / "summary.json"
+
+    command = service._build_external_k6_command(
+        enable_web_dashboard=True,
+        web_dashboard_url="http://127.0.0.1:7777",
+        enable_html_summary=True,
+        summary_json_path=summary_json_path,
+        shell_type="posix",
+    )
+
+    tokens = shlex.split(command)
+
+    out_index = tokens.index("--out")
+    assert tokens[out_index + 1] == "web-dashboard=period=5s&open=false"
+
+    summary_export_index = tokens.index("--summary-export")
+    assert tokens[summary_export_index + 1] == str(summary_json_path)
