@@ -24,12 +24,12 @@ class EventsMixin:
         if event.select.id == "select___auth__mode":
             self.toggle_auth_fields()
         if event.select.id == "select___k6__logging__outputToUI":
-            self.refresh_execution_capabilities(self.full_config)
+            self.refresh_execution_capabilities(self.ui_config)
             self.toggle_logging_fields()
 
     async def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "web_dashboard_btn":
-            logging_config = self.full_config.get("k6", {}).get("logging", {})
+            logging_config = self.ui_config.get("k6", {}).get("logging", {})
             web_dashboard_enabled = logging_config.get("webDashboard", False)
 
             if not web_dashboard_enabled:

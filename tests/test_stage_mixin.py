@@ -20,8 +20,8 @@ class DummyContainer:
 
 
 class DummyStageUI(StageMixin):
-    def __init__(self, full_config=None, spike_count=1, arrival_count=1):
-        self.full_config = full_config or {}
+    def __init__(self, ui_config=None, spike_count=1, arrival_count=1):
+        self.ui_config = ui_config or {}
         self.spike_container = DummyContainer(spike_count)
         self.arrival_container = DummyContainer(arrival_count)
 
@@ -34,12 +34,12 @@ class DummyStageUI(StageMixin):
 
 
 def test_stage_defaults_and_normalization():
-    ui = DummyStageUI(full_config={"k6": {"spikeStages": ["bad", {"duration": "5s", "target": 2}]}})
+    ui = DummyStageUI(ui_config={"k6": {"spikeStages": ["bad", {"duration": "5s", "target": 2}]}})
 
     spike = ui.get_spike_stages()
     assert spike == [{"duration": "5s", "target": 2}]
 
-    empty = DummyStageUI(full_config={"k6": {"spikeStages": []}})
+    empty = DummyStageUI(ui_config={"k6": {"spikeStages": []}})
     assert empty.get_spike_stages() == [{"duration": "30s", "target": 10}]
 
 
