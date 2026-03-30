@@ -5,6 +5,36 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
+normalize_via_requirements_paths() {
+  python - "$@" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+for filename in sys.argv[1:]:
+    path = Path(filename)
+    text = path.read_text(encoding="utf-8")
+    normalized = text
+    patterns = (
+        (r"(^\s*#\s*via\s+-r\s+)/.*/([^/\s]+\.in)\s*$", r"\1\2"),
+        (r"(^\s*#\s+-r\s+)/.*/([^/\s]+\.in)\s*$", r"\1\2"),
+    )
+    for pattern, replacement in patterns:
+        normalized = re.sub(pattern, replacement, normalized, flags=re.MULTILINE)
+    if normalized != text:
+        path.write_text(normalized, encoding="utf-8")
+PY
+}
+
+if [[ "${1:-}" == "--normalize-only" ]]; then
+  shift
+  if [[ "$#" -eq 0 ]]; then
+    set -- requirements.txt requirements-dev.txt
+  fi
+  normalize_via_requirements_paths "$@"
+  exit 0
+fi
+
 unset \
   PIP_INDEX_URL \
   PIP_EXTRA_INDEX_URL \
@@ -43,3 +73,5 @@ pip-compile \
   --resolver=backtracking \
   --output-file=requirements-dev.txt \
   requirements-dev.in
+
+normalize_via_requirements_paths requirements.txt requirements-dev.txt
