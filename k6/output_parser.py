@@ -6,7 +6,7 @@ SCENARIO_PROGRESS_PATTERN = re.compile(
     r"^\s*[A-Za-z0-9_-]+\s+\[\s*\d+%\s*\]\s+\d+/\d+\s+VUs\s+\S+/\S+"
 )
 RUN_COMPLETE_PATTERN = re.compile(r"^\s*[A-Za-z0-9_-]+\s+\[\s*100%\s*\]\s+")
-HTTP_STATUS_PATTERN = re.compile(r"(?:\bStatus:\s*|\bstatus:\s*)(\d{3})")
+HTTP_STATUS_PATTERN = re.compile(r"(?:\bStatus:\s*|\bstatus:\s*)(\d+)")
 
 
 def clean_cursor_sequences(line: str) -> str:
@@ -37,6 +37,8 @@ def is_success_line(text: str) -> bool:
 
 
 def _bucket_http_status(status: int) -> str | None:
+    if status == 0:
+        return "status 0"
     if 400 <= status <= 499:
         return "4xx"
     if status == 500:
@@ -47,22 +49,21 @@ def _bucket_http_status(status: int) -> str | None:
 
 
 def get_fail_category(text: str) -> str | None:
-    text_lower = text.lower()
-
     if "Request Failed" in text:
-        if "eof" in text_lower:
+        lowered = text.lower()
+        if "eof" in lowered:
             return "EOF"
-        if "context deadline exceeded" in text_lower or "timeout" in text_lower:
+        if any(pattern in lowered for pattern in ("context deadline exceeded", "timed out", "timeout")):
             return "timeout"
-        if "no such host" in text_lower or "lookup" in text_lower:
+        if any(pattern in lowered for pattern in ("no such host", "name resolution", "dns")):
             return "dns"
-        if "connection refused" in text_lower:
+        if "connection refused" in lowered:
             return "connection refused"
-        if "tls" in text_lower or "handshake" in text_lower:
-            return "tls"
-        if "reset by peer" in text_lower:
+        if "reset by peer" in lowered or "connection reset" in lowered:
             return "reset by peer"
-        return "network/other"
+        if "tls" in lowered or "handshake" in lowered or "x509" in lowered:
+            return "tls/handshake"
+        return "other"
 
     if "Non-200" in text:
         status_match = HTTP_STATUS_PATTERN.search(text)

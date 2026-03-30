@@ -1,3 +1,5 @@
+import pytest
+
 from k6.output_parser import (
     get_fail_category,
     is_fail_line,
@@ -32,9 +34,9 @@ def test_maps_5xx_not_500_category_from_non_200_status():
     assert get_fail_category(line) == "5xx (not 500)"
 
 
-def test_non_200_status_zero_maps_to_transport_no_status():
+def test_non_200_status_zero_is_counted_as_fail_with_category():
     line = 'time="2025-01-01" level=error msg="❌ Non-200 Response (Endpoint 1) | Correlation-Id: c1 | Status: 0"'
-    assert get_fail_category(line) == "transport/no_status"
+    assert get_fail_category(line) == "status 0"
     assert is_fail_line(line)
 
 
@@ -44,21 +46,25 @@ def test_detects_eof_failure_category_from_request_failed_log():
     assert get_fail_category(line) == "EOF"
 
 
-def test_request_failed_without_eof_maps_to_timeout_category():
+def test_request_failed_without_eof_is_counted_with_timeout_category():
     line = 'time="2026-03-12T11:15:55+03:00" level=warning msg="Request Failed" error="Get "https://www.baseURL.com/xxxx/healthcheck": context deadline exceeded"'
     assert get_fail_category(line) == "timeout"
     assert is_fail_line(line)
 
 
-def test_request_failed_with_unknown_transport_error_maps_to_network_other():
-    line = 'time="2026-03-12T11:15:55+03:00" level=warning msg="Request Failed" error="Get "https://www.baseURL.com/xxxx/healthcheck": some new socket issue"'
-    assert get_fail_category(line) == "network/other"
-    assert is_fail_line(line)
-
-
-def test_non_200_without_status_field_maps_to_transport_no_status():
-    line = 'time="2025-01-01" level=error msg="❌ Non-200 Response (Endpoint 1) | Correlation-Id: c1"'
-    assert get_fail_category(line) == "transport/no_status"
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ('time="2026-03-12" level=warning msg="Request Failed" error="Get "https://x": context deadline exceeded"', "timeout"),
+        ('time="2026-03-12" level=warning msg="Request Failed" error="Get "https://x": lookup api.example.test: no such host"', "dns"),
+        ('time="2026-03-12" level=warning msg="Request Failed" error="Get "https://x": connect: connection refused"', "connection refused"),
+        ('time="2026-03-12" level=warning msg="Request Failed" error="Get "https://x": remote error: tls: handshake failure"', "tls/handshake"),
+        ('time="2026-03-12" level=warning msg="Request Failed" error="Get "https://x": read: connection reset by peer"', "reset by peer"),
+        ('time="2026-03-12" level=warning msg="Request Failed" error="Get "https://x": something odd happened"', "other"),
+    ],
+)
+def test_request_failed_categories_are_mapped(line, expected):
+    assert get_fail_category(line) == expected
     assert is_fail_line(line)
 
 
