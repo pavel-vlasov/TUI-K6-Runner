@@ -70,7 +70,7 @@ def test_start_stop_toggles_run_controls_state() -> None:
         notifications: list[tuple[str, str]] = []
 
         app.run_controller = fake_controller
-        app.runtime_config = app.full_config
+        app.runtime_config = app.ui_config
         app.action_save_config = MethodType(lambda _self: True, app)
         app.notify = MethodType(
             lambda _self, message, severity="information", **_kwargs: notifications.append((message, severity)), app

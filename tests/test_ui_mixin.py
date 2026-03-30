@@ -55,7 +55,7 @@ class DummyUI(UIMixin):
             can_capture_logs=True,
             can_read_metrics=True,
         )
-        self.full_config = {
+        self.ui_config = {
             "k6": {
                 "executionType": execution_type,
                 "logging": {"webDashboard": web_dashboard_enabled, "outputToUI": True},

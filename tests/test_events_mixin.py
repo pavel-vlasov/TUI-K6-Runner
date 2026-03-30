@@ -16,7 +16,7 @@ class DummyEventsUI(EventsMixin):
         self.auth_toggle_count = 0
         self.logging_toggle_count = 0
         self.notifications = []
-        self.full_config = {
+        self.ui_config = {
             "k6": {
                 "logging": {
                     "webDashboard": True,
@@ -90,7 +90,7 @@ class DummyButtonUI(EventsMixin):
         self.remove_last_arrival_stage_result = remove_last_arrival_stage_result
         self.set_run_ui_state = lambda *_args, **_kwargs: None
         self.runtime_config = {"runtime": True}
-        self.full_config = {
+        self.ui_config = {
             "k6": {
                 "logging": {
                     "webDashboard": True,
@@ -120,14 +120,14 @@ class DummyButtonUI(EventsMixin):
     async def _scale(self, vu_value, _on_log):
         self.scale_calls.append(vu_value)
 
-    async def _start_run(self, full_config, callbacks):
-        self.start_run_calls.append((full_config, callbacks))
+    async def _start_run(self, ui_config, callbacks):
+        self.start_run_calls.append((ui_config, callbacks))
 
     async def _stop_run(self):
         self.stop_run_calls += 1
 
-    def _save_config(self, full_config):
-        self.save_config_calls.append(full_config)
+    def _save_config(self, ui_config):
+        self.save_config_calls.append(ui_config)
 
     def action_save_config(self):
         self.action_save_config_calls += 1
@@ -185,7 +185,7 @@ def test_on_switch_changed_toggles_logging_fields_for_logging_switches():
 
 def test_on_button_pressed_web_dashboard_rejects_invalid_url(monkeypatch):
     ui = DummyEventsUI()
-    ui.full_config["k6"]["logging"]["webDashboardUrl"] = "bad-url"
+    ui.ui_config["k6"]["logging"]["webDashboardUrl"] = "bad-url"
     ui.run_controller = SimpleNamespace(is_running=True)
     event = SimpleNamespace(button=SimpleNamespace(id="web_dashboard_btn"))
     monkeypatch.setattr("app_mixins.events_mixin.webbrowser.open", lambda _url: True)
@@ -198,7 +198,7 @@ def test_on_button_pressed_web_dashboard_rejects_invalid_url(monkeypatch):
 
 def test_on_button_pressed_web_dashboard_uses_public_url_validator(monkeypatch):
     ui = DummyEventsUI()
-    ui.full_config["k6"]["logging"]["webDashboardUrl"] = "http://localhost:5665"
+    ui.ui_config["k6"]["logging"]["webDashboardUrl"] = "http://localhost:5665"
     event = SimpleNamespace(button=SimpleNamespace(id="web_dashboard_btn"))
     monkeypatch.setattr("app_mixins.events_mixin.webbrowser.open", lambda _url: True)
     monkeypatch.setattr("app_mixins.events_mixin.ConfigHandler.is_valid_http_url", lambda _url: False)
@@ -239,7 +239,7 @@ def test_on_button_pressed_apply_vu_btn_invalid_input_shows_warning_and_does_not
 
 def test_on_button_pressed_web_dashboard_disabled_shows_warning():
     ui = DummyButtonUI()
-    ui.full_config["k6"]["logging"]["webDashboard"] = False
+    ui.ui_config["k6"]["logging"]["webDashboard"] = False
 
     asyncio.run(ui.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="web_dashboard_btn"))))
 
@@ -296,8 +296,8 @@ def test_on_button_pressed_run_btn_happy_path_clears_log_and_starts_run():
     assert output_log.lines == []
     assert ("Running K6 execution...", "information") in ui.notifications
     assert len(ui.start_run_calls) == 1
-    full_config, callbacks = ui.start_run_calls[0]
-    assert full_config is ui.runtime_config
+    ui_config, callbacks = ui.start_run_calls[0]
+    assert ui_config is ui.runtime_config
     assert callable(callbacks.on_log)
     assert callable(callbacks.on_status)
 

@@ -13,7 +13,7 @@ class RequestMixin:
         return list(request_subtabs.query(TabPane))
 
     def get_request_endpoints(self):
-        requests = self.full_config.get("requestEndpoints")
+        requests = self.ui_config.get("requestEndpoints")
         if isinstance(requests, list) and requests:
             normalized = []
             for index, req in enumerate(requests[:5]):

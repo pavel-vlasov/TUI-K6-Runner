@@ -11,7 +11,7 @@ class StageMixin:
         return True
 
     def get_spike_stages(self):
-        stages = self.full_config.get("k6", {}).get("spikeStages", [])
+        stages = self.ui_config.get("k6", {}).get("spikeStages", [])
         if not isinstance(stages, list) or not stages:
             return [{"duration": "30s", "target": 10}]
         normalized = []
@@ -27,7 +27,7 @@ class StageMixin:
         return normalized or [{"duration": "30s", "target": 10}]
 
     def get_ramping_arrival_stages(self):
-        stages = self.full_config.get("k6", {}).get("rampingArrivalStages", [])
+        stages = self.ui_config.get("k6", {}).get("rampingArrivalStages", [])
         if not isinstance(stages, list) or not stages:
             return [{"duration": "30s", "target": 10}]
         normalized = []

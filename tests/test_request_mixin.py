@@ -25,8 +25,8 @@ class DummyTabbedContent:
 
 
 class DummyRequestUI(RequestMixin):
-    def __init__(self, full_config, pane_count=1):
-        self.full_config = full_config
+    def __init__(self, ui_config, pane_count=1):
+        self.ui_config = ui_config
         self.notifications = []
         panes = [DummyTabPane(f"tab_req_endpoint_{i}") for i in range(pane_count)]
         self.request_subtabs = DummyTabbedContent(panes)
