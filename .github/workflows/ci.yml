@@ -104,13 +104,19 @@ jobs:
           pytest -q tests/test_process_manager.py tests/test_k6_service.py
 
   tests:
-    name: Tests (${{ matrix.os }})
+    name: Tests ${{ matrix.name }}
     needs: tests-smoke
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            name: Ubuntu
+          - os: windows-latest
+            name: Windows
+          - os: macos-latest
+            name: macOS
 
     defaults:
       run:
@@ -164,7 +170,7 @@ jobs:
           path: test-artifact-url-${{ matrix.os }}.txt
 
   tests-summary:
-    name: Tests
+    name: Tests Summary
     if: always()
     needs:
       - tests-smoke
