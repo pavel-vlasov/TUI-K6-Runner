@@ -1,5 +1,8 @@
 import os
 import re
+import sys
+import builtins
+import importlib
 from pathlib import Path
 
 import pytest
@@ -12,6 +15,21 @@ from constants import (
     HTTP_METHODS,
     LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
 )
+
+
+def test_config_handler_import_fails_without_jsonschema(monkeypatch):
+    original_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "jsonschema":
+            raise ModuleNotFoundError("No module named 'jsonschema'")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    sys.modules.pop("config_handler", None)
+
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("config_handler")
 
 
 def _base_runtime() -> dict:
