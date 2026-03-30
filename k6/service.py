@@ -229,6 +229,9 @@ class K6Service:
         command_parts = ["k6", "run", "test.js"]
         env_parts: list[tuple[str, str]] = []
 
+        def _powershell_quote(value: str) -> str:
+            return "'" + value.replace("'", "''") + "'"
+
         if enable_web_dashboard:
             command_parts.extend(["--out", "web-dashboard=period=5s&open=false"])
             env_parts.append(("K6_WEB_DASHBOARD_OPEN", "false"))
@@ -240,16 +243,18 @@ class K6Service:
 
         if enable_html_summary:
             summary_json_path.parent.mkdir(parents=True, exist_ok=True)
-            command_parts.extend(["--summary-export", shlex.quote(str(summary_json_path))])
-
-        command_text = " ".join(command_parts)
-        if not env_parts:
-            return command_text
+            command_parts.extend(["--summary-export", str(summary_json_path)])
 
         if shell_type == "powershell":
-            env_commands = [f"$env:{name}={shlex.quote(value)};" for name, value in env_parts]
+            command_text = " ".join(_powershell_quote(part) for part in command_parts)
+            if not env_parts:
+                return command_text
+            env_commands = [f"$env:{name}={_powershell_quote(value)};" for name, value in env_parts]
             return f"{' '.join(env_commands)} {command_text}"
 
+        command_text = shlex.join(command_parts)
+        if not env_parts:
+            return command_text
         env_prefix = " ".join(f"{name}={shlex.quote(value)}" for name, value in env_parts)
         return f"{env_prefix} {command_text}"
 
