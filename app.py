@@ -21,10 +21,20 @@ class K6TestApp(EventsMixin, UIMixin, RequestMixin, StageMixin, App):
     def __init__(self):
         super().__init__()
         self.run_controller = RunController(K6Service())
-        self.full_config = {}
+        self.ui_config = {}
+        self.runtime_config = {}
         self.config_load_error = None
         self.config_load_error_details = None
         self.load_config_safely()
+
+    @property
+    def full_config(self):
+        """Backward-compatible alias for UI configuration model."""
+        return self.ui_config
+
+    @full_config.setter
+    def full_config(self, value):
+        self.ui_config = value
 
     def load_config_safely(self):
         config_path = "test_config.json"
@@ -33,18 +43,18 @@ class K6TestApp(EventsMixin, UIMixin, RequestMixin, StageMixin, App):
         try:
             if os.path.exists(config_path):
                 with open(config_path, "r", encoding="utf-8") as f:
-                    self.full_config = json.load(f)
+                    self.ui_config = json.load(f)
             else:
-                self.full_config = deepcopy(DEFAULT_CONFIG)
+                self.ui_config = deepcopy(DEFAULT_CONFIG)
         except json.JSONDecodeError as exc:
             self.config_load_error = f"Failed to parse JSON config: {config_path}."
             self.config_load_error_details = f"line {exc.lineno}, column {exc.colno}: {exc.msg}"
-            self.full_config = deepcopy(DEFAULT_CONFIG)
+            self.ui_config = deepcopy(DEFAULT_CONFIG)
         except OSError as exc:
             self.config_load_error = f"Failed to read config file: {config_path}."
             self.config_load_error_details = str(exc)
-            self.full_config = deepcopy(DEFAULT_CONFIG)
+            self.ui_config = deepcopy(DEFAULT_CONFIG)
         except Exception as exc:
             self.config_load_error = f"Failed to load config file: {config_path}."
             self.config_load_error_details = str(exc)
-            self.full_config = deepcopy(DEFAULT_CONFIG)
+            self.ui_config = deepcopy(DEFAULT_CONFIG)
