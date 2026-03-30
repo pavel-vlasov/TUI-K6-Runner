@@ -1,6 +1,7 @@
 import builtins
 import os
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -67,4 +68,16 @@ def test_get_resource_path_uses_module_dir_when_no_meipass(monkeypatch):
     monkeypatch.delattr(sys, "_MEIPASS", raising=False)
 
     path = get_resource_path("style.tcss")
-    assert path.endswith(os.path.join("TUI-K6-Runner", "style.tcss"))
+    assert path.endswith("TUI-K6-Runner/style.tcss")
+
+
+def test_get_resource_path_posix_path_still_allows_file_read(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    expected_content = "Screen { background: black; }"
+    resource_file = tmp_path / "style.tcss"
+    resource_file.write_text(expected_content, encoding="utf-8")
+
+    path = get_resource_path("style.tcss")
+
+    assert "\\" not in path
+    assert Path(path).read_text(encoding="utf-8") == expected_content
