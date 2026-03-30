@@ -76,10 +76,12 @@ jobs:
 
       - name: Publish tests summary
         if: always()
+        env:
+          SMOKE_RESULT: ${{ needs.smoke.result }}
         run: |
           {
             echo "### Test job (${{ matrix.os }})"
             echo
-            echo "- Smoke gate: \\`needs.smoke\\`"
+            echo "- Smoke gate: \\`$SMOKE_RESULT\\`"
             echo "- JUnit artifact: \\`pytest-report-${{ matrix.os }}\\`"
           } >> "$GITHUB_STEP_SUMMARY"
