@@ -351,6 +351,9 @@ def test_build_external_k6_command_posix_quotes_web_dashboard_out_as_single_toke
         shell_type="posix",
     )
 
+    assert "'web-dashboard=period=5s&open=false'" in command
+    assert "web-dashboard=period=5s&open=false --summary-export" not in command
+
     tokens = shlex.split(command)
 
     out_index = tokens.index("--out")
