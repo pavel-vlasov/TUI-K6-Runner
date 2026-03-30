@@ -78,9 +78,10 @@ def test_handle_counter_lines_accumulates_categories_and_totals():
 
 class _FakeEmbeddedBackend:
     class _Caps:
-        supports_stop = True
-        supports_scale = True
-        supports_status = True
+        can_stop = True
+        can_scale = True
+        can_capture_logs = True
+        can_read_metrics = True
 
     capabilities = _Caps()
 
@@ -110,9 +111,10 @@ class _FakeEmbeddedBackend:
 
 class _FakeExternalBackend:
     class _Caps:
-        supports_stop = False
-        supports_scale = False
-        supports_status = False
+        can_stop = False
+        can_scale = False
+        can_capture_logs = False
+        can_read_metrics = False
 
     capabilities = _Caps()
 

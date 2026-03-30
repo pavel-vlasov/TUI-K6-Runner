@@ -13,6 +13,7 @@ from textual.widgets import (
     TabbedContent,
     TabPane,
 )
+from copy import deepcopy
 
 from constants import (
     AUTH_MODE_OPTIONS,
@@ -24,13 +25,49 @@ from constants import (
     LOGGING_LEVEL_OPTIONS,
     normalize_logging_level,
 )
+from k6.backends import ExecutionCapabilities
 from ui_components import build_config_fields
 
 
 class UIMixin:
-    def _is_scale_supported_execution_type(self) -> bool:
-        execution_type = self.full_config.get("k6", {}).get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value)
-        return execution_type == ExecutionType.EXTERNAL_EXECUTOR.value
+    execution_capabilities: ExecutionCapabilities
+
+    def _ensure_execution_capabilities(self) -> ExecutionCapabilities:
+        capabilities = getattr(self, "execution_capabilities", None)
+        if capabilities is None:
+            capabilities = self.run_controller.resolve_capabilities(self.full_config)
+            self.execution_capabilities = capabilities
+        return capabilities
+
+    def refresh_execution_capabilities(self, config: dict | None = None) -> ExecutionCapabilities:
+        capabilities_source = deepcopy(config or self.full_config)
+        try:
+            output_mode_select = self.query_one("#select___k6__logging__outputToUI", Select)
+            capabilities_source.setdefault("k6", {}).setdefault("logging", {})["outputToUI"] = bool(
+                output_mode_select.value
+            )
+        except Exception:
+            pass
+
+        capabilities = self.run_controller.resolve_capabilities(capabilities_source)
+        self.execution_capabilities = capabilities
+        return capabilities
+
+    def _capabilities_warning_text(self, capabilities: ExecutionCapabilities) -> str:
+        missing = []
+        if not capabilities.can_stop:
+            missing.append("stop")
+        if not capabilities.can_scale:
+            missing.append("scale")
+        if not capabilities.can_capture_logs:
+            missing.append("capture logs")
+        if not capabilities.can_read_metrics:
+            missing.append("read metrics")
+
+        if not missing:
+            return "✅ Selected execution mode supports stop, scaling, logs, and metrics."
+
+        return "⚠️ Selected execution mode has limited features: " + ", ".join(missing) + "."
 
     def set_run_ui_state(self, running: bool) -> None:
         run_btn = self.query_one("#run_btn", Button)
@@ -38,16 +75,16 @@ class UIMixin:
         apply_btn = self.query_one("#apply_vu_btn", Button)
         web_dashboard_btn = self.query_one("#web_dashboard_btn", Button)
         web_dashboard_enabled = self.full_config.get("k6", {}).get("logging", {}).get("webDashboard", False)
-        external_terminal_mode = self._is_external_terminal_mode_selected()
-        scale_supported_execution_type = self._is_scale_supported_execution_type()
+        capabilities = self._ensure_execution_capabilities()
 
         run_btn.disabled = running
-        stop_btn.disabled = (not running) or external_terminal_mode
-        apply_btn.disabled = (not running) or external_terminal_mode or (not scale_supported_execution_type)
+        stop_btn.disabled = (not running) or (not capabilities.can_stop)
+        apply_btn.disabled = (not running) or (not capabilities.can_scale)
         web_dashboard_btn.display = True
         web_dashboard_btn.disabled = (not running) or (not web_dashboard_enabled)
 
     async def on_mount(self) -> None:
+        self.refresh_execution_capabilities(self.full_config)
         self.set_run_ui_state(False)
         self.toggle_execution_type_fields()
         self.toggle_auth_fields()
@@ -122,26 +159,27 @@ class UIMixin:
     def toggle_logging_fields(self) -> None:
         logging_enabled_switch = self.query_one("#bool___k6__logging__enabled", Switch)
         web_dashboard_switch = self.query_one("#bool___k6__logging__webDashboard", Switch)
-        output_to_ui_select = self.query_one("#select___k6__logging__outputToUI", Select)
+        warning_widget = self.query_one("#logging_external_mode_warning", Static)
+        capabilities = self.refresh_execution_capabilities(self.full_config)
 
         level_display = "block" if bool(logging_enabled_switch.value) else "none"
         web_dashboard_url_display = "block" if bool(web_dashboard_switch.value) else "none"
-        external_warning_display = "block" if output_to_ui_select.value is False else "none"
+        external_warning_display = (
+            "block"
+            if (not capabilities.can_stop)
+            or (not capabilities.can_scale)
+            or (not capabilities.can_capture_logs)
+            or (not capabilities.can_read_metrics)
+            else "none"
+        )
 
         self.query_one("#logging_level_label", Label).styles.display = level_display
         self.query_one("#select___k6__logging__level", Select).styles.display = level_display
         self.query_one("#logging_web_dashboard_url_label", Label).styles.display = web_dashboard_url_display
         self.query_one("#input___k6__logging__webDashboardUrl", Input).styles.display = web_dashboard_url_display
-        self.query_one("#logging_external_mode_warning", Static).styles.display = external_warning_display
+        warning_widget.styles.display = external_warning_display
+        warning_widget.update(self._capabilities_warning_text(capabilities))
         self.set_run_ui_state(self.run_controller.is_running)
-
-    def _is_external_terminal_mode_selected(self) -> bool:
-        try:
-            output_mode_select = self.query_one("#select___k6__logging__outputToUI", Select)
-            return output_mode_select.value is False
-        except Exception:
-            output_to_ui = self.full_config.get("k6", {}).get("logging", {}).get("outputToUI", True)
-            return not bool(output_to_ui)
 
     def compose(self) -> ComposeResult:
         yield Header()
