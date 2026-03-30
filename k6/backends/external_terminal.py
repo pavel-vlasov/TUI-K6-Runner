@@ -6,7 +6,7 @@ import shlex
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 from urllib.parse import urlparse
 
 from k6.backends.base import ExecutionBackend

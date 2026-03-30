@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 from k6.backends.capabilities import ExecutionCapabilities
 

@@ -1,8 +1,5 @@
 import asyncio
-import json
-import platform
 import shlex
-from pathlib import Path
 
 from k6.backends.embedded import EmbeddedProcessBackend
 from k6.backends.external_terminal import ExternalTerminalBackend
