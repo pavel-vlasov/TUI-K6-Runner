@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from types import MethodType
 
-import pytest
 from textual.widgets import Button, Input, Select, Static
 
 from app import K6TestApp
