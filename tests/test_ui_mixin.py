@@ -1,4 +1,5 @@
 from app_mixins.ui_mixin import UIMixin
+from constants import AuthMode, ExecutionType, LOGGING_LEVEL_ALL, LOGGING_LEVEL_FAILED, LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
 
 
 class DummyButton:
@@ -37,7 +38,10 @@ class DummyRequestSubtabs:
 
 class DummyUI(UIMixin):
     def __init__(
-        self, web_dashboard_enabled: bool, auth_mode: str = "none", execution_type: str = "external executor"
+        self,
+        web_dashboard_enabled: bool,
+        auth_mode: str = AuthMode.NONE.value,
+        execution_type: str = ExecutionType.EXTERNAL_EXECUTOR.value,
     ):
         self.full_config = {
             "k6": {
@@ -151,7 +155,7 @@ def test_web_dashboard_button_visible_and_disabled_when_feature_off():
 
 
 def test_toggle_auth_fields_hides_client_fields_for_no_auth():
-    ui = DummyUI(web_dashboard_enabled=False, auth_mode="none")
+    ui = DummyUI(web_dashboard_enabled=False, auth_mode=AuthMode.NONE.value)
 
     ui.toggle_auth_fields()
 
@@ -160,7 +164,7 @@ def test_toggle_auth_fields_hides_client_fields_for_no_auth():
 
 
 def test_toggle_auth_fields_shows_client_fields_when_auth_selected():
-    ui = DummyUI(web_dashboard_enabled=False, auth_mode="basic")
+    ui = DummyUI(web_dashboard_enabled=False, auth_mode=AuthMode.BASIC.value)
 
     ui.toggle_auth_fields()
 
@@ -169,7 +173,7 @@ def test_toggle_auth_fields_shows_client_fields_when_auth_selected():
 
 
 def test_toggle_auth_fields_shows_oauth_rows_only_for_oauth_mode():
-    ui = DummyUI(web_dashboard_enabled=False, auth_mode="oauth2_client_credentials")
+    ui = DummyUI(web_dashboard_enabled=False, auth_mode=AuthMode.OAUTH2_CLIENT_CREDENTIALS.value)
 
     ui.toggle_auth_fields()
 
@@ -216,7 +220,7 @@ def test_toggle_logging_fields_shows_external_mode_warning_and_disables_stop_sca
 
 
 def test_set_run_ui_state_enables_apply_for_supported_execution_type_when_running():
-    ui = DummyUI(web_dashboard_enabled=False, execution_type="external executor")
+    ui = DummyUI(web_dashboard_enabled=False, execution_type=ExecutionType.EXTERNAL_EXECUTOR.value)
     ui.run_controller.is_running = True
 
     ui.set_run_ui_state(True)
@@ -225,7 +229,7 @@ def test_set_run_ui_state_enables_apply_for_supported_execution_type_when_runnin
 
 
 def test_set_run_ui_state_disables_apply_for_unsupported_execution_type_when_running():
-    ui = DummyUI(web_dashboard_enabled=False, execution_type="Constant VUs")
+    ui = DummyUI(web_dashboard_enabled=False, execution_type=ExecutionType.CONSTANT_VUS.value)
     ui.run_controller.is_running = True
 
     ui.set_run_ui_state(True)
@@ -236,17 +240,17 @@ def test_set_run_ui_state_disables_apply_for_unsupported_execution_type_when_run
 def test_normalize_logging_level_falls_back_for_invalid_values():
     ui = DummyUI(web_dashboard_enabled=False)
 
-    assert ui._normalize_logging_level("failed") == "failed"
-    assert ui._normalize_logging_level("all") == "all"
-    assert ui._normalize_logging_level("Failures - without payloads") == "failed_without_payloads"
-    assert ui._normalize_logging_level("Select.BLANK") == "failed"
-    assert ui._normalize_logging_level("") == "failed"
-    assert ui._normalize_logging_level(None) == "failed"
+    assert ui._normalize_logging_level("failed") == LOGGING_LEVEL_FAILED
+    assert ui._normalize_logging_level("all") == LOGGING_LEVEL_ALL
+    assert ui._normalize_logging_level("Failures - without payloads") == LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
+    assert ui._normalize_logging_level("Select.BLANK") == LOGGING_LEVEL_FAILED
+    assert ui._normalize_logging_level("") == LOGGING_LEVEL_FAILED
+    assert ui._normalize_logging_level(None) == LOGGING_LEVEL_FAILED
 
 
 def test_toggle_execution_type_fields_for_external_executor():
-    ui = DummyUI(web_dashboard_enabled=False, execution_type="external executor")
-    ui.execution_select.value = "external executor"
+    ui = DummyUI(web_dashboard_enabled=False, execution_type=ExecutionType.EXTERNAL_EXECUTOR.value)
+    ui.execution_select.value = ExecutionType.EXTERNAL_EXECUTOR.value
 
     ui.toggle_execution_type_fields()
 
@@ -263,8 +267,8 @@ def test_toggle_execution_type_fields_for_external_executor():
 
 
 def test_toggle_execution_type_fields_for_spike_tests():
-    ui = DummyUI(web_dashboard_enabled=False, execution_type="Spike Tests")
-    ui.execution_select.value = "Spike Tests"
+    ui = DummyUI(web_dashboard_enabled=False, execution_type=ExecutionType.SPIKE_TESTS.value)
+    ui.execution_select.value = ExecutionType.SPIKE_TESTS.value
 
     ui.toggle_execution_type_fields()
 
@@ -281,8 +285,8 @@ def test_toggle_execution_type_fields_for_spike_tests():
 
 
 def test_toggle_execution_type_fields_for_constant_vus():
-    ui = DummyUI(web_dashboard_enabled=False, execution_type="Constant VUs")
-    ui.execution_select.value = "Constant VUs"
+    ui = DummyUI(web_dashboard_enabled=False, execution_type=ExecutionType.CONSTANT_VUS.value)
+    ui.execution_select.value = ExecutionType.CONSTANT_VUS.value
 
     ui.toggle_execution_type_fields()
 
@@ -299,8 +303,8 @@ def test_toggle_execution_type_fields_for_constant_vus():
 
 
 def test_toggle_execution_type_fields_for_constant_arrival_rate():
-    ui = DummyUI(web_dashboard_enabled=False, execution_type="Constant Arrival Rate")
-    ui.execution_select.value = "Constant Arrival Rate"
+    ui = DummyUI(web_dashboard_enabled=False, execution_type=ExecutionType.CONSTANT_ARRIVAL_RATE.value)
+    ui.execution_select.value = ExecutionType.CONSTANT_ARRIVAL_RATE.value
 
     ui.toggle_execution_type_fields()
 
@@ -317,8 +321,8 @@ def test_toggle_execution_type_fields_for_constant_arrival_rate():
 
 
 def test_toggle_execution_type_fields_for_ramping_arrival_rate():
-    ui = DummyUI(web_dashboard_enabled=False, execution_type="Ramping Arrival Rate")
-    ui.execution_select.value = "Ramping Arrival Rate"
+    ui = DummyUI(web_dashboard_enabled=False, execution_type=ExecutionType.RAMPING_ARRIVAL_RATE.value)
+    ui.execution_select.value = ExecutionType.RAMPING_ARRIVAL_RATE.value
 
     ui.toggle_execution_type_fields()
 
