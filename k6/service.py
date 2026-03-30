@@ -321,8 +321,9 @@ class K6Service:
         return self._should_hide_ui_failure_helper_line(clean_text)
 
     def _should_hide_ui_failure_helper_line(self, clean_text: str) -> bool:
-        # Keep raw k6 failure helper lines (e.g. Non-200 with Status: 0) out of UI log.
-        return "Non-200" in clean_text
+        # Keep raw k6 failure helper lines out of UI log.
+        # These lines are still counted in fail counters via get_fail_category().
+        return "Non-200" in clean_text or 'msg="Request Failed"' in clean_text
 
     def _refresh_counter(self):
         totals = f"requests: ✅ {self.state.success_count}  [bold white]│[/bold white]  ❌ {self.state.fail_count}"
