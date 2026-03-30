@@ -60,7 +60,6 @@ DEFAULT_CONFIG = {
     ],
     "k6": {
         "executionType": "external executor",
-        "requestMode": "batch",
         "vus": 1,
         "maxVUs": 10,
         "duration": "10s",

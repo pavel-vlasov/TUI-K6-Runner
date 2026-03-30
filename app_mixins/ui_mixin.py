@@ -236,7 +236,6 @@ class UIMixin:
                                 "preAllocatedVUs",
                                 "startRate",
                                 "rampingArrivalStages",
-                                "requestMode",
                             ]
                         }
 
