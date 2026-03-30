@@ -271,7 +271,8 @@ jobs:
             BANDIT_BASELINE_ARGS="--baseline .bandit-baseline.json"
           fi
           # Fail on high-severity + high-confidence issues; allow temporary, explicit baseline if present.
-          bandit -c .bandit -r . -f txt -o security-bandit-report.txt -lll -iii ${BANDIT_BASELINE_ARGS}
+          # `.bandit` is discovered automatically by Bandit's INI config loader.
+          bandit -r . -f txt -o security-bandit-report.txt -lll -iii ${BANDIT_BASELINE_ARGS}
 
       - name: Upload security report artifact
         id: upload_security_report
