@@ -184,6 +184,28 @@ jobs:
             exit 1
           fi
 
+  tests-summary-non-blocking:
+    name: Tests (non-blocking)
+    if: always()
+    needs:
+      - tests-smoke
+      - tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Report upstream test jobs (non-blocking)
+        env:
+          TESTS_SMOKE_RESULT: ${{ needs.tests-smoke.result }}
+          TESTS_MATRIX_RESULT: ${{ needs.tests.result }}
+        run: |
+          echo "tests-smoke: ${TESTS_SMOKE_RESULT}"
+          echo "tests-matrix: ${TESTS_MATRIX_RESULT}"
+          if [ "${TESTS_SMOKE_RESULT}" != "success" ] || [ "${TESTS_MATRIX_RESULT}" != "success" ]; then
+            echo "Partial test progress only: at least one smoke/matrix check failed."
+          else
+            echo "All smoke/matrix checks passed."
+          fi
+
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
