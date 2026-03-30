@@ -28,6 +28,29 @@ unset \
 
 export CUSTOM_COMPILE_COMMAND="./scripts/update-dependencies.sh"
 
+normalize_requirement_annotations() {
+  local file="$1"
+  python - "$file" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+text = path.read_text()
+text = re.sub(
+    r"(#\s+via\s+-r\s+)(?:[A-Za-z]:)?[^\n]*?/((?:requirements|requirements-dev)\.in)",
+    r"\1\2",
+    text,
+)
+text = re.sub(
+    r"(#\s+-r\s+)(?:[A-Za-z]:)?[^\n]*?/((?:requirements|requirements-dev)\.in)",
+    r"\1\2",
+    text,
+)
+path.write_text(text)
+PY
+}
+
 python -m pip install --upgrade -r requirements-lock-tools.txt
 
 pip-compile \
@@ -43,3 +66,6 @@ pip-compile \
   --resolver=backtracking \
   --output-file=requirements-dev.txt \
   requirements-dev.in
+
+normalize_requirement_annotations requirements.txt
+normalize_requirement_annotations requirements-dev.txt
