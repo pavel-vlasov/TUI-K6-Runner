@@ -387,6 +387,12 @@ class ConfigHandler:
         return None
 
     @staticmethod
+    def _validate_non_negative_int(value: object, field_path: str) -> str | None:
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            return f"{field_path} must be a non-negative integer."
+        return None
+
+    @staticmethod
     def _validate_duration(value: object, field_path: str) -> str | None:
         text = str(value).strip() if value is not None else ""
         if not text or not K6_DURATION_RE.match(text):
@@ -409,7 +415,7 @@ class ConfigHandler:
             if duration_error:
                 errors.append(duration_error)
 
-            target_error = ConfigHandler._validate_positive_int(stage.get("target"), f"{path}.target")
+            target_error = ConfigHandler._validate_non_negative_int(stage.get("target"), f"{path}.target")
             if target_error:
                 errors.append(target_error)
 
