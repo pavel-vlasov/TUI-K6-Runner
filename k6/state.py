@@ -1,6 +1,14 @@
 from dataclasses import dataclass, field
 
 
+@dataclass(frozen=True)
+class ExecutionCapabilities:
+    can_stop: bool
+    can_scale: bool
+    can_capture_logs: bool
+    can_read_metrics: bool
+
+
 @dataclass
 class K6State:
     success_count: int = 0

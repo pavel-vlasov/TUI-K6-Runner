@@ -15,28 +15,55 @@ from textual.widgets import (
 )
 
 from constants import LOGGING_LEVELS, LOGGING_LEVEL_LABELS, normalize_logging_level
+from k6.state import ExecutionCapabilities
 from ui_components import build_config_fields
 
 
 class UIMixin:
-    def _is_scale_supported_execution_type(self) -> bool:
-        execution_type = self.full_config.get("k6", {}).get("executionType", "external executor")
-        return execution_type == "external executor"
+    def _resolve_capabilities(self) -> ExecutionCapabilities:
+        if hasattr(self.run_controller, "resolve_capabilities"):
+            return self.run_controller.resolve_capabilities(self.full_config)
+        return ExecutionCapabilities(
+            can_stop=True,
+            can_scale=True,
+            can_capture_logs=True,
+            can_read_metrics=True,
+        )
 
-    def set_run_ui_state(self, running: bool) -> None:
+    def _build_capabilities_warning(self, capabilities: ExecutionCapabilities) -> str:
+        unavailable = []
+        if not capabilities.can_stop:
+            unavailable.append("stop")
+        if not capabilities.can_scale:
+            unavailable.append("scale")
+        if not capabilities.can_capture_logs:
+            unavailable.append("live logs")
+        if not capabilities.can_read_metrics:
+            unavailable.append("live metrics")
+        if not unavailable:
+            return ""
+        return "⚠️ Current execution mode limits UI features: " + ", ".join(unavailable) + "."
+
+    def _update_capabilities_warning(self, capabilities: ExecutionCapabilities) -> None:
+        warning_widget = self.query_one("#logging_external_mode_warning", Static)
+        warning_text = self._build_capabilities_warning(capabilities)
+        warning_widget.update(warning_text)
+        warning_widget.styles.display = "block" if warning_text else "none"
+
+    def set_run_ui_state(self, running: bool, capabilities: ExecutionCapabilities | None = None) -> None:
+        capabilities = capabilities or self._resolve_capabilities()
         run_btn = self.query_one("#run_btn", Button)
         stop_btn = self.query_one("#stop_btn", Button)
         apply_btn = self.query_one("#apply_vu_btn", Button)
         web_dashboard_btn = self.query_one("#web_dashboard_btn", Button)
         web_dashboard_enabled = self.full_config.get("k6", {}).get("logging", {}).get("webDashboard", False)
-        external_terminal_mode = self._is_external_terminal_mode_selected()
-        scale_supported_execution_type = self._is_scale_supported_execution_type()
 
         run_btn.disabled = running
-        stop_btn.disabled = (not running) or external_terminal_mode
-        apply_btn.disabled = (not running) or external_terminal_mode or (not scale_supported_execution_type)
+        stop_btn.disabled = (not running) or (not capabilities.can_stop)
+        apply_btn.disabled = (not running) or (not capabilities.can_scale)
         web_dashboard_btn.display = True
         web_dashboard_btn.disabled = (not running) or (not web_dashboard_enabled)
+        self._update_capabilities_warning(capabilities)
 
     async def on_mount(self) -> None:
         self.set_run_ui_state(False)
@@ -113,26 +140,15 @@ class UIMixin:
     def toggle_logging_fields(self) -> None:
         logging_enabled_switch = self.query_one("#bool___k6__logging__enabled", Switch)
         web_dashboard_switch = self.query_one("#bool___k6__logging__webDashboard", Switch)
-        output_to_ui_select = self.query_one("#select___k6__logging__outputToUI", Select)
 
         level_display = "block" if bool(logging_enabled_switch.value) else "none"
         web_dashboard_url_display = "block" if bool(web_dashboard_switch.value) else "none"
-        external_warning_display = "block" if output_to_ui_select.value is False else "none"
 
         self.query_one("#logging_level_label", Label).styles.display = level_display
         self.query_one("#select___k6__logging__level", Select).styles.display = level_display
         self.query_one("#logging_web_dashboard_url_label", Label).styles.display = web_dashboard_url_display
         self.query_one("#input___k6__logging__webDashboardUrl", Input).styles.display = web_dashboard_url_display
-        self.query_one("#logging_external_mode_warning", Static).styles.display = external_warning_display
-        self.set_run_ui_state(self.run_controller.is_running)
-
-    def _is_external_terminal_mode_selected(self) -> bool:
-        try:
-            output_mode_select = self.query_one("#select___k6__logging__outputToUI", Select)
-            return output_mode_select.value is False
-        except Exception:
-            output_to_ui = self.full_config.get("k6", {}).get("logging", {}).get("outputToUI", True)
-            return not bool(output_to_ui)
+        self.set_run_ui_state(self.run_controller.is_running, self._resolve_capabilities())
 
     def compose(self) -> ComposeResult:
         yield Header()

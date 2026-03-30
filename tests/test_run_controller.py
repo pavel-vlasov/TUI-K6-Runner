@@ -1,6 +1,7 @@
 import asyncio
 
 from application.run_controller import RunCallbacks, RunController
+from k6.state import ExecutionCapabilities
 
 
 class DummyK6Service:
@@ -8,6 +9,12 @@ class DummyK6Service:
         self.is_running = False
         self.run_calls = 0
         self.last_kwargs = None
+
+    def embedded_capabilities(self):
+        return ExecutionCapabilities(True, True, True, True)
+
+    def resolve_capabilities(self, output_to_ui: bool):
+        return ExecutionCapabilities(output_to_ui, output_to_ui, output_to_ui, output_to_ui)
 
     async def run_k6_process(self, **kwargs):
         self.run_calls += 1
@@ -18,7 +25,7 @@ class FailingStateCallback:
     def __init__(self):
         self.calls = []
 
-    def __call__(self, running: bool):
+    def __call__(self, running: bool, _capabilities: ExecutionCapabilities):
         self.calls.append(running)
         raise RuntimeError("UI already unmounted")
 
@@ -52,7 +59,7 @@ def test_start_run_passes_dashboard_url_to_service():
     callbacks = RunCallbacks(
         on_log=lambda _msg: None,
         on_status=lambda _msg: None,
-        on_run_state_changed=lambda _running: None,
+        on_run_state_changed=lambda _running, _capabilities: None,
     )
 
     asyncio.run(
@@ -75,7 +82,7 @@ def test_start_run_notifies_false_when_task_creation_fails(monkeypatch):
     callbacks = RunCallbacks(
         on_log=lambda _msg: None,
         on_status=lambda _msg: None,
-        on_run_state_changed=state_changes.append,
+        on_run_state_changed=lambda running, _capabilities: state_changes.append(running),
     )
 
     def failing_create_task(_coroutine):
@@ -105,7 +112,7 @@ def test_start_run_can_restart_after_crashed_task():
     callbacks = RunCallbacks(
         on_log=lambda _msg: None,
         on_status=lambda _msg: None,
-        on_run_state_changed=state_changes.append,
+        on_run_state_changed=lambda running, _capabilities: state_changes.append(running),
     )
 
     async def _run_once():

@@ -1,4 +1,5 @@
 from app_mixins.ui_mixin import UIMixin
+from k6.state import ExecutionCapabilities
 
 
 class DummyButton:
@@ -25,6 +26,10 @@ class DummyRow:
 class DummyWidget:
     def __init__(self):
         self.styles = DummyStyles()
+        self.updated_text = ""
+
+    def update(self, value):
+        self.updated_text = value
 
 
 class DummyRequestSubtabs:
@@ -37,15 +42,33 @@ class DummyRequestSubtabs:
 
 class DummyUI(UIMixin):
     def __init__(
-        self, web_dashboard_enabled: bool, auth_mode: str = "none", execution_type: str = "external executor"
+        self,
+        web_dashboard_enabled: bool,
+        auth_mode: str = "none",
+        execution_type: str = "external executor",
+        capabilities: ExecutionCapabilities | None = None,
     ):
+        self.capabilities = capabilities or ExecutionCapabilities(
+            can_stop=True,
+            can_scale=True,
+            can_capture_logs=True,
+            can_read_metrics=True,
+        )
         self.full_config = {
             "k6": {
                 "executionType": execution_type,
                 "logging": {"webDashboard": web_dashboard_enabled, "outputToUI": True},
             }
         }
-        self.run_controller = type("RC", (), {"is_running": False})()
+        class _RC:
+            def __init__(self, parent):
+                self.is_running = False
+                self.parent = parent
+
+            def resolve_capabilities(self, _config):
+                return self.parent.capabilities
+
+        self.run_controller = _RC(self)
         self.buttons = {
             "#run_btn": DummyButton(),
             "#stop_btn": DummyButton(),
@@ -203,20 +226,37 @@ def test_toggle_logging_fields_shows_level_and_dashboard_url_when_switches_on():
     assert ui.logging_widgets["#input___k6__logging__webDashboardUrl"].styles.display == "block"
 
 
-def test_toggle_logging_fields_shows_external_mode_warning_and_disables_stop_scale():
-    ui = DummyUI(web_dashboard_enabled=False)
+def test_toggle_logging_fields_shows_capabilities_warning_and_disables_stop_scale():
+    ui = DummyUI(
+        web_dashboard_enabled=False,
+        capabilities=ExecutionCapabilities(
+            can_stop=False,
+            can_scale=False,
+            can_capture_logs=False,
+            can_read_metrics=False,
+        ),
+    )
     ui.run_controller.is_running = True
-    ui.logging_selects["#select___k6__logging__outputToUI"].value = False
 
     ui.toggle_logging_fields()
 
     assert ui.logging_widgets["#logging_external_mode_warning"].styles.display == "block"
+    assert "stop" in ui.logging_widgets["#logging_external_mode_warning"].updated_text
     assert ui.buttons["#stop_btn"].disabled is True
     assert ui.buttons["#apply_vu_btn"].disabled is True
 
 
-def test_set_run_ui_state_enables_apply_for_supported_execution_type_when_running():
-    ui = DummyUI(web_dashboard_enabled=False, execution_type="external executor")
+def test_set_run_ui_state_enables_apply_when_capability_allows_scaling():
+    ui = DummyUI(
+        web_dashboard_enabled=False,
+        execution_type="Constant VUs",
+        capabilities=ExecutionCapabilities(
+            can_stop=True,
+            can_scale=True,
+            can_capture_logs=True,
+            can_read_metrics=True,
+        ),
+    )
     ui.run_controller.is_running = True
 
     ui.set_run_ui_state(True)
@@ -224,8 +264,17 @@ def test_set_run_ui_state_enables_apply_for_supported_execution_type_when_runnin
     assert ui.buttons["#apply_vu_btn"].disabled is False
 
 
-def test_set_run_ui_state_disables_apply_for_unsupported_execution_type_when_running():
-    ui = DummyUI(web_dashboard_enabled=False, execution_type="Constant VUs")
+def test_set_run_ui_state_disables_apply_when_capability_disallows_scaling():
+    ui = DummyUI(
+        web_dashboard_enabled=False,
+        execution_type="external executor",
+        capabilities=ExecutionCapabilities(
+            can_stop=True,
+            can_scale=False,
+            can_capture_logs=True,
+            can_read_metrics=True,
+        ),
+    )
     ui.run_controller.is_running = True
 
     ui.set_run_ui_state(True)
@@ -377,16 +426,10 @@ def test_on_mount_adds_request_panes_when_none_exist():
     assert ui.request_subtabs.added_panes == ui.built_request_tabs
 
 
-def test_is_external_terminal_mode_selected_from_query_one_value_false():
+def test_set_run_ui_state_hides_warning_when_capabilities_unrestricted():
     ui = DummyUI(web_dashboard_enabled=False)
-    ui.logging_selects["#select___k6__logging__outputToUI"].value = False
 
-    assert ui._is_external_terminal_mode_selected() is True
+    ui.set_run_ui_state(False)
 
-
-def test_is_external_terminal_mode_selected_falls_back_to_full_config_when_query_fails():
-    ui = DummyUI(web_dashboard_enabled=False)
-    ui.full_config["k6"]["logging"]["outputToUI"] = False
-    del ui.logging_selects["#select___k6__logging__outputToUI"]
-
-    assert ui._is_external_terminal_mode_selected() is True
+    assert ui.logging_widgets["#logging_external_mode_warning"].styles.display == "none"
+    assert ui.logging_widgets["#logging_external_mode_warning"].updated_text == ""

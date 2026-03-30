@@ -7,6 +7,7 @@ from textual.widgets import Button, Input, Select, Static
 
 from app import K6TestApp
 from application import RunCallbacks
+from k6.state import ExecutionCapabilities
 
 
 class FakeRunController:
@@ -17,6 +18,10 @@ class FakeRunController:
         self.stop_calls = 0
         self.saved_configs: list[dict] = []
         self._callbacks: RunCallbacks | None = None
+        self.capabilities = ExecutionCapabilities(True, True, True, True)
+
+    def resolve_capabilities(self, _config: dict) -> ExecutionCapabilities:
+        return self.capabilities
 
     def save_config(self, config: dict) -> None:
         self.saved_configs.append(config)
@@ -25,13 +30,13 @@ class FakeRunController:
         self.start_calls.append(config)
         self.is_running = True
         self._callbacks = callbacks
-        callbacks.on_run_state_changed(True)
+        callbacks.on_run_state_changed(True, self.capabilities)
 
     async def stop_run(self):
         self.stop_calls += 1
         self.is_running = False
         if self._callbacks is not None:
-            self._callbacks.on_run_state_changed(False)
+            self._callbacks.on_run_state_changed(False, self.capabilities)
 
     async def scale(self, vus: int, _on_log):
         self.scale_calls.append(vus)
@@ -106,7 +111,7 @@ def test_invalid_vu_shows_warning_and_does_not_call_scale() -> None:
     asyncio.run(scenario())
 
 
-def test_external_mode_warning_and_controls_disabled_when_running() -> None:
+def test_capabilities_warning_and_controls_disabled_when_running() -> None:
     async def scenario() -> None:
         app = K6TestApp()
         fake_controller = FakeRunController()
@@ -122,6 +127,7 @@ def test_external_mode_warning_and_controls_disabled_when_running() -> None:
 
             fake_controller.is_running = True
             output_mode_select.value = False
+            fake_controller.capabilities = ExecutionCapabilities(False, False, False, False)
             app.toggle_logging_fields()
             await pilot.pause()
 

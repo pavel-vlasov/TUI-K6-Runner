@@ -28,7 +28,7 @@ from k6.presenters import (
     format_start_status,
 )
 from k6.process_manager import K6ProcessManager
-from k6.state import K6State
+from k6.state import ExecutionCapabilities, K6State
 
 
 class K6Service:
@@ -38,6 +38,27 @@ class K6Service:
         self.last_counter_update_time = 0.0
         self.counter_update_interval = 0.15
         self.process_manager = K6ProcessManager()
+
+    @staticmethod
+    def embedded_capabilities() -> ExecutionCapabilities:
+        return ExecutionCapabilities(
+            can_stop=True,
+            can_scale=True,
+            can_capture_logs=True,
+            can_read_metrics=True,
+        )
+
+    @staticmethod
+    def external_terminal_capabilities() -> ExecutionCapabilities:
+        return ExecutionCapabilities(
+            can_stop=False,
+            can_scale=False,
+            can_capture_logs=False,
+            can_read_metrics=False,
+        )
+
+    def resolve_capabilities(self, output_to_ui: bool) -> ExecutionCapabilities:
+        return self.embedded_capabilities() if output_to_ui else self.external_terminal_capabilities()
 
     @property
     def is_running(self) -> bool:
