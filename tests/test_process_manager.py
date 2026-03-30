@@ -299,3 +299,43 @@ def test_stop_escalates_to_kill_after_terminate_timeout():
     assert result is True
     assert manager.process.terminate_called is True
     assert manager.process.kill_called is True
+
+
+def test_scale_returns_stdout_stderr_when_returncode_is_non_zero(monkeypatch):
+    class DummyProcess:
+        returncode = 42
+
+        async def communicate(self):
+            return b"scale stdout", b"scale stderr"
+
+    async def fake_create_subprocess_exec(*_args, **_kwargs):
+        return DummyProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+
+    manager = K6ProcessManager()
+    returncode, stdout, stderr = asyncio.run(manager.scale(target_vus=10))
+
+    assert returncode == 42
+    assert stdout == b"scale stdout"
+    assert stderr == b"scale stderr"
+
+
+def test_status_returns_stdout_stderr_when_returncode_is_non_zero(monkeypatch):
+    class DummyProcess:
+        returncode = 3
+
+        async def communicate(self):
+            return b'{"vus": 10}', b"status stderr"
+
+    async def fake_create_subprocess_exec(*_args, **_kwargs):
+        return DummyProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+
+    manager = K6ProcessManager()
+    returncode, stdout, stderr = asyncio.run(manager.status())
+
+    assert returncode == 3
+    assert stdout == b'{"vus": 10}'
+    assert stderr == b"status stderr"

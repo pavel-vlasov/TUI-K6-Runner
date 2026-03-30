@@ -301,3 +301,81 @@ def test_build_external_k6_command_posix_quotes_web_dashboard_out_as_single_toke
 
     summary_export_index = tokens.index("--summary-export")
     assert tokens[summary_export_index + 1] == str(summary_json_path)
+
+
+def test_set_vus_returns_false_and_logs_scaling_error_when_scale_fails():
+    service = K6Service()
+    service.state.is_running = True
+    logs = []
+
+    async def fake_scale(_target_vus: int):
+        return 1, b"", b"cannot scale"
+
+    service.process_manager.scale = fake_scale
+
+    result = asyncio.run(service.set_vus(10, logs.append))
+
+    assert result is False
+    assert any("Scaling error" in line for line in logs)
+
+
+def test_set_vus_returns_false_and_logs_connection_error_on_scale_exception():
+    service = K6Service()
+    service.state.is_running = True
+    logs = []
+
+    async def fake_scale(_target_vus: int):
+        raise RuntimeError("boom")
+
+    service.process_manager.scale = fake_scale
+
+    result = asyncio.run(service.set_vus(10, logs.append))
+
+    assert result is False
+    assert any("Error of connection to k6" in line for line in logs)
+
+
+def test_set_vus_normalizes_target_to_one_before_scale_call():
+    service = K6Service()
+    service.state.is_running = True
+    logs = []
+    captured = {}
+
+    async def fake_scale(target_vus: int):
+        captured["target_vus"] = target_vus
+        return 0, b"", b""
+
+    service.process_manager.scale = fake_scale
+
+    result = asyncio.run(service.set_vus(0, logs.append))
+
+    assert result is True
+    assert captured["target_vus"] == 1
+
+
+def test_get_current_vus_returns_internal_value_when_status_returncode_is_non_zero():
+    service = K6Service()
+    service.state.current_vus_internal = 7
+
+    async def fake_status():
+        return 2, b'{"vus": 999}', b"failed"
+
+    service.process_manager.status = fake_status
+
+    vus = asyncio.run(service.get_current_vus())
+
+    assert vus == 7
+
+
+def test_get_current_vus_returns_internal_value_when_status_stdout_is_invalid_json():
+    service = K6Service()
+    service.state.current_vus_internal = 5
+
+    async def fake_status():
+        return 0, b"{invalid json", b""
+
+    service.process_manager.status = fake_status
+
+    vus = asyncio.run(service.get_current_vus())
+
+    assert vus == 5

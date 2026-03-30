@@ -271,6 +271,21 @@ def test_validate_runtime_config_rejects_invalid_urls_and_k6_values():
     assert any("k6.duration" in error for error in errors)
 
 
+def test_is_valid_http_url_public_contract():
+    assert ConfigHandler.is_valid_http_url("https://example.com")
+    assert ConfigHandler.is_valid_http_url("http://localhost:5665/path?a=1")
+    assert not ConfigHandler.is_valid_http_url("ftp://example.com")
+    assert not ConfigHandler.is_valid_http_url("https://bad url")
+    assert not ConfigHandler.is_valid_http_url(None)
+
+
+def test_is_valid_http_url_private_alias_kept_for_backward_compatibility():
+    assert ConfigHandler._is_valid_http_url("https://example.com") == ConfigHandler.is_valid_http_url(
+        "https://example.com"
+    )
+    assert ConfigHandler._is_valid_http_url("not-a-url") == ConfigHandler.is_valid_http_url("not-a-url")
+
+
 def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
     runtime = ConfigHandler.build_runtime_config(
         {
@@ -432,6 +447,32 @@ def test_validate_runtime_config_rejects_non_canonical_logging_level():
     assert any("k6.logging.level is invalid" in error for error in errors)
 
 
+def test_validate_runtime_config_allows_zero_target_stages_for_spike_and_ramping_arrival():
+    base_k6 = {
+        "thresholds": {"http_req_duration": ["p(95)<500"]},
+    }
+
+    runtime_spike = _base_runtime()
+    runtime_spike["k6"] = {
+        **base_k6,
+        "executionType": "Spike Tests",
+        "spikeStages": [{"duration": "30s", "target": 0}],
+    }
+
+    runtime_ramping_arrival = _base_runtime()
+    runtime_ramping_arrival["k6"] = {
+        **base_k6,
+        "executionType": "Ramping Arrival Rate",
+        "startRate": 1,
+        "timeUnit": "1s",
+        "preAllocatedVUs": 5,
+        "rampingArrivalStages": [{"duration": "30s", "target": 0}],
+    }
+
+    assert ConfigHandler.validate_runtime_config(runtime_spike) == []
+    assert ConfigHandler.validate_runtime_config(runtime_ramping_arrival) == []
+
+
 def test_validate_runtime_config_rejects_invalid_stage_shape():
     runtime = _base_runtime()
     runtime["k6"] = {
@@ -447,6 +488,42 @@ def test_validate_runtime_config_rejects_invalid_stage_shape():
 
     assert any("rampingArrivalStages[0].duration" in error for error in errors)
     assert any("rampingArrivalStages[0].target" in error for error in errors)
+
+
+def test_validate_runtime_config_allows_zero_stage_target_for_spike_and_ramping_arrival():
+    runtime = _base_runtime()
+    runtime["k6"] = {
+        "executionType": "Spike Tests",
+        "spikeStages": [{"duration": "20s", "target": 0}],
+        "thresholds": {"http_req_duration": ["p(95)<500"]},
+    }
+    assert ConfigHandler.validate_runtime_config(runtime) == []
+    assert ConfigHandler.validate_against_schema(runtime) == []
+
+    runtime["k6"] = {
+        "executionType": "Ramping Arrival Rate",
+        "startRate": 1,
+        "timeUnit": "1s",
+        "preAllocatedVUs": 5,
+        "rampingArrivalStages": [{"duration": "20s", "target": 0}],
+        "thresholds": {"http_req_duration": ["p(95)<500"]},
+    }
+    assert ConfigHandler.validate_runtime_config(runtime) == []
+    assert ConfigHandler.validate_against_schema(runtime) == []
+
+
+def test_validate_runtime_config_and_schema_reject_negative_stage_target():
+    runtime = _base_runtime()
+    runtime["k6"] = {
+        "executionType": "Spike Tests",
+        "spikeStages": [{"duration": "20s", "target": -1}],
+        "thresholds": {"http_req_duration": ["p(95)<500"]},
+    }
+    runtime_errors = ConfigHandler.validate_runtime_config(runtime)
+    schema_errors = ConfigHandler.validate_against_schema(runtime)
+
+    assert any("non-negative integer" in error for error in runtime_errors)
+    assert any("minimum" in error and "k6.spikeStages.0.target" in error for error in schema_errors)
 
 
 def test_schema_validation_accepts_minimal_and_full_runtime_configs():

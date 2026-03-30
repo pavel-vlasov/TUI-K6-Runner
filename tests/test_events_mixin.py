@@ -120,6 +120,19 @@ def test_on_button_pressed_web_dashboard_rejects_invalid_url(monkeypatch):
     assert "Web Dashboard URL is invalid" in ui.notifications[-1][0]
 
 
+def test_on_button_pressed_web_dashboard_uses_public_url_validator(monkeypatch):
+    ui = DummyEventsUI()
+    ui.full_config["k6"]["logging"]["webDashboardUrl"] = "http://localhost:5665"
+    event = SimpleNamespace(button=SimpleNamespace(id="web_dashboard_btn"))
+    monkeypatch.setattr("app_mixins.events_mixin.webbrowser.open", lambda _url: True)
+    monkeypatch.setattr("app_mixins.events_mixin.ConfigHandler.is_valid_http_url", lambda _url: False)
+
+    asyncio.run(ui.on_button_pressed(event))
+
+    assert ui.notifications[-1][1] == "error"
+    assert "Web Dashboard URL is invalid" in ui.notifications[-1][0]
+
+
 def test_on_button_pressed_copy_btn_notify_warning_when_clipboard_copy_fails(
     monkeypatch,
 ):

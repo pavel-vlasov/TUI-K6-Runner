@@ -255,7 +255,7 @@ class ConfigHandler:
     @staticmethod
     def _validate_base_url(base_url: object) -> list[str]:
         errors: list[str] = []
-        if not ConfigHandler._is_valid_http_url(base_url):
+        if not ConfigHandler.is_valid_http_url(base_url):
             errors.append("baseURL must be a valid http/https URL.")
         return errors
 
@@ -275,7 +275,7 @@ class ConfigHandler:
 
         if mode == "oauth2_client_credentials":
             token_url = source.get("token_url", "")
-            if not ConfigHandler._is_valid_http_url(token_url):
+            if not ConfigHandler.is_valid_http_url(token_url):
                 errors.append("auth.token_url must be a valid http/https URL.")
             if not str(source.get("scope", "")).strip():
                 errors.append("auth.scope is required for auth.mode=oauth2_client_credentials.")
@@ -375,7 +375,7 @@ class ConfigHandler:
 
             if bool(logging_cfg.get("webDashboard", False)):
                 dashboard_url = logging_cfg.get("webDashboardUrl", "")
-                if not ConfigHandler._is_valid_http_url(dashboard_url):
+                if not ConfigHandler.is_valid_http_url(dashboard_url):
                     errors.append("k6.logging.webDashboardUrl must be a valid http/https URL when webDashboard is enabled.")
 
         return errors
@@ -384,6 +384,12 @@ class ConfigHandler:
     def _validate_positive_int(value: object, field_path: str) -> str | None:
         if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
             return f"{field_path} must be a positive integer."
+        return None
+
+    @staticmethod
+    def _validate_non_negative_int(value: object, field_path: str) -> str | None:
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            return f"{field_path} must be a non-negative integer."
         return None
 
     @staticmethod
@@ -409,19 +415,23 @@ class ConfigHandler:
             if duration_error:
                 errors.append(duration_error)
 
-            target_error = ConfigHandler._validate_positive_int(stage.get("target"), f"{path}.target")
+            target_error = ConfigHandler._validate_non_negative_int(stage.get("target"), f"{path}.target")
             if target_error:
                 errors.append(target_error)
 
         return errors
 
     @staticmethod
-    def _is_valid_http_url(value: object) -> bool:
+    def is_valid_http_url(value: object) -> bool:
         text = str(value).strip() if value is not None else ""
         if not text or any(ch.isspace() for ch in text):
             return False
         parsed = urlparse(text)
         return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+    @staticmethod
+    def _is_valid_http_url(value: object) -> bool:
+        return ConfigHandler.is_valid_http_url(value)
 
     @staticmethod
     def _validate_thresholds(thresholds: object) -> str | None:
