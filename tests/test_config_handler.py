@@ -10,8 +10,6 @@ from constants import (
     AuthMode,
     ExecutionType,
     HTTP_METHODS,
-    LOGGING_LEVEL_ALL,
-    LOGGING_LEVEL_FAILED,
     LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
 )
 
@@ -240,19 +238,13 @@ def test_validate_runtime_config_rejects_invalid_urls_and_k6_values():
     assert any("k6.duration" in error for error in errors)
 
 
-def test_is_valid_http_url_public_contract():
+def test_http_url_validation_public_contract():
     assert ConfigHandler.is_valid_http_url("https://example.com")
     assert ConfigHandler.is_valid_http_url("http://localhost:5665/path?a=1")
     assert not ConfigHandler.is_valid_http_url("ftp://example.com")
     assert not ConfigHandler.is_valid_http_url("https://bad url")
     assert not ConfigHandler.is_valid_http_url(None)
 
-
-def test_is_valid_http_url_private_alias_kept_for_backward_compatibility():
-    assert ConfigHandler._is_valid_http_url("https://example.com") == ConfigHandler.is_valid_http_url(
-        "https://example.com"
-    )
-    assert ConfigHandler._is_valid_http_url("not-a-url") == ConfigHandler.is_valid_http_url("not-a-url")
 
 
 def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
@@ -333,7 +325,7 @@ def test_validate_runtime_config_rejects_invalid_web_dashboard_url_when_enabled(
     assert any("k6.logging.webDashboardUrl" in error for error in errors)
 
 
-def test_build_runtime_config_normalizes_legacy_logging_level_to_canonical_wire_format():
+def test_build_runtime_config_preserves_canonical_logging_level_in_runtime_payload():
     runtime = ConfigHandler.build_runtime_config(
         {
             "baseURL": "https://example.com",
@@ -344,69 +336,12 @@ def test_build_runtime_config_normalizes_legacy_logging_level_to_canonical_wire_
                 "vus": 1,
                 "duration": "10s",
                 "thresholds": {"http_req_duration": ["p(95)<500"]},
-                "logging": {"enabled": True, "level": "Failures - without payloads"},
+                "logging": {"enabled": True, "level": LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS},
             },
         }
     )
 
     assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
-
-
-def test_build_runtime_config_falls_back_to_default_canonical_logging_level():
-    runtime = ConfigHandler.build_runtime_config(
-        {
-            "baseURL": "https://example.com",
-            "auth": {"mode": AuthMode.NONE.value},
-            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
-            "k6": {
-                "executionType": ExecutionType.CONSTANT_VUS.value,
-                "vus": 1,
-                "duration": "10s",
-                "thresholds": {"http_req_duration": ["p(95)<500"]},
-                "logging": {"enabled": True, "level": "INVALID"},
-            },
-        }
-    )
-
-    assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_FAILED
-
-
-def test_build_runtime_config_normalizes_logging_level_with_hyphens_to_canonical():
-    runtime = ConfigHandler.build_runtime_config(
-        {
-            "baseURL": "https://example.com",
-            "auth": {"mode": AuthMode.NONE.value},
-            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
-            "k6": {
-                "executionType": ExecutionType.CONSTANT_VUS.value,
-                "vus": 1,
-                "duration": "10s",
-                "thresholds": {"http_req_duration": ["p(95)<500"]},
-                "logging": {"enabled": True, "level": "failures-without-payloads"},
-            },
-        }
-    )
-
-    assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
-
-
-def test_build_runtime_config_normalizes_logging_level_with_spaces_to_canonical():
-    runtime = ConfigHandler.build_runtime_config(
-        {
-            "baseURL": "https://example.com",
-            "auth": {"mode": AuthMode.NONE.value},
-            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
-            "k6": {
-                "executionType": ExecutionType.CONSTANT_VUS.value,
-                "vus": 1,
-                "duration": "10s",
-                "thresholds": {"http_req_duration": ["p(95)<500"]},
-                "logging": {"enabled": True, "level": "  ALL  "},
-            },
-        }
-    )
-
-    assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_ALL
 
 
 def test_validate_runtime_config_rejects_non_canonical_logging_level():

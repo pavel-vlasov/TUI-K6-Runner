@@ -103,9 +103,9 @@ Rollout strategy:
 
 ## Coverage policy
 
-- CI workflow `Coverage` запускает `pytest` с `--cov-fail-under=80`.
+- CI workflow `Coverage` запускает `pytest` с генерацией `coverage.xml`, но не валит job из-за упавших тестов в этом шаге.
 - Порог также централизован в `.coveragerc` (`[report] fail_under = 80`) для локального и CI запуска с единым значением.
-- Если итоговое покрытие ниже 80%, шаг Coverage завершается с ошибкой, и весь workflow получает статус **failed**.
+- Если итоговое покрытие ниже 80%, шаг Coverage завершается с ошибкой, и весь workflow получает статус **failed** (именно по проценту покрытия).
 
 ## Architecture note
 
@@ -142,7 +142,24 @@ Please make future UI changes in these modules, not in legacy monolithic entrypo
 }
 ```
 
-Legacy-флаги (`useOAuth2`, `basicauth`, `ClientId_Enforcement`) больше не используются.
+Поддерживаются только канонические значения `auth.mode`: `none`, `basic`, `client_id_enforcement`, `oauth2_client_credentials`.
+
+Пример секции `k6.logging` (только канонические `level`):
+
+```json
+{
+  "k6": {
+    "logging": {
+      "enabled": true,
+      "level": "failed_without_payloads",
+      "outputToUI": true,
+      "webDashboard": false,
+      "webDashboardUrl": "http://localhost:5665",
+      "htmlSummaryReport": false
+    }
+  }
+}
+```
 
 ### Logging warnings
 
