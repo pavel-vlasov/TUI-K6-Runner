@@ -36,9 +36,5 @@ class ExecutionBackend(ABC):
     async def scale(self, vus: int) -> tuple[int, bytes, bytes]:
         raise NotImplementedError
 
-    @abstractmethod
-    async def status(self) -> tuple[int, bytes, bytes]:
-        raise NotImplementedError
-
     def clear(self) -> None:
         return None

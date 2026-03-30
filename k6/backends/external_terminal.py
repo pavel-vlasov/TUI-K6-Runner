@@ -56,9 +56,6 @@ class ExternalTerminalBackend(ExecutionBackend):
         del vus
         return 1, b"", b"Scaling is not supported by external terminal backend"
 
-    async def status(self) -> tuple[int, bytes, bytes]:
-        return 1, b"", b"Status is not supported by external terminal backend"
-
     def _build_external_terminal_command(self, command: str, system_name: str | None = None) -> list[str]:
         system_name = system_name or platform.system()
 
