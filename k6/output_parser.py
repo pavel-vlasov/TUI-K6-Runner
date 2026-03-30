@@ -82,9 +82,5 @@ def get_fail_category(text: str) -> str | None:
     return None
 
 
-def is_fail_line(text: str) -> bool:
-    return get_fail_category(text) is not None
-
-
 def is_run_complete_line(text: str) -> bool:
     return bool(RUN_COMPLETE_PATTERN.search(text))
