@@ -60,12 +60,7 @@ def test_get_request_endpoints_from_config_with_limit_and_default_names():
     assert endpoints[0]["name"] == "Endpoint 1"
 
 
-def test_get_request_endpoints_falls_back_to_legacy_and_default():
-    legacy_ui = DummyRequestUI({"request": {"path": "/legacy"}})
-    endpoints = legacy_ui.get_request_endpoints()
-    assert endpoints[0]["name"] == "Endpoint 1"
-    assert endpoints[0]["path"] == "/legacy"
-
+def test_get_request_endpoints_falls_back_to_default():
     default_ui = DummyRequestUI({})
     defaults = default_ui.get_request_endpoints()
     assert defaults[0] == DEFAULT_CONFIG["requestEndpoints"][0]
