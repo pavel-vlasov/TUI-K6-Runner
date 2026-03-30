@@ -25,12 +25,6 @@ class RequestMixin:
             if normalized:
                 return normalized
 
-        legacy_request = self.full_config.get("request")
-        if isinstance(legacy_request, dict):
-            endpoint = legacy_request.copy()
-            endpoint.setdefault("name", "Endpoint 1")
-            return [endpoint]
-
         fallback = deepcopy(DEFAULT_CONFIG["requestEndpoints"][0])
         fallback["name"] = "Endpoint 1"
         return [fallback]
