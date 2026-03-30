@@ -38,6 +38,7 @@ jobs:
 
       - name: Verify lock files are stable
         run: |
+          ./scripts/update-dependencies.sh --normalize-only requirements.txt requirements-dev.txt
           git diff -- requirements.txt requirements-dev.txt
           git diff --exit-code -- requirements.txt requirements-dev.txt
 
