@@ -96,14 +96,30 @@ class ConfigHandler:
 
     @staticmethod
     def build_runtime_config(config: dict) -> dict:
+        normalized_config = ConfigHandler._normalize_request_sources(config)
         runtime = {
-            "baseURL": str(config.get("baseURL", "")).strip(),
-            "auth": ConfigHandler._build_auth_config(config.get("auth", {})),
-            "requestEndpoints": ConfigHandler._build_request_endpoints(config.get("requestEndpoints", [])),
-            "k6": ConfigHandler._build_k6_config(config.get("k6", {})),
+            "baseURL": str(normalized_config.get("baseURL", "")).strip(),
+            "auth": ConfigHandler._build_auth_config(normalized_config.get("auth", {})),
+            "requestEndpoints": ConfigHandler._build_request_endpoints(normalized_config.get("requestEndpoints", [])),
+            "k6": ConfigHandler._build_k6_config(normalized_config.get("k6", {})),
         }
 
         return runtime
+
+    @staticmethod
+    def _normalize_request_sources(config: object) -> dict:
+        source = config if isinstance(config, dict) else {}
+        request_endpoints = source.get("requestEndpoints")
+        if isinstance(request_endpoints, list) and request_endpoints:
+            return source
+
+        legacy_request = source.get("request")
+        if isinstance(legacy_request, dict) and legacy_request:
+            normalized = copy.deepcopy(source)
+            normalized["requestEndpoints"] = [legacy_request]
+            return normalized
+
+        return source
 
     @staticmethod
     def validate_runtime_config(config: dict) -> list[str]:

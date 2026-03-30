@@ -227,6 +227,65 @@ def test_build_runtime_config_migrates_legacy_client_id_enforcement_flag_to_mode
     assert runtime["auth"]["mode"] == "client_id_enforcement"
 
 
+def test_build_runtime_config_migrates_single_request_to_request_endpoints():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"mode": "none"},
+            "request": {
+                "name": "Legacy request",
+                "method": "GET",
+                "path": "/health",
+                "headers": {},
+                "query": {},
+            },
+            "k6": {
+                "executionType": "Constant VUs",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {},
+            },
+        }
+    )
+
+    assert runtime["requestEndpoints"]
+    assert runtime["requestEndpoints"][0]["name"] == "Legacy request"
+
+
+def test_build_runtime_config_prefers_request_endpoints_over_legacy_request():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"mode": "none"},
+            "request": {
+                "name": "Legacy request",
+                "method": "POST",
+                "path": "/legacy",
+                "headers": {},
+                "query": {},
+            },
+            "requestEndpoints": [
+                {
+                    "name": "Primary endpoints",
+                    "method": "GET",
+                    "path": "/v2",
+                    "headers": {},
+                    "query": {},
+                }
+            ],
+            "k6": {
+                "executionType": "Constant VUs",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {},
+            },
+        }
+    )
+
+    assert runtime["requestEndpoints"][0]["name"] == "Primary endpoints"
+    assert runtime["requestEndpoints"][0]["path"] == "/v2"
+
+
 def test_validate_runtime_config_requires_fields_per_auth_mode():
     runtime = _base_runtime()
     runtime["auth"] = {
