@@ -25,6 +25,25 @@ def test_build_summary_paths_uses_timestamped_files(monkeypatch):
     assert str(html_path).endswith("artifacts/summary_20260307_195400.html")
 
 
+def test_build_summary_paths_uses_configured_artifacts_dir(monkeypatch, tmp_path):
+    class FrozenDatetime:
+        @classmethod
+        def now(cls):
+            class _D:
+                def strftime(self, _fmt):
+                    return "20260307_195400"
+
+            return _D()
+
+    monkeypatch.setattr("k6.service.datetime", FrozenDatetime)
+
+    service = K6Service(artifacts_dir=tmp_path / "reports")
+    json_path, html_path = service._build_summary_paths()
+
+    assert json_path == tmp_path / "reports" / "summary_20260307_195400.json"
+    assert html_path == tmp_path / "reports" / "summary_20260307_195400.html"
+
+
 def test_handle_counter_lines_accumulates_categories_and_totals():
     service = K6Service()
     statuses = []
