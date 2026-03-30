@@ -142,17 +142,11 @@ def test_validate_runtime_config_allows_auth_modes():
         assert not any(error.startswith("auth") for error in errors), (mode, errors)
 
 
-def test_build_runtime_config_migrates_legacy_use_oauth2_flag_to_mode():
-    runtime = ConfigHandler.build_runtime_config(
+def test_build_runtime_config_uses_none_when_auth_mode_is_missing_or_invalid():
+    runtime_missing_mode = ConfigHandler.build_runtime_config(
         {
             "baseURL": "https://example.com",
-            "auth": {
-                "useOAuth2": True,
-                "client_id": "cid",
-                "client_secret": "sec",
-                "token_url": "https://idp.example.com/token",
-                "scope": "read",
-            },
+            "auth": {"client_id": "cid", "client_secret": "sec"},
             "requestEndpoints": [
                 {
                     "name": "Endpoint 1",
@@ -170,14 +164,10 @@ def test_build_runtime_config_migrates_legacy_use_oauth2_flag_to_mode():
             },
         }
     )
-    assert runtime["auth"]["mode"] == "oauth2_client_credentials"
-
-
-def test_build_runtime_config_migrates_legacy_basic_flag_to_mode():
-    runtime = ConfigHandler.build_runtime_config(
+    runtime_invalid_mode = ConfigHandler.build_runtime_config(
         {
             "baseURL": "https://example.com",
-            "auth": {"basicauth": True, "client_id": "cid", "client_secret": "sec"},
+            "auth": {"mode": "legacy_mode", "client_id": "cid", "client_secret": "sec"},
             "requestEndpoints": [
                 {
                     "name": "Endpoint 1",
@@ -195,36 +185,9 @@ def test_build_runtime_config_migrates_legacy_basic_flag_to_mode():
             },
         }
     )
-    assert runtime["auth"]["mode"] == "basic"
 
-
-def test_build_runtime_config_migrates_legacy_client_id_enforcement_flag_to_mode():
-    runtime = ConfigHandler.build_runtime_config(
-        {
-            "baseURL": "https://example.com",
-            "auth": {
-                "ClientId_Enforcement": True,
-                "client_id": "cid",
-                "client_secret": "sec",
-            },
-            "requestEndpoints": [
-                {
-                    "name": "Endpoint 1",
-                    "method": "GET",
-                    "path": "/",
-                    "headers": {},
-                    "query": {},
-                }
-            ],
-            "k6": {
-                "executionType": "Constant VUs",
-                "vus": 1,
-                "duration": "10s",
-                "thresholds": {},
-            },
-        }
-    )
-    assert runtime["auth"]["mode"] == "client_id_enforcement"
+    assert runtime_missing_mode["auth"]["mode"] == "none"
+    assert runtime_invalid_mode["auth"]["mode"] == "none"
 
 
 def test_validate_runtime_config_requires_fields_per_auth_mode():
@@ -613,13 +576,10 @@ def test_validate_against_schema_returns_prefixed_errors_for_invalid_payload():
     assert all(error.startswith("schema[") for error in errors)
 
 
-def test_normalize_auth_mode_returns_none_when_multiple_legacy_flags_enabled():
-    assert (
-        ConfigHandler._normalize_auth_mode(
-            {"useOAuth2": True, "basicauth": True, "ClientId_Enforcement": False}
-        )
-        == "none"
-    )
+def test_normalize_auth_mode_ignores_legacy_auth_flags_without_mode():
+    assert ConfigHandler._normalize_auth_mode({"useOAuth2": True}) == "none"
+    assert ConfigHandler._normalize_auth_mode({"basicauth": True}) == "none"
+    assert ConfigHandler._normalize_auth_mode({"ClientId_Enforcement": True}) == "none"
 
 
 def test_build_logging_config_uses_normalize_logging_level_for_unknown_values(

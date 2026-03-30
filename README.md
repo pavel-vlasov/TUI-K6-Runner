@@ -92,6 +92,22 @@ Please make future UI changes in these modules, not in legacy monolithic entrypo
 В проект добавлена JSON Schema: `schema/test_config.schema.json`.
 Она описывает обязательные поля рантайм-конфига, enum-значения (например, `auth.mode`, `requestEndpoints[].method`, `k6.executionType`, `k6.logging.level`) и условные требования для разных режимов запуска.
 
+Пример секции `auth` в JSON-конфиге (только через `auth.mode`):
+
+```json
+{
+  "auth": {
+    "mode": "oauth2_client_credentials",
+    "client_id": "my-client",
+    "client_secret": "my-secret",
+    "token_url": "https://idp.example.com/oauth2/token",
+    "scope": "read write"
+  }
+}
+```
+
+Legacy-флаги (`useOAuth2`, `basicauth`, `ClientId_Enforcement`) больше не используются.
+
 ### Logging warnings
 
 - Детальный лог может исказить результаты нагрузочного теста из-за дополнительного I/O.
