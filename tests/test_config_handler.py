@@ -335,6 +335,8 @@ def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
     assert "config.baseURL" in script
     assert "config.auth" in script
     assert "config.requestEndpoints" in script
+    assert "config.request" not in script
+    assert "reqConfig" not in script
     assert "config.k6" in script
 
     for key in runtime["k6"]:
