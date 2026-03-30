@@ -3,10 +3,9 @@ import json
 from textual.widgets import Label, Switch, Select, Input, TextArea
 from textual.containers import Horizontal, Vertical
 from constants import (
+    AUTH_MODE_OPTIONS,
     HTTP_METHODS,
-    AUTH_MODES,
-    LOGGING_LEVELS,
-    LOGGING_LEVEL_LABELS,
+    LOGGING_LEVEL_OPTIONS,
     normalize_logging_level,
 )
 
@@ -70,11 +69,9 @@ def build_config_fields(data, parent_path):
                 options = list(HTTP_METHODS)
                 option_pairs = [(o, o) for o in options]
             elif k == "mode":
-                options = list(AUTH_MODES)
-                option_pairs = [(o, o) for o in options]
+                option_pairs = list(AUTH_MODE_OPTIONS)
             else:
-                options = list(LOGGING_LEVELS)
-                option_pairs = [(LOGGING_LEVEL_LABELS[o], o) for o in options]
+                option_pairs = list(LOGGING_LEVEL_OPTIONS)
                 v = normalize_logging_level(v)
             widget = Select(option_pairs, value=v, id=get_valid_id(full_key, "select"))
             items.append(Horizontal(label, widget, classes="field-row"))

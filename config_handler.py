@@ -9,7 +9,16 @@ from urllib.parse import urlparse
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from constants import AUTH_MODES, HTTP_METHODS, LOGGING_LEVELS, normalize_logging_level
+from constants import (
+    AUTH_MODES,
+    EXECUTION_TYPES,
+    AuthMode,
+    ExecutionType,
+    HTTP_METHODS,
+    LOGGING_LEVEL_FAILED,
+    LOGGING_LEVELS,
+    normalize_logging_level,
+)
 
 K6_DURATION_RE = re.compile(r"^\d+(ms|s|m|h)$")
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "test_config.schema.json"
@@ -153,13 +162,13 @@ class ConfigHandler:
     @staticmethod
     def _normalize_auth_mode(auth: object) -> str:
         if not isinstance(auth, dict):
-            return "none"
+            return AuthMode.NONE.value
 
         mode = str(auth.get("mode", "")).strip()
         if mode in AUTH_MODES:
             return mode
 
-        return "none"
+        return AuthMode.NONE.value
 
     @staticmethod
     def _build_auth_config(auth: object) -> dict:
@@ -170,7 +179,7 @@ class ConfigHandler:
             "client_id": str(source.get("client_id", "")).strip(),
             "client_secret": str(source.get("client_secret", "")).strip(),
         }
-        if mode == "oauth2_client_credentials":
+        if mode == AuthMode.OAUTH2_CLIENT_CREDENTIALS.value:
             runtime["token_url"] = str(source.get("token_url", "")).strip()
             runtime["scope"] = str(source.get("scope", "")).strip()
         return runtime
@@ -200,7 +209,7 @@ class ConfigHandler:
     @staticmethod
     def _build_k6_config(k6cfg: object) -> dict:
         source = k6cfg if isinstance(k6cfg, dict) else {}
-        execution_type = str(source.get("executionType", "external executor")).strip()
+        execution_type = str(source.get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value)).strip()
 
         runtime = {
             "executionType": execution_type,
@@ -208,18 +217,18 @@ class ConfigHandler:
             "logging": ConfigHandler._build_logging_config(source.get("logging", {})),
         }
 
-        if execution_type == "Spike Tests":
+        if execution_type == ExecutionType.SPIKE_TESTS.value:
             runtime["spikeStages"] = source.get("spikeStages", [])
-        elif execution_type == "Constant VUs":
+        elif execution_type == ExecutionType.CONSTANT_VUS.value:
             runtime["vus"] = source.get("vus", 1)
             runtime["duration"] = str(source.get("duration", "60s")).strip()
-        elif execution_type == "Constant Arrival Rate":
+        elif execution_type == ExecutionType.CONSTANT_ARRIVAL_RATE.value:
             runtime["rate"] = source.get("rate", 10)
             runtime["timeUnit"] = str(source.get("timeUnit", "1s")).strip()
             runtime["duration"] = str(source.get("duration", "60s")).strip()
             runtime["preAllocatedVUs"] = source.get("preAllocatedVUs", 10)
             runtime["maxVUs"] = source.get("maxVUs", 50)
-        elif execution_type == "Ramping Arrival Rate":
+        elif execution_type == ExecutionType.RAMPING_ARRIVAL_RATE.value:
             runtime["startRate"] = source.get("startRate", 1)
             runtime["timeUnit"] = str(source.get("timeUnit", "1s")).strip()
             runtime["preAllocatedVUs"] = source.get("preAllocatedVUs", 10)
@@ -237,7 +246,7 @@ class ConfigHandler:
         source = logging_cfg if isinstance(logging_cfg, dict) else {}
         return {
             "enabled": bool(source.get("enabled", False)),
-            "level": normalize_logging_level(source.get("level", "failed")),
+            "level": normalize_logging_level(source.get("level", LOGGING_LEVEL_FAILED)),
             "outputToUI": bool(source.get("outputToUI", True)),
             "webDashboard": bool(source.get("webDashboard", False)),
             "webDashboardUrl": str(source.get("webDashboardUrl", "http://localhost:5665")).strip(),
@@ -261,16 +270,16 @@ class ConfigHandler:
         if explicit_mode and explicit_mode not in AUTH_MODES:
             errors.append(f"auth.mode is invalid: {explicit_mode}.")
 
-        if mode in {"oauth2_client_credentials", "basic", "client_id_enforcement"}:
+        if mode in {AuthMode.OAUTH2_CLIENT_CREDENTIALS.value, AuthMode.BASIC.value, AuthMode.CLIENT_ID_ENFORCEMENT.value}:
             if not str(source.get("client_id", "")).strip() or not str(source.get("client_secret", "")).strip():
                 errors.append(f"auth.client_id and auth.client_secret are required for auth.mode={mode}.")
 
-        if mode == "oauth2_client_credentials":
+        if mode == AuthMode.OAUTH2_CLIENT_CREDENTIALS.value:
             token_url = source.get("token_url", "")
             if not ConfigHandler.is_valid_http_url(token_url):
                 errors.append("auth.token_url must be a valid http/https URL.")
             if not str(source.get("scope", "")).strip():
-                errors.append("auth.scope is required for auth.mode=oauth2_client_credentials.")
+                errors.append(f"auth.scope is required for auth.mode={AuthMode.OAUTH2_CLIENT_CREDENTIALS.value}.")
 
         return errors
 
@@ -316,16 +325,16 @@ class ConfigHandler:
             errors.append(threshold_error)
 
         mode_rules: dict[str, list[tuple[str, str]]] = {
-            "external executor": [("vus", "int"), ("duration", "duration")],
-            "Spike Tests": [("spikeStages", "stages")],
-            "Constant VUs": [("vus", "int"), ("duration", "duration")],
-            "Constant Arrival Rate": [
+            ExecutionType.EXTERNAL_EXECUTOR.value: [("vus", "int"), ("duration", "duration")],
+            ExecutionType.SPIKE_TESTS.value: [("spikeStages", "stages")],
+            ExecutionType.CONSTANT_VUS.value: [("vus", "int"), ("duration", "duration")],
+            ExecutionType.CONSTANT_ARRIVAL_RATE.value: [
                 ("rate", "int"),
                 ("timeUnit", "duration"),
                 ("duration", "duration"),
                 ("preAllocatedVUs", "int"),
             ],
-            "Ramping Arrival Rate": [
+            ExecutionType.RAMPING_ARRIVAL_RATE.value: [
                 ("startRate", "int"),
                 ("timeUnit", "duration"),
                 ("preAllocatedVUs", "int"),
@@ -333,7 +342,7 @@ class ConfigHandler:
             ],
         }
 
-        if execution_type not in mode_rules:
+        if execution_type not in EXECUTION_TYPES:
             errors.append(f"k6.executionType is invalid: {execution_type}.")
             return errors
 
