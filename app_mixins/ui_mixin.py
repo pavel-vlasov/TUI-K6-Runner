@@ -35,12 +35,12 @@ class UIMixin:
     def _ensure_execution_capabilities(self) -> ExecutionCapabilities:
         capabilities = getattr(self, "execution_capabilities", None)
         if capabilities is None:
-            capabilities = self.run_controller.resolve_capabilities(self.full_config)
+            capabilities = self.run_controller.resolve_capabilities(self.ui_config)
             self.execution_capabilities = capabilities
         return capabilities
 
     def refresh_execution_capabilities(self, config: dict | None = None) -> ExecutionCapabilities:
-        capabilities_source = deepcopy(config or self.full_config)
+        capabilities_source = deepcopy(config or self.ui_config)
         try:
             output_mode_select = self.query_one("#select___k6__logging__outputToUI", Select)
             capabilities_source.setdefault("k6", {}).setdefault("logging", {})["outputToUI"] = bool(
@@ -74,7 +74,7 @@ class UIMixin:
         stop_btn = self.query_one("#stop_btn", Button)
         apply_btn = self.query_one("#apply_vu_btn", Button)
         web_dashboard_btn = self.query_one("#web_dashboard_btn", Button)
-        web_dashboard_enabled = self.full_config.get("k6", {}).get("logging", {}).get("webDashboard", False)
+        web_dashboard_enabled = self.ui_config.get("k6", {}).get("logging", {}).get("webDashboard", False)
         capabilities = self._ensure_execution_capabilities()
 
         run_btn.disabled = running
@@ -84,7 +84,7 @@ class UIMixin:
         web_dashboard_btn.disabled = (not running) or (not web_dashboard_enabled)
 
     async def on_mount(self) -> None:
-        self.refresh_execution_capabilities(self.full_config)
+        self.refresh_execution_capabilities(self.ui_config)
         self.set_run_ui_state(False)
         self.toggle_execution_type_fields()
         self.toggle_auth_fields()
@@ -160,7 +160,7 @@ class UIMixin:
         logging_enabled_switch = self.query_one("#bool___k6__logging__enabled", Switch)
         web_dashboard_switch = self.query_one("#bool___k6__logging__webDashboard", Switch)
         warning_widget = self.query_one("#logging_external_mode_warning", Static)
-        capabilities = self.refresh_execution_capabilities(self.full_config)
+        capabilities = self.refresh_execution_capabilities(self.ui_config)
 
         level_display = "block" if bool(logging_enabled_switch.value) else "none"
         web_dashboard_url_display = "block" if bool(web_dashboard_switch.value) else "none"
@@ -187,7 +187,7 @@ class UIMixin:
             with TabPane("Settings", id="tab_settings"):
                 with TabbedContent(id="settings_subtabs"):
                     with TabPane("Auth", id="tab_auth"):
-                        auth_data = self.full_config.get("auth", {})
+                        auth_data = self.ui_config.get("auth", {})
                         auth_mode = str(auth_data.get("mode", "")).strip()
                         if auth_mode not in {option[1] for option in AUTH_MODE_OPTIONS}:
                             auth_mode = AuthMode.NONE.value
@@ -233,7 +233,7 @@ class UIMixin:
                         yield ScrollableContainer(
                             Horizontal(
                                 Label("baseURL:", classes="field-label"),
-                                Input(self.full_config.get("baseURL", ""), id="input___baseURL"),
+                                Input(self.ui_config.get("baseURL", ""), id="input___baseURL"),
                                 classes="field-row",
                             ),
                             Horizontal(
@@ -247,7 +247,7 @@ class UIMixin:
                         )
 
                     with TabPane("K6", id="tab_k6"):
-                        k6_config = self.full_config.get("k6", {})
+                        k6_config = self.ui_config.get("k6", {})
                         execution_type = k6_config.get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value)
                         if execution_type not in EXECUTION_TYPES:
                             execution_type = ExecutionType.EXTERNAL_EXECUTOR.value
@@ -362,7 +362,7 @@ class UIMixin:
                         )
 
                     with TabPane("Logging", id="tab_logging"):
-                        log_data = self.full_config.setdefault("k6", {}).setdefault("logging", {})
+                        log_data = self.ui_config.setdefault("k6", {}).setdefault("logging", {})
                         log_data.setdefault("htmlSummaryReport", False)
 
                         other_logging_data = {

@@ -12,11 +12,11 @@ from jsonschema import Draft202012Validator, FormatChecker
 from constants import (
     AUTH_MODES,
     DEFAULT_CONFIG_PATH,
-    EXECUTION_TYPES,
     HTTP_METHODS,
     LOGGING_LEVEL_FAILED,
     LOGGING_LEVELS,
     AuthMode,
+    EXECUTION_TYPES,
     ExecutionType,
     normalize_logging_level,
 )

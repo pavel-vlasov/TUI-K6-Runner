@@ -117,6 +117,12 @@ The launch bootstrap is now in `main.py` only. The main UI and application behav
 
 Please make future UI changes in these modules, not in legacy monolithic entrypoint implementations.
 
+### Config flow in the app
+
+- `ui_config` хранит актуальное состояние полей UI (read/write модель для экранов и миксинов).
+- `runtime_config` строится из `ui_config` только перед валидацией/запуском и содержит финальный конфиг, который уходит в k6.
+- В кодовой базе используется только имя `ui_config` для UI-модели конфигурации.
+
 ## Config schema
 
 В проект добавлена JSON Schema: `schema/test_config.schema.json`.

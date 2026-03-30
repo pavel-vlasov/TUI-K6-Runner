@@ -21,19 +21,10 @@ class K6TestApp(EventsMixin, UIMixin, RequestMixin, StageMixin, App):
     def __init__(self):
         super().__init__()
         self.run_controller = RunController(K6Service(), config_path=DEFAULT_CONFIG_PATH)
-        self.full_config = {}
+        self.ui_config = {}
         self.config_load_error = None
         self.config_load_error_details = None
         self.load_config_safely()
-
-    @property
-    def full_config(self):
-        """Backward-compatible alias for UI configuration model."""
-        return self.ui_config
-
-    @full_config.setter
-    def full_config(self, value):
-        self.ui_config = value
 
     def load_config_safely(self):
         config_path = DEFAULT_CONFIG_PATH
