@@ -230,6 +230,9 @@ class K6Service:
         summary_json_path: Path,
         shell_type: str = "posix",
     ) -> str:
+        def _powershell_quote(value: str) -> str:
+            return "'" + value.replace("'", "''") + "'"
+
         command_parts = ["k6", "run", "test.js"]
         env_parts: list[tuple[str, str]] = []
 
@@ -247,13 +250,10 @@ class K6Service:
             command_parts.extend(["--summary-export", str(summary_json_path)])
 
         if shell_type == "powershell":
-            def _ps_quote(value: str) -> str:
-                return "'" + value.replace("'", "''") + "'"
-
-            command_text = " ".join(_ps_quote(part) for part in command_parts)
+            command_text = " ".join(_powershell_quote(part) for part in command_parts)
             if not env_parts:
                 return command_text
-            env_commands = [f"$env:{name}={_ps_quote(value)};" for name, value in env_parts]
+            env_commands = [f"$env:{name}={_powershell_quote(value)};" for name, value in env_parts]
             return f"{' '.join(env_commands)} {command_text}"
 
         command_text = " ".join(
