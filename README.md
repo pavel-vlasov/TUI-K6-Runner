@@ -1,10 +1,14 @@
 # TUI-K6-Runner
 
-[![Quality Pipeline](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Lint](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&job=Lint&label=Lint)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&job=Tests&label=Tests)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&job=Coverage&label=Coverage)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Security](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&job=Security&label=Security)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Quality Pipeline](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Lint](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Lint&label=Lint)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests (summary)](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests&label=Tests%20(summary))](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests (partial summary)](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20(non-blocking)&label=Tests%20(partial))](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests Ubuntu](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20(ubuntu-latest)&label=Tests%20ubuntu)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests Windows](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20(windows-latest)&label=Tests%20windows)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests macOS](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20(macos-latest)&label=Tests%20macos)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Coverage&label=Coverage)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Security](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Security&label=Security)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
 [![Python version](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/downloads/release/python-3110/)
 
 <img width="1102" height="618" alt="image" src="https://github.com/user-attachments/assets/c4d43c8a-66bf-4ee4-aac3-feb11462fb2d" />
@@ -12,6 +16,12 @@
 <img width="1118" height="677" alt="image" src="https://github.com/user-attachments/assets/3cef3d48-81fd-4fc7-83ee-445371efc5dc" />
 
 <img width="1118" height="682" alt="image" src="https://github.com/user-attachments/assets/e05ea0ed-60fe-4cd5-bc42-3d5e529745af" />
+
+## CI test badges
+
+- `Tests (summary)` — **strict gate**: job `Tests` (tests-summary) падает, если smoke или любая платформа в матрице tests завершились с ошибкой.
+- `Tests (partial)` — **partial progress**: job `Tests (non-blocking)` показывает агрегированный статус smoke + matrix без блокировки пайплайна.
+- `Tests ubuntu/windows/macos` — статусы отдельных платформ из матричного job `Tests (${{ matrix.os }})` для отслеживания частичных успехов.
 
 ## How to use
 
