@@ -1,5 +1,6 @@
 import asyncio
 import json
+import platform
 import shlex
 from pathlib import Path
 
@@ -306,8 +307,14 @@ def test_run_k6_process_external_terminal_mode_keeps_dashboard_and_summary_optio
     command = captured["command"]
     assert "--out" in command
     assert "web-dashboard=period=5s&open=false" in command
-    assert "K6_WEB_DASHBOARD_HOST=127.0.0.1" in command
-    assert "K6_WEB_DASHBOARD_PORT=7777" in command
+    assert "K6_WEB_DASHBOARD_HOST" in command
+    assert "K6_WEB_DASHBOARD_PORT" in command
+    if platform.system() == "Windows":
+        assert "$env:K6_WEB_DASHBOARD_HOST='127.0.0.1';" in command
+        assert "$env:K6_WEB_DASHBOARD_PORT='7777';" in command
+    else:
+        assert "K6_WEB_DASHBOARD_HOST=127.0.0.1" in command
+        assert "K6_WEB_DASHBOARD_PORT=7777" in command
     assert "--summary-export" in command
     assert str(summary_json_path) in command
 
