@@ -14,14 +14,23 @@ from textual.widgets import (
     TabPane,
 )
 
-from constants import LOGGING_LEVELS, LOGGING_LEVEL_LABELS, normalize_logging_level
+from constants import (
+    AUTH_MODE_OPTIONS,
+    EXECUTION_TYPES,
+    EXECUTION_TYPE_OPTIONS,
+    AuthMode,
+    ExecutionType,
+    LOGGING_LEVEL_FAILED,
+    LOGGING_LEVEL_OPTIONS,
+    normalize_logging_level,
+)
 from ui_components import build_config_fields
 
 
 class UIMixin:
     def _is_scale_supported_execution_type(self) -> bool:
-        execution_type = self.full_config.get("k6", {}).get("executionType", "external executor")
-        return execution_type == "external executor"
+        execution_type = self.full_config.get("k6", {}).get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value)
+        return execution_type == ExecutionType.EXTERNAL_EXECUTOR.value
 
     def set_run_ui_state(self, running: bool) -> None:
         run_btn = self.query_one("#run_btn", Button)
@@ -61,11 +70,11 @@ class UIMixin:
     def toggle_execution_type_fields(self) -> None:
         execution_select = self.query_one("#select___k6__executionType", Select)
 
-        show_external_fields = execution_select.value == "external executor"
-        show_spike_fields = execution_select.value == "Spike Tests"
-        show_constant_vus_fields = execution_select.value == "Constant VUs"
-        show_constant_arrival_fields = execution_select.value == "Constant Arrival Rate"
-        show_ramping_arrival_fields = execution_select.value == "Ramping Arrival Rate"
+        show_external_fields = execution_select.value == ExecutionType.EXTERNAL_EXECUTOR.value
+        show_spike_fields = execution_select.value == ExecutionType.SPIKE_TESTS.value
+        show_constant_vus_fields = execution_select.value == ExecutionType.CONSTANT_VUS.value
+        show_constant_arrival_fields = execution_select.value == ExecutionType.CONSTANT_ARRIVAL_RATE.value
+        show_ramping_arrival_fields = execution_select.value == ExecutionType.RAMPING_ARRIVAL_RATE.value
 
         self.query_one("#k6_vus_row").styles.display = (
             "block" if (show_external_fields or show_constant_vus_fields) else "none"
@@ -97,9 +106,9 @@ class UIMixin:
 
     def toggle_auth_fields(self) -> None:
         auth_mode_select = self.query_one("#select___auth__mode", Select)
-        selected_mode = str(auth_mode_select.value or "none")
-        oauth_enabled = selected_mode == "oauth2_client_credentials"
-        no_auth_enabled = selected_mode == "none"
+        selected_mode = str(auth_mode_select.value or AuthMode.NONE.value)
+        oauth_enabled = selected_mode == AuthMode.OAUTH2_CLIENT_CREDENTIALS.value
+        no_auth_enabled = selected_mode == AuthMode.NONE.value
 
         for row_id in ["#auth_row__client_id", "#auth_row__client_secret"]:
             self.query_one(row_id, Horizontal).styles.display = "none" if no_auth_enabled else "block"
@@ -142,24 +151,14 @@ class UIMixin:
                     with TabPane("Auth", id="tab_auth"):
                         auth_data = self.full_config.get("auth", {})
                         auth_mode = str(auth_data.get("mode", "")).strip()
-                        if auth_mode not in [
-                            "none",
-                            "oauth2_client_credentials",
-                            "basic",
-                            "client_id_enforcement",
-                        ]:
-                            auth_mode = "none"
+                        if auth_mode not in {option[1] for option in AUTH_MODE_OPTIONS}:
+                            auth_mode = AuthMode.NONE.value
 
                         yield ScrollableContainer(
                             Horizontal(
                                 Label("mode:", classes="field-label"),
                                 Select(
-                                    [
-                                        ("none", "none"),
-                                        ("oauth2_client_credentials", "oauth2_client_credentials"),
-                                        ("basic", "basic"),
-                                        ("client_id_enforcement", "client_id_enforcement"),
-                                    ],
+                                    list(AUTH_MODE_OPTIONS),
                                     value=auth_mode,
                                     id="select___auth__mode",
                                 ),
@@ -211,15 +210,9 @@ class UIMixin:
 
                     with TabPane("K6", id="tab_k6"):
                         k6_config = self.full_config.get("k6", {})
-                        execution_type = k6_config.get("executionType", "external executor")
-                        if execution_type not in [
-                            "external executor",
-                            "Spike Tests",
-                            "Constant VUs",
-                            "Constant Arrival Rate",
-                            "Ramping Arrival Rate",
-                        ]:
-                            execution_type = "external executor"
+                        execution_type = k6_config.get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value)
+                        if execution_type not in EXECUTION_TYPES:
+                            execution_type = ExecutionType.EXTERNAL_EXECUTOR.value
                         k6_other_data = {
                             k: v
                             for k, v in k6_config.items()
@@ -243,13 +236,7 @@ class UIMixin:
                             Horizontal(
                                 Label("execution type:", classes="field-label"),
                                 Select(
-                                    [
-                                        ("external executor", "external executor"),
-                                        ("Spike Tests", "Spike Tests"),
-                                        ("Constant VUs", "Constant VUs"),
-                                        ("Constant Arrival Rate", "Constant Arrival Rate"),
-                                        ("Ramping Arrival Rate", "Ramping Arrival Rate"),
-                                    ],
+                                    list(EXECUTION_TYPE_OPTIONS),
                                     value=execution_type,
                                     id="select___k6__executionType",
                                 ),
@@ -360,11 +347,8 @@ class UIMixin:
                                 Switch(bool(log_data.get("enabled", False)), id="bool___k6__logging__enabled"),
                                 Label("level:", classes="field-label", id="logging_level_label"),
                                 Select(
-                                    [
-                                        (LOGGING_LEVEL_LABELS[level], level)
-                                        for level in LOGGING_LEVELS
-                                    ],
-                                    value=self._normalize_logging_level(log_data.get("level", "failed")),
+                                    list(LOGGING_LEVEL_OPTIONS),
+                                    value=self._normalize_logging_level(log_data.get("level", LOGGING_LEVEL_FAILED)),
                                     id="select___k6__logging__level",
                                 ),
                                 classes="field-row",

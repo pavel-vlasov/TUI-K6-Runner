@@ -1,28 +1,59 @@
-# constants.py
+from enum import Enum
+
+
+class StrEnum(str, Enum):
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+class AuthMode(StrEnum):
+    NONE = "none"
+    OAUTH2_CLIENT_CREDENTIALS = "oauth2_client_credentials"
+    BASIC = "basic"
+    CLIENT_ID_ENFORCEMENT = "client_id_enforcement"
+
+
+class ExecutionType(StrEnum):
+    EXTERNAL_EXECUTOR = "external executor"
+    SPIKE_TESTS = "Spike Tests"
+    CONSTANT_VUS = "Constant VUs"
+    CONSTANT_ARRIVAL_RATE = "Constant Arrival Rate"
+    RAMPING_ARRIVAL_RATE = "Ramping Arrival Rate"
+
+
+class LoggingLevel(StrEnum):
+    ALL = "all"
+    FAILED = "failed"
+    FAILED_WITHOUT_PAYLOADS = "failed_without_payloads"
+
+
 HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
 
-AUTH_MODES = (
-    "none",
-    "oauth2_client_credentials",
-    "basic",
-    "client_id_enforcement",
-)
+AUTH_MODES = tuple(mode.value for mode in AuthMode)
+AUTH_MODE_OPTIONS = tuple((mode.value, mode.value) for mode in AuthMode)
 
-LOGGING_LEVEL_ALL = "all"
-LOGGING_LEVEL_FAILED = "failed"
-LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS = "failed_without_payloads"
+EXECUTION_TYPES = tuple(execution_type.value for execution_type in ExecutionType)
+EXECUTION_TYPE_LABELS = {
+    ExecutionType.EXTERNAL_EXECUTOR.value: "External executor",
+    ExecutionType.SPIKE_TESTS.value: "Spike Tests",
+    ExecutionType.CONSTANT_VUS.value: "Constant VUs",
+    ExecutionType.CONSTANT_ARRIVAL_RATE.value: "Constant Arrival Rate",
+    ExecutionType.RAMPING_ARRIVAL_RATE.value: "Ramping Arrival Rate",
+}
+EXECUTION_TYPE_OPTIONS = tuple((EXECUTION_TYPE_LABELS[value], value) for value in EXECUTION_TYPES)
 
-LOGGING_LEVELS = (
-    LOGGING_LEVEL_ALL,
-    LOGGING_LEVEL_FAILED,
-    LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
-)
+LOGGING_LEVEL_ALL = LoggingLevel.ALL.value
+LOGGING_LEVEL_FAILED = LoggingLevel.FAILED.value
+LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS = LoggingLevel.FAILED_WITHOUT_PAYLOADS.value
+
+LOGGING_LEVELS = tuple(level.value for level in LoggingLevel)
 
 LOGGING_LEVEL_LABELS = {
     LOGGING_LEVEL_ALL: "All requests",
     LOGGING_LEVEL_FAILED: "Failed only",
     LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS: "Failed (without payloads)",
 }
+LOGGING_LEVEL_OPTIONS = tuple((LOGGING_LEVEL_LABELS[level], level) for level in LOGGING_LEVELS)
 
 LOGGING_LEVEL_ALIASES = {
     "all": LOGGING_LEVEL_ALL,
@@ -41,10 +72,11 @@ def normalize_logging_level(raw_value: object, default: str = LOGGING_LEVEL_FAIL
         return LOGGING_LEVEL_ALIASES.get(normalized, default)
     return default
 
+
 DEFAULT_CONFIG = {
     "baseURL": "https://www.baseURL.com/",
     "auth": {
-        "mode": "client_id_enforcement",
+        "mode": AuthMode.CLIENT_ID_ENFORCEMENT.value,
         "token_url": "https://oAuthproviderURL.com/ID/oauth2/v2.0/token",
         "client_id": "876878764",
         "client_secret": "0",
@@ -61,7 +93,7 @@ DEFAULT_CONFIG = {
         }
     ],
     "k6": {
-        "executionType": "external executor",
+        "executionType": ExecutionType.EXTERNAL_EXECUTOR.value,
         "vus": 1,
         "maxVUs": 10,
         "duration": "10s",

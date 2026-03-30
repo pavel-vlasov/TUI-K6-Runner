@@ -89,6 +89,7 @@ class DummyButtonUI(EventsMixin):
         self.remove_last_spike_stage_result = remove_last_spike_stage_result
         self.remove_last_arrival_stage_result = remove_last_arrival_stage_result
         self.set_run_ui_state = lambda *_args, **_kwargs: None
+        self.runtime_config = {"runtime": True}
         self.full_config = {
             "k6": {
                 "logging": {
@@ -296,7 +297,7 @@ def test_on_button_pressed_run_btn_happy_path_clears_log_and_starts_run():
     assert ("Running K6 execution...", "information") in ui.notifications
     assert len(ui.start_run_calls) == 1
     full_config, callbacks = ui.start_run_calls[0]
-    assert full_config is ui.full_config
+    assert full_config is ui.runtime_config
     assert callable(callbacks.on_log)
     assert callable(callbacks.on_status)
 

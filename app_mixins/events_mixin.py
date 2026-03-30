@@ -87,7 +87,7 @@ class EventsMixin:
                 on_status=status_bar.update,
                 on_run_state_changed=self.set_run_ui_state,
             )
-            await self.run_controller.start_run(self.full_config, callbacks)
+            await self.run_controller.start_run(self.runtime_config, callbacks)
 
         elif event.button.id == "stop_btn":
             await self.run_controller.stop_run()
@@ -137,17 +137,17 @@ class EventsMixin:
 
     def action_save_config(self) -> bool:
         spike_rows_count = len(self.query_one("#spike_stages_container", ScrollableContainer).children)
-        self.full_config.setdefault("k6", {})["spikeStages"] = [{} for _ in range(spike_rows_count)]
+        self.ui_config.setdefault("k6", {})["spikeStages"] = [{} for _ in range(spike_rows_count)]
 
         arrival_rows_count = len(self.query_one("#arrival_stages_container", ScrollableContainer).children)
-        self.full_config.setdefault("k6", {})["rampingArrivalStages"] = [{} for _ in range(arrival_rows_count)]
+        self.ui_config.setdefault("k6", {})["rampingArrivalStages"] = [{} for _ in range(arrival_rows_count)]
 
         request_tabs_count = len(self._get_request_tab_panes())
-        self.full_config["requestEndpoints"] = [{} for _ in range(request_tabs_count)]
+        self.ui_config["requestEndpoints"] = [{} for _ in range(request_tabs_count)]
 
-        self.full_config = ConfigHandler.update_from_fields(self.full_config, self._collect_ui_field_values())
+        self.ui_config = ConfigHandler.update_from_fields(self.ui_config, self._collect_ui_field_values())
 
-        runtime_config = ConfigHandler.build_runtime_config(self.full_config)
+        runtime_config = ConfigHandler.build_runtime_config(self.ui_config)
         errors = ConfigHandler.validate_runtime_config(runtime_config)
         if errors:
             self.notify("Configuration validation failed:", severity="error")
@@ -155,10 +155,10 @@ class EventsMixin:
                 self.notify(f"• {error}", severity="error")
             return False
 
-        self.full_config = runtime_config
+        self.runtime_config = runtime_config
 
         try:
-            self.run_controller.save_config(self.full_config)
+            self.run_controller.save_config(self.runtime_config)
             self.notify("Configuration saved successfully!", severity="information")
             return True
         except Exception as e:
