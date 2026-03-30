@@ -62,7 +62,7 @@ def test_handle_counter_lines_accumulates_categories_and_totals():
     assert "\n" not in service.state.last_counter
 
 
-def test_request_failed_without_eof_is_not_double_counted():
+def test_request_failed_without_eof_is_counted_as_timeout():
     service = K6Service()
     statuses = []
 
@@ -71,11 +71,11 @@ def test_request_failed_without_eof_is_not_double_counted():
         statuses.append,
     )
 
-    assert service.state.fail_count == 0
-    assert service.state.fail_categories == {}
+    assert service.state.fail_count == 1
+    assert service.state.fail_categories == {"timeout": 1}
 
 
-def test_non_200_status_zero_is_filtered_from_ui_and_not_counted():
+def test_non_200_status_zero_is_counted_as_transport_no_status_and_filtered_from_ui():
     service = K6Service()
     statuses = []
 
@@ -85,8 +85,8 @@ def test_non_200_status_zero_is_filtered_from_ui_and_not_counted():
     )
 
     assert handled is True
-    assert service.state.fail_count == 0
-    assert service.state.fail_categories == {}
+    assert service.state.fail_count == 1
+    assert service.state.fail_categories == {"transport/no_status": 1}
 
 
 def test_handle_counter_lines_throttles_status_updates_but_keeps_totals(monkeypatch):

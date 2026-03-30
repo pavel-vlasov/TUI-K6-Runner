@@ -47,16 +47,36 @@ def _bucket_http_status(status: int) -> str | None:
 
 
 def get_fail_category(text: str) -> str | None:
-    if "Request Failed" in text and "EOF" in text:
-        return "EOF"
+    text_lower = text.lower()
+
+    if "Request Failed" in text:
+        if "eof" in text_lower:
+            return "EOF"
+        if "context deadline exceeded" in text_lower or "timeout" in text_lower:
+            return "timeout"
+        if "no such host" in text_lower or "lookup" in text_lower:
+            return "dns"
+        if "connection refused" in text_lower:
+            return "connection refused"
+        if "tls" in text_lower or "handshake" in text_lower:
+            return "tls"
+        if "reset by peer" in text_lower:
+            return "reset by peer"
+        return "network/other"
 
     if "Non-200" in text:
         status_match = HTTP_STATUS_PATTERN.search(text)
         if not status_match:
-            return None
+            return "transport/no_status"
 
         status = int(status_match.group(1))
-        return _bucket_http_status(status)
+        if status == 0:
+            return "transport/no_status"
+
+        category = _bucket_http_status(status)
+        if category:
+            return category
+        return "transport/no_status"
 
     return None
 
