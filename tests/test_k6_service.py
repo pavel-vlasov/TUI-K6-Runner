@@ -99,9 +99,6 @@ class _FakeEmbeddedBackend:
     async def scale(self, vus):
         return 0, b"", b""
 
-    async def status(self):
-        return 0, b'{"vus": 5}', b""
-
     def clear(self):
         self.cleared = True
 
@@ -124,9 +121,6 @@ class _FakeExternalBackend:
 
     async def scale(self, vus):
         del vus
-        return 1, b"", b"unsupported"
-
-    async def status(self):
         return 1, b"", b"unsupported"
 
     def clear(self):
@@ -274,16 +268,6 @@ def test_set_vus_returns_false_when_backend_has_no_scale(monkeypatch):
 
     assert result is False
     assert any("unavailable" in line for line in logs)
-
-
-def test_get_current_vus_returns_internal_value_when_backend_has_no_status():
-    service = K6Service()
-    service.state.current_vus_internal = 7
-    service.backend = _FakeExternalBackend()
-
-    vus = asyncio.run(service.get_current_vus())
-
-    assert vus == 7
 
 
 def test_generate_html_summary_logs_warning_when_json_file_missing(tmp_path):

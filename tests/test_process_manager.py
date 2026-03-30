@@ -443,26 +443,6 @@ def test_scale_returns_stdout_stderr_when_returncode_is_non_zero(monkeypatch):
     assert stderr == b"scale stderr"
 
 
-def test_status_returns_stdout_stderr_when_returncode_is_non_zero(monkeypatch):
-    class DummyProcess:
-        returncode = 3
-
-        async def communicate(self):
-            return b'{"vus": 10}', b"status stderr"
-
-    async def fake_create_subprocess_exec(*_args, **_kwargs):
-        return DummyProcess()
-
-    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
-
-    manager = K6ProcessManager()
-    returncode, stdout, stderr = asyncio.run(manager.status())
-
-    assert returncode == 3
-    assert stdout == b'{"vus": 10}'
-    assert stderr == b"status stderr"
-
-
 def test_apply_web_dashboard_binding_logs_warning_for_url_without_host(caplog):
     manager = K6ProcessManager()
     env = {}

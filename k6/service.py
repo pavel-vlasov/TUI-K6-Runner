@@ -193,22 +193,6 @@ class K6Service:
             )
         )
 
-    async def get_current_vus(self):
-        if not self.backend.capabilities.can_read_metrics:
-            return self.state.current_vus_internal
-
-        try:
-            returncode, stdout, _ = await self.backend.status()
-            if returncode == 0:
-                data = json.loads(stdout.decode())
-                vus = data.get("vus") or data.get("metrics", {}).get("vus", {}).get("value")
-                if vus is not None:
-                    self.state.current_vus_internal = int(vus)
-                    return self.state.current_vus_internal
-        except Exception:
-            pass
-        return self.state.current_vus_internal
-
     async def set_vus(self, target_vus: int, on_log):
         if not self.state.is_running:
             on_log("[bold red]❌ No active execution[/bold red]\n")

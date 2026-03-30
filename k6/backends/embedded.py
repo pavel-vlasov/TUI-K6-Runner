@@ -75,8 +75,5 @@ class EmbeddedProcessBackend(ExecutionBackend):
     async def scale(self, vus: int) -> tuple[int, bytes, bytes]:
         return await self.process_manager.scale(vus)
 
-    async def status(self) -> tuple[int, bytes, bytes]:
-        return await self.process_manager.status()
-
     def clear(self) -> None:
         self.process_manager.clear_process()
