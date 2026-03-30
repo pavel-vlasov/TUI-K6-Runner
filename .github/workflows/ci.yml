@@ -201,7 +201,7 @@ jobs:
           path: coverage.xml
 
   security:
-    name: Security (runtime + dev)
+    name: Security
     runs-on: ubuntu-latest
     outputs:
       security_artifact_url: ${{ steps.upload_security_report.outputs.artifact-url }}
