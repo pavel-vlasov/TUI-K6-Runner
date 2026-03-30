@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 from k6.backends.base import ExecutionBackend
 from k6.backends.capabilities import ExecutionCapabilities
