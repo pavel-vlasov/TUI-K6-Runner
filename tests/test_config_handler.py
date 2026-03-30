@@ -311,7 +311,8 @@ def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
         }
     )
 
-    script = Path("test.js").read_text(encoding="utf-8")
+    repo_root = Path(__file__).resolve().parents[1]
+    script = (repo_root / "test.js").read_text(encoding="utf-8")
 
     assert "config.baseURL" in script
     assert "config.auth" in script
