@@ -159,14 +159,6 @@ class ConfigHandler:
         if mode in AUTH_MODES:
             return mode
 
-        flags = {
-            "oauth2_client_credentials": bool(auth.get("useOAuth2")),
-            "basic": bool(auth.get("basicauth")),
-            "client_id_enforcement": bool(auth.get("ClientId_Enforcement")),
-        }
-        enabled = [name for name, value in flags.items() if value]
-        if len(enabled) == 1:
-            return enabled[0]
         return "none"
 
     @staticmethod

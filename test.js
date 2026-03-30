@@ -44,19 +44,7 @@ if (!LOGGING_LEVELS.includes(logConfig.level)) {
 
 function resolveAuthMode(auth) {
   const mode = String(auth.mode || '').trim();
-  if (mode) return mode;
-
-  const legacyModes = [
-    auth.useOAuth2 ? 'oauth2_client_credentials' : null,
-    auth.basicauth ? 'basic' : null,
-    auth.ClientId_Enforcement ? 'client_id_enforcement' : null,
-  ].filter(Boolean);
-
-  if (legacyModes.length === 1) return legacyModes[0];
-  if (legacyModes.length > 1) {
-    throw new Error('❌ Multiple legacy auth modes enabled simultaneously: ' + legacyModes.join(', '));
-  }
-  return 'none';
+  return mode || 'none';
 }
 
 const authMode = resolveAuthMode(authConfig);
@@ -292,7 +280,7 @@ export function setup() {
   if (authMode === 'client_id_enforcement') {
     headers['client_id'] = authConfig.client_id;
     headers['client_secret'] = authConfig.client_secret;
-    console.log('🔐 Using ClientId_Enforcement (client_id and client_secret in headers)');
+    console.log('🔐 Using client_id_enforcement (client_id and client_secret in headers)');
     return { authType: 'clientid_headers', authHeaders: headers };
   }
 
