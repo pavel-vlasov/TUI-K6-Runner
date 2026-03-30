@@ -10,7 +10,7 @@ from app_mixins.request_mixin import RequestMixin
 from app_mixins.stage_mixin import StageMixin
 from app_mixins.ui_mixin import UIMixin
 from application import RunController
-from constants import DEFAULT_CONFIG
+from constants import DEFAULT_CONFIG, DEFAULT_CONFIG_PATH
 from k6.service import K6Service
 
 
@@ -20,9 +20,8 @@ class K6TestApp(EventsMixin, UIMixin, RequestMixin, StageMixin, App):
 
     def __init__(self):
         super().__init__()
-        self.run_controller = RunController(K6Service())
-        self.ui_config = {}
-        self.runtime_config = {}
+        self.run_controller = RunController(K6Service(), config_path=DEFAULT_CONFIG_PATH)
+        self.full_config = {}
         self.config_load_error = None
         self.config_load_error_details = None
         self.load_config_safely()
@@ -37,7 +36,7 @@ class K6TestApp(EventsMixin, UIMixin, RequestMixin, StageMixin, App):
         self.ui_config = value
 
     def load_config_safely(self):
-        config_path = "test_config.json"
+        config_path = DEFAULT_CONFIG_PATH
         self.config_load_error = None
         self.config_load_error_details = None
         try:

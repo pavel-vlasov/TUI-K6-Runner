@@ -9,16 +9,7 @@ from urllib.parse import urlparse
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from constants import (
-    AUTH_MODES,
-    EXECUTION_TYPES,
-    AuthMode,
-    ExecutionType,
-    HTTP_METHODS,
-    LOGGING_LEVEL_FAILED,
-    LOGGING_LEVELS,
-    normalize_logging_level,
-)
+from constants import AUTH_MODES, DEFAULT_CONFIG_PATH, HTTP_METHODS, LOGGING_LEVELS, normalize_logging_level
 
 K6_DURATION_RE = re.compile(r"^\d+(ms|s|m|h)$")
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "test_config.schema.json"
@@ -142,7 +133,7 @@ class ConfigHandler:
         return schema_errors
 
     @staticmethod
-    def save_to_file(config: dict, filename: str = "test_config.json") -> None:
+    def save_to_file(config: dict, filename: str = DEFAULT_CONFIG_PATH) -> None:
         data = json.dumps(config, indent=4, ensure_ascii=False)
         directory = os.path.dirname(os.path.abspath(filename)) or "."
 
