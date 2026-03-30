@@ -3,6 +3,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from config_handler import ConfigHandler
+from constants import DEFAULT_CONFIG_PATH
 from k6.service import K6Service
 
 
@@ -14,7 +15,7 @@ class RunCallbacks:
 
 
 class RunController:
-    def __init__(self, k6_service: K6Service, config_path: str = "test_config.json") -> None:
+    def __init__(self, k6_service: K6Service, config_path: str = DEFAULT_CONFIG_PATH) -> None:
         self.k6_service = k6_service
         self.config_path = config_path
 

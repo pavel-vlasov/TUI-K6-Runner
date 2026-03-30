@@ -31,6 +31,8 @@ LOGGING_LEVEL_ALIASES = {
     "failures_without_payloads": LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
 }
 
+DEFAULT_CONFIG_PATH = "test_config.json"
+
 
 def normalize_logging_level(raw_value: object, default: str = LOGGING_LEVEL_FAILED) -> str:
     if isinstance(raw_value, str):
