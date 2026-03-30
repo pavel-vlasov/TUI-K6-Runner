@@ -3,10 +3,12 @@ import shutil
 import sys
 from pathlib import Path
 
+RUNTIME_DEPENDENCIES = ("textual", "pyperclip", "jsonschema", "pygments")
+
 
 def ensure_runtime_dependencies() -> None:
     missing = []
-    for dependency in ("textual", "pyperclip"):
+    for dependency in RUNTIME_DEPENDENCIES:
         try:
             __import__(dependency)
         except ImportError:

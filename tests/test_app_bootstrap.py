@@ -12,7 +12,7 @@ def test_ensure_runtime_dependencies_passes_when_all_present(monkeypatch):
     original_import = builtins.__import__
 
     def fake_import(name, *args, **kwargs):
-        if name in {"textual", "pyperclip"}:
+        if name in {"textual", "pyperclip", "jsonschema", "pygments"}:
             return object()
         return original_import(name, *args, **kwargs)
 
@@ -26,9 +26,9 @@ def test_ensure_runtime_dependencies_raises_with_missing(monkeypatch):
     original_import = builtins.__import__
 
     def fake_import(name, *args, **kwargs):
-        if name == "pyperclip":
+        if name in {"jsonschema", "pygments"}:
             raise ImportError("missing")
-        if name == "textual":
+        if name in {"textual", "pyperclip"}:
             return object()
         return original_import(name, *args, **kwargs)
 
@@ -38,14 +38,15 @@ def test_ensure_runtime_dependencies_raises_with_missing(monkeypatch):
     with pytest.raises(RuntimeError) as exc:
         ensure_runtime_dependencies()
 
-    assert "pyperclip" in str(exc.value)
+    assert "jsonschema" in str(exc.value)
+    assert "pygments" in str(exc.value)
 
 
 def test_ensure_runtime_dependencies_raises_when_k6_missing(monkeypatch):
     original_import = builtins.__import__
 
     def fake_import(name, *args, **kwargs):
-        if name in {"textual", "pyperclip"}:
+        if name in {"textual", "pyperclip", "jsonschema", "pygments"}:
             return object()
         return original_import(name, *args, **kwargs)
 
