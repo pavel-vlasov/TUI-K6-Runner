@@ -227,6 +227,43 @@ def test_stop_returns_true_after_graceful_stop():
     assert manager.process.kill_called is False
 
 
+def test_stop_uses_ctrl_break_event_on_windows(monkeypatch):
+    ctrl_break_event = 12345
+
+    class DummyProcess:
+        def __init__(self):
+            self.returncode = None
+            self.pid = 123
+            self.sent_signal = None
+            self.terminate_called = False
+            self.kill_called = False
+
+        def send_signal(self, sig):
+            self.sent_signal = sig
+            self.returncode = 0
+
+        async def wait(self):
+            return self.returncode
+
+        def terminate(self):
+            self.terminate_called = True
+
+        def kill(self):
+            self.kill_called = True
+
+    monkeypatch.setattr("k6.process_manager.platform.system", lambda: "Windows")
+    monkeypatch.setattr("k6.process_manager.signal.CTRL_BREAK_EVENT", ctrl_break_event, raising=False)
+    manager = K6ProcessManager()
+    manager.process = DummyProcess()
+
+    result = asyncio.run(manager.stop(timeout=0.1))
+
+    assert result is True
+    assert manager.process.sent_signal == ctrl_break_event
+    assert manager.process.terminate_called is False
+    assert manager.process.kill_called is False
+
+
 def test_stop_escalates_to_terminate_on_timeout():
     class DummyProcess:
         def __init__(self):
