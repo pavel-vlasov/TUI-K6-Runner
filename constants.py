@@ -48,14 +48,6 @@ DEFAULT_CONFIG = {
         "client_secret": "0",
         "scope": "read",
     },
-    "request": {
-        "name": "Endpoint 1",
-        "method": "GET",
-        "path": "/healthcheck",
-        "headers": {"Content-Type": "application/json", "test": "123"},
-        "body": {"sample": "payload2"},
-        "query": {},
-    },
     "requestEndpoints": [
         {
             "name": "Endpoint 1",
