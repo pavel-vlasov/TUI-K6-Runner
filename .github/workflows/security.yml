@@ -9,7 +9,7 @@ on:
 
 jobs:
   dependency-audit:
-    name: Dependency audit
+    name: Dependency audit (runtime + dev)
     runs-on: ubuntu-latest
 
     steps:
@@ -21,11 +21,15 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install pip-audit
         run: |
           python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements-dev.txt
+          pip install pip-audit
 
-      - name: Dependency check
+      - name: Dependency check (runtime)
         run: |
-          pip-audit
+          pip-audit --require-hashes -r requirements.txt
+
+      - name: Dependency check (dev)
+        run: |
+          pip-audit --require-hashes -r requirements-dev.txt

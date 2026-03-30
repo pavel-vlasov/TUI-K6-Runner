@@ -144,7 +144,7 @@ jobs:
           path: coverage.xml
 
   security:
-    name: Security
+    name: Security (runtime + dev)
     runs-on: ubuntu-latest
 
     steps:
@@ -158,14 +158,18 @@ jobs:
           cache: "pip"
           cache-dependency-path: requirements.txt
 
-      - name: Install dependencies
+      - name: Install pip-audit
         run: |
           python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements-dev.txt
+          pip install pip-audit
 
-      - name: Dependency check
+      - name: Dependency check (runtime)
         run: |
-          pip-audit 2>&1 | tee security-report.txt
+          pip-audit --require-hashes -r requirements.txt 2>&1 | tee security-runtime-report.txt
+
+      - name: Dependency check (dev)
+        run: |
+          pip-audit --require-hashes -r requirements-dev.txt 2>&1 | tee security-dev-report.txt
 
       - name: Upload security report artifact
         if: always()
@@ -173,7 +177,9 @@ jobs:
         with:
           name: security-report
           if-no-files-found: warn
-          path: security-report.txt
+          path: |
+            security-runtime-report.txt
+            security-dev-report.txt
 
   quality-summary:
     name: Quality summary
