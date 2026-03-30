@@ -79,6 +79,7 @@ jobs:
         if: always()
         env:
           JUNIT_ARTIFACT_URL: ${{ steps.upload_test_report.outputs.artifact-url }}
+          SMOKE_RESULT: ${{ needs.smoke.result }}
         run: |
           md_cell() {
             local value="${1-}"
@@ -105,7 +106,7 @@ jobs:
           {
             echo "### Test job (${{ matrix.os }})"
             echo
-            echo "- Smoke gate: \\`needs.smoke\\`"
+            echo "- Smoke gate: \\`$SMOKE_RESULT\\`"
             if [ -n "$JUNIT_ARTIFACT_URL" ]; then
               echo "- JUnit artifact: [pytest-report-${{ matrix.os }}]($JUNIT_ARTIFACT_URL)"
             else
