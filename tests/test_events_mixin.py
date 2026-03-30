@@ -107,29 +107,37 @@ def test_on_switch_changed_toggles_logging_fields_for_logging_switches():
     assert ui.logging_toggle_count == 1
 
 
-def test_on_button_pressed_web_dashboard_rejects_invalid_url(monkeypatch):
+def test_on_button_pressed_web_dashboard_rejects_invalid_url():
     ui = DummyEventsUI()
     ui.full_config["k6"]["logging"]["webDashboardUrl"] = "bad-url"
     ui.run_controller = SimpleNamespace(is_running=True)
     event = SimpleNamespace(button=SimpleNamespace(id="web_dashboard_btn"))
-    monkeypatch.setattr("app_mixins.events_mixin.webbrowser.open", lambda _url: True)
-
     asyncio.run(ui.on_button_pressed(event))
 
     assert ui.notifications[-1][1] == "error"
     assert "Web Dashboard URL is invalid" in ui.notifications[-1][0]
 
 
-def test_on_button_pressed_copy_btn_notify_warning_when_clipboard_copy_fails(
-    monkeypatch,
-):
+def test_on_button_pressed_web_dashboard_uses_injected_browser_opener():
+    ui = DummyEventsUI()
+    event = SimpleNamespace(button=SimpleNamespace(id="web_dashboard_btn"))
+    opened_urls = []
+    ui.browser_opener = opened_urls.append
+
+    asyncio.run(ui.on_button_pressed(event))
+
+    assert len(opened_urls) == 1
+    assert opened_urls[0].startswith("http://localhost:5665")
+
+
+def test_on_button_pressed_copy_btn_notify_warning_when_clipboard_copy_fails():
     ui = DummyButtonUI()
     event = SimpleNamespace(button=SimpleNamespace(id="copy_btn"))
 
     def failing_copy(_value):
         raise RuntimeError("clipboard unavailable")
 
-    monkeypatch.setattr("app_mixins.events_mixin.pyperclip.copy", failing_copy)
+    ui.clipboard_writer = failing_copy
 
     asyncio.run(ui.on_button_pressed(event))
 

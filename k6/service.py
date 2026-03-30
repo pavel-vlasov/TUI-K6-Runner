@@ -32,12 +32,13 @@ from k6.state import K6State
 
 
 class K6Service:
-    def __init__(self) -> None:
+    def __init__(self, artifacts_dir: Path | str = "artifacts") -> None:
         self.state = K6State()
         self.last_update_time = 0.0
         self.last_counter_update_time = 0.0
         self.counter_update_interval = 0.15
         self.process_manager = K6ProcessManager()
+        self.artifacts_dir = Path(artifacts_dir)
 
     @property
     def is_running(self) -> bool:
@@ -162,8 +163,10 @@ class K6Service:
 
     def _build_summary_paths(self) -> tuple[Path, Path]:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        artifacts_dir = Path("artifacts")
-        return artifacts_dir / f"summary_{timestamp}.json", artifacts_dir / f"summary_{timestamp}.html"
+        return (
+            self.artifacts_dir / f"summary_{timestamp}.json",
+            self.artifacts_dir / f"summary_{timestamp}.html",
+        )
 
     def _build_external_terminal_command(self, command: str, system_name: str | None = None) -> list[str]:
         system_name = system_name or platform.system()

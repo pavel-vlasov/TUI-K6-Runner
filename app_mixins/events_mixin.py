@@ -11,6 +11,9 @@ from config_handler import ConfigHandler
 
 
 class EventsMixin:
+    browser_opener = staticmethod(webbrowser.open)
+    clipboard_writer = staticmethod(pyperclip.copy)
+
     def on_switch_changed(self, event: Switch.Changed):
         if not event.switch.id:
             return
@@ -44,7 +47,7 @@ class EventsMixin:
                 self.notify("❌ Web Dashboard URL is invalid. Please provide a valid http/https URL.", severity="error")
                 return
             refreshed_url = self._with_cache_busting_query(web_dashboard_url)
-            webbrowser.open(refreshed_url)
+            self.browser_opener(refreshed_url)
             self.notify(f"Opening Web Dashboard: {refreshed_url}")
             return
         if event.button.id == "add_request_endpoint_btn":
@@ -94,7 +97,7 @@ class EventsMixin:
             self.notify("Stop command sent", severity="warning")
         elif event.button.id == "copy_btn":
             try:
-                pyperclip.copy("\n".join([str(line.text) for line in log_view.lines]))
+                self.clipboard_writer("\n".join([str(line.text) for line in log_view.lines]))
                 self.notify("Logs copied")
             except Exception:
                 self.notify(
