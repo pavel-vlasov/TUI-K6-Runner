@@ -80,6 +80,11 @@ Please make future UI changes in these modules, not in legacy monolithic entrypo
 В проект добавлена JSON Schema: `schema/test_config.schema.json`.
 Она описывает обязательные поля рантайм-конфига, enum-значения (например, `auth.mode`, `requestEndpoints[].method`, `k6.executionType`, `k6.logging.level`) и условные требования для разных режимов запуска.
 
+### Logging warnings
+
+- Детальный лог может исказить результаты нагрузочного теста из-за дополнительного I/O.
+- Не рекомендуется включать уровень `all` на production-окружениях и при работе с секретными данными.
+
 Короткие примеры `k6` для каждого `executionType`:
 
 ```json
