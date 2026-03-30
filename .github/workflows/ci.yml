@@ -238,10 +238,10 @@ jobs:
           cache: "pip"
           cache-dependency-path: requirements-dev.txt
 
-      - name: Install pip-audit
+      - name: Install security tools
         run: |
           python -m pip install --upgrade pip
-          pip install pip-audit
+          pip install pip-audit bandit
 
       - name: Dependency check (runtime)
         run: |
@@ -250,6 +250,15 @@ jobs:
       - name: Dependency check (dev)
         run: |
           pip-audit --require-hashes -r requirements-dev.txt 2>&1 | tee security-dev-report.txt
+
+      - name: Static security scan (Bandit)
+        run: |
+          BANDIT_BASELINE_ARGS=""
+          if [ -f .bandit-baseline.json ]; then
+            BANDIT_BASELINE_ARGS="--baseline .bandit-baseline.json"
+          fi
+          # Fail on high-severity + high-confidence issues; allow temporary, explicit baseline if present.
+          bandit -c .bandit -r . -f txt -o security-bandit-report.txt -lll -iii ${BANDIT_BASELINE_ARGS}
 
       - name: Upload security report artifact
         id: upload_security_report
@@ -261,6 +270,7 @@ jobs:
           path: |
             security-runtime-report.txt
             security-dev-report.txt
+            security-bandit-report.txt
 
   quality-summary:
     name: Quality summary

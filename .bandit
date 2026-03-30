@@ -1,0 +1,8 @@
+[bandit]
+# Keep scanning focused on application/runtime code paths.
+exclude_dirs = tests,.git,.venv,venv,__pycache__,.pytest_cache,.ruff_cache,artifacts,dist
+
+# Temporary exceptions can be managed in-repo with:
+#   bandit -c .bandit -r . -f json -o .bandit-baseline.json
+# CI automatically applies the baseline when the file exists.
+skips =
