@@ -140,12 +140,28 @@ jobs:
           pytest -q --junitxml=pytest-report.xml
 
       - name: Upload test report artifact
+        id: upload_test_report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pytest-report-${{ matrix.os }}
           if-no-files-found: warn
           path: pytest-report.xml
+
+      - name: Save test report direct link metadata
+        if: always()
+        env:
+          TEST_ARTIFACT_URL: ${{ steps.upload_test_report.outputs.artifact-url }}
+        run: |
+          printf '%s' "${TEST_ARTIFACT_URL:-}" > "test-artifact-url-${{ matrix.os }}.txt"
+
+      - name: Upload test report metadata artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifact-url-${{ matrix.os }}
+          if-no-files-found: warn
+          path: test-artifact-url-${{ matrix.os }}.txt
 
   coverage:
     name: Coverage
@@ -238,6 +254,14 @@ jobs:
       - security
 
     steps:
+      - name: Download test report metadata artifacts
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-artifact-url-*
+          path: test-artifact-metadata
+          merge-multiple: false
+
       - name: Build pipeline summary
         env:
           LOCK_TOOLCHAIN_RESULT: ${{ needs.lock-toolchain-smoke.result }}
@@ -271,10 +295,29 @@ jobs:
             lint_report_link="[lint-report]($lint_report_link)"
           fi
 
-          tests_report_link="not available"
-          if [ -n "$RUN_URL" ]; then
-            tests_report_link="[pytest-report-ubuntu-latest, pytest-report-windows-latest, pytest-report-macos-latest]($RUN_URL#artifacts)"
-          fi
+          get_test_artifact_url() {
+            local os_name="$1"
+            local path="test-artifact-metadata/test-artifact-url-${os_name}/test-artifact-url-${os_name}.txt"
+            if [ -f "$path" ]; then
+              local url
+              url="$(cat "$path")"
+              if [ -n "$url" ]; then
+                echo "$url"
+                return
+              fi
+            fi
+            echo ""
+          }
+
+          ubuntu_test_url="$(get_test_artifact_url "ubuntu-latest")"
+          windows_test_url="$(get_test_artifact_url "windows-latest")"
+          macos_test_url="$(get_test_artifact_url "macos-latest")"
+
+          tests_report_link="ubuntu: not available<br>windows: not available<br>macos: not available"
+          [ -n "$ubuntu_test_url" ] && ubuntu_test_link="[pytest-report-ubuntu-latest]($ubuntu_test_url)" || ubuntu_test_link="not available"
+          [ -n "$windows_test_url" ] && windows_test_link="[pytest-report-windows-latest]($windows_test_url)" || windows_test_link="not available"
+          [ -n "$macos_test_url" ] && macos_test_link="[pytest-report-macos-latest]($macos_test_url)" || macos_test_link="not available"
+          tests_report_link="ubuntu: $ubuntu_test_link<br>windows: $windows_test_link<br>macos: $macos_test_link"
 
           coverage_report_link="${COVERAGE_ARTIFACT_URL:-not available}"
           if [ "$coverage_report_link" != "not available" ]; then
@@ -295,7 +338,7 @@ jobs:
             echo "|---|---|---|"
             echo "| Lint | $LINT_RESULT | [Artifacts on run page]($RUN_URL) — `lint-report` |"
             echo "| Smoke | $SMOKE_RESULT | [Open run logs]($RUN_URL) |"
-            echo "| Tests (matrix) | $tests_result_display | [Open run (Artifacts section)]($RUN_URL) — artifact: `pytest-report-<os>` |"
+            echo "| Tests (matrix) | $tests_result_display | $tests_report_link |"
             echo "| Coverage | $COVERAGE_RESULT | [Artifacts on run page]($RUN_URL) — `coverage-report` |"
             echo "| Security | $SECURITY_RESULT | [Artifacts on run page]($RUN_URL) — `security-report` |"
           } >> "$GITHUB_STEP_SUMMARY"
