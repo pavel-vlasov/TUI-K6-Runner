@@ -65,3 +65,61 @@ def test_start_run_passes_dashboard_url_to_service():
 
     assert service.last_kwargs is not None
     assert service.last_kwargs["web_dashboard_url"] == "http://localhost:9999"
+
+
+def test_start_run_notifies_false_when_task_creation_fails(monkeypatch):
+    service = DummyK6Service()
+    controller = RunController(service)
+    state_changes = []
+
+    callbacks = RunCallbacks(
+        on_log=lambda _msg: None,
+        on_status=lambda _msg: None,
+        on_run_state_changed=state_changes.append,
+    )
+
+    def failing_create_task(_coroutine):
+        raise RuntimeError("task creation failed")
+
+    monkeypatch.setattr(asyncio, "create_task", failing_create_task)
+
+    try:
+        asyncio.run(controller.start_run({"k6": {"logging": {}}}, callbacks))
+    except RuntimeError as error:
+        assert str(error) == "task creation failed"
+    else:
+        assert False, "Expected RuntimeError to be raised"
+
+    assert state_changes == [True, False]
+
+
+def test_start_run_can_restart_after_crashed_task():
+    class CrashingK6Service(DummyK6Service):
+        async def run_k6_process(self, **kwargs):
+            await super().run_k6_process(**kwargs)
+            raise RuntimeError("unexpected crash")
+
+    service = CrashingK6Service()
+    controller = RunController(service)
+    state_changes = []
+    callbacks = RunCallbacks(
+        on_log=lambda _msg: None,
+        on_status=lambda _msg: None,
+        on_run_state_changed=state_changes.append,
+    )
+
+    async def _run_once():
+        task = await controller.start_run({"k6": {"logging": {}}}, callbacks)
+        assert task is not None
+        await task
+
+    for _ in range(2):
+        try:
+            asyncio.run(_run_once())
+        except RuntimeError as error:
+            assert str(error) == "unexpected crash"
+        else:
+            assert False, "Expected crashed task to raise RuntimeError"
+
+    assert service.run_calls == 2
+    assert state_changes == [True, False, True, False]

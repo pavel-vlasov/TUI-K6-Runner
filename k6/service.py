@@ -1,16 +1,20 @@
 import asyncio
 import json
+import os
 import platform
+import shlex
+import shutil
 import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 from k6.html_summary_report import build_html_summary
 from k6.output_parser import (
     clean_cursor_sequences,
+    get_fail_category,
     is_default_line,
-    is_fail_line,
     is_running_line,
     is_run_complete_line,
     is_scenario_progress_line,
@@ -18,6 +22,7 @@ from k6.output_parser import (
 )
 from k6.presenters import (
     format_done_status,
+    format_error_categories_table,
     format_running_status,
     format_start_log,
     format_start_status,
@@ -30,6 +35,8 @@ class K6Service:
     def __init__(self) -> None:
         self.state = K6State()
         self.last_update_time = 0.0
+        self.last_counter_update_time = 0.0
+        self.counter_update_interval = 0.15
         self.process_manager = K6ProcessManager()
 
     @property
@@ -63,8 +70,10 @@ class K6Service:
         self.state.is_running = True
         self.state.success_count = 0
         self.state.fail_count = 0
+        self.state.fail_categories = {}
         self.state.last_counter = "requests: ✅ 0  [bold white]│[/bold white]  ❌ 0"
         self.last_update_time = 0.0
+        self.last_counter_update_time = 0.0
         run_result_reported = False
 
         try:
@@ -115,6 +124,7 @@ class K6Service:
 
                 await process.wait()
 
+                self._update_ui(on_status)
                 if not run_result_reported:
                     if enable_html_summary:
                         self._generate_html_summary_report(summary_json_path, summary_html_path, on_log)
@@ -122,19 +132,26 @@ class K6Service:
                     on_log("\n[bold green]✅ Test finished.[/bold green]")
                     on_status(format_done_status(self.state.last_counter))
             else:
+                summary_json_path, _ = self._build_summary_paths()
+                system_name = platform.system()
+                shell_type = "powershell" if system_name == "Windows" else "posix"
+                external_command = self._build_external_k6_command(
+                    enable_web_dashboard=enable_web_dashboard,
+                    web_dashboard_url=web_dashboard_url,
+                    enable_html_summary=enable_html_summary,
+                    summary_json_path=summary_json_path,
+                    shell_type=shell_type,
+                )
                 on_log("📤 k6 starting in external terminal.\n")
+                on_log(
+                    "[bold yellow]⚠️ External terminal mode: stop/scale from UI are unavailable for this run.[/bold yellow]\n"
+                )
+                self._spawn_external_terminal(external_command)
 
-                if platform.system() == "Windows":
-                    subprocess.Popen(
-                        'start powershell.exe -NoExit -Command "chcp 65001; k6 run test.js"',
-                        shell=True,
-                    )
-                else:
-                    subprocess.Popen(
-                        ["x-terminal-emulator", "-e", "bash", "-c", "k6 run test.js; exec bash"]
-                    )
-
-                on_status("[bold green]📤 External terminal is started.[/bold green]")
+                on_status(
+                    "[bold green]📤 External terminal is started. "
+                    "[/bold green][bold yellow]Stop/scale are limited in this mode.[/bold yellow]"
+                )
 
         except Exception as e:
             on_log(f"[bold red]💥 Error: {str(e)}[/bold red]")
@@ -147,6 +164,103 @@ class K6Service:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         artifacts_dir = Path("artifacts")
         return artifacts_dir / f"summary_{timestamp}.json", artifacts_dir / f"summary_{timestamp}.html"
+
+    def _build_external_terminal_command(self, command: str, system_name: str | None = None) -> list[str]:
+        system_name = system_name or platform.system()
+
+        if system_name == "Windows":
+            return ["powershell.exe", "-NoExit", "-Command", f"chcp 65001; {command}"]
+        if system_name == "Darwin":
+            if not shutil.which("osascript"):
+                raise RuntimeError("`osascript` was not found on PATH. Cannot open Terminal on macOS.")
+            escaped_command = command.replace("\\", "\\\\").replace('"', '\\"')
+            return [
+                "osascript",
+                "-e",
+                f'tell application "Terminal" to do script "{escaped_command}"',
+                "-e",
+                'tell application "Terminal" to activate',
+            ]
+
+        bash_command = f"{command}; exec bash"
+        preferred_terminal = os.environ.get("TERMINAL")
+        terminal_candidates: list[tuple[str, list[str]]] = []
+
+        if preferred_terminal:
+            terminal_candidates.append(
+                (preferred_terminal, ["-e", "bash", "-lc", bash_command])
+            )
+
+        terminal_candidates.extend(
+            [
+                ("x-terminal-emulator", ["-e", "bash", "-lc", bash_command]),
+                ("gnome-terminal", ["--", "bash", "-lc", bash_command]),
+                ("konsole", ["-e", "bash", "-lc", bash_command]),
+                ("xfce4-terminal", ["-e", "bash", "-lc", bash_command]),
+                ("xterm", ["-e", "bash", "-lc", bash_command]),
+                ("alacritty", ["-e", "bash", "-lc", bash_command]),
+                ("kitty", ["-e", "bash", "-lc", bash_command]),
+            ]
+        )
+
+        for terminal, args in terminal_candidates:
+            if shutil.which(terminal):
+                return [terminal, *args]
+
+        raise RuntimeError(
+            "No supported terminal emulator found. "
+            "Install one of: x-terminal-emulator, gnome-terminal, konsole, xfce4-terminal, xterm, alacritty, kitty."
+        )
+
+    def _spawn_external_terminal(self, command: str) -> subprocess.Popen:
+        system_name = platform.system()
+        terminal_command = self._build_external_terminal_command(command, system_name=system_name)
+
+        if system_name == "Windows":
+            create_new_console = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+            return subprocess.Popen(terminal_command, creationflags=create_new_console)
+
+        return subprocess.Popen(terminal_command)
+
+    def _build_external_k6_command(
+        self,
+        enable_web_dashboard: bool,
+        web_dashboard_url: str | None,
+        enable_html_summary: bool,
+        summary_json_path: Path,
+        shell_type: str = "posix",
+    ) -> str:
+        def _powershell_quote(value: str) -> str:
+            return "'" + value.replace("'", "''") + "'"
+
+        command_parts = ["k6", "run", "test.js"]
+        env_parts: list[tuple[str, str]] = []
+
+        if enable_web_dashboard:
+            command_parts.extend(["--out", "web-dashboard=period=5s&open=false"])
+            env_parts.append(("K6_WEB_DASHBOARD_OPEN", "false"))
+            parsed_url = urlparse(web_dashboard_url or "")
+            if parsed_url.hostname:
+                env_parts.append(("K6_WEB_DASHBOARD_HOST", parsed_url.hostname))
+            if parsed_url.port:
+                env_parts.append(("K6_WEB_DASHBOARD_PORT", str(parsed_url.port)))
+
+        if enable_html_summary:
+            summary_json_path.parent.mkdir(parents=True, exist_ok=True)
+            command_parts.extend(["--summary-export", str(summary_json_path)])
+
+        if shell_type == "powershell":
+            command_text = " ".join(_powershell_quote(part) for part in command_parts)
+            if not env_parts:
+                return command_text
+            env_commands = [f"$env:{name}={_powershell_quote(value)};" for name, value in env_parts]
+            return f"{' '.join(env_commands)} {command_text}"
+
+        command_text = shlex.join(command_parts)
+        if not env_parts:
+            return command_text
+        env_prefix = " ".join(f"{name}={shlex.quote(value)}" for name, value in env_parts)
+        return f"{env_prefix} {command_text}"
 
 
     def _generate_html_summary_report(self, summary_json_path: Path, summary_html_path: Path, on_log) -> None:
@@ -191,21 +305,33 @@ class K6Service:
         if is_success_line(clean_text):
             self.state.success_count += 1
             self._refresh_counter()
-            self._update_ui(on_status)
+            self._update_counter_ui(on_status)
             return True
 
-        if is_fail_line(clean_text):
+        fail_category = get_fail_category(clean_text)
+        if fail_category:
             self.state.fail_count += 1
+            self.state.fail_categories[fail_category] = self.state.fail_categories.get(fail_category, 0) + 1
             self._refresh_counter()
-            self._update_ui(on_status)
+            self._update_counter_ui(on_status)
+            return True
+
+        # Keep raw k6 failure helper lines (e.g. Non-200 with Status: 0) out of UI log,
+        # while counting only lines that have a valid category.
+        if "Non-200" in clean_text:
             return True
 
         return False
 
     def _refresh_counter(self):
-        self.state.last_counter = (
-            f"requests: ✅ {self.state.success_count}  [bold white]│[/bold white]  ❌ {self.state.fail_count}"
-        )
+        totals = f"requests: ✅ {self.state.success_count}  [bold white]│[/bold white]  ❌ {self.state.fail_count}"
+        categories_table = format_error_categories_table(self.state.fail_categories)
+        self.state.last_counter = f"{totals}  [bold white]│[/bold white]  {categories_table}"
+
+    def _update_counter_ui(self, on_status):
+        if time.time() - self.last_counter_update_time > self.counter_update_interval:
+            self._update_ui(on_status)
+            self.last_counter_update_time = time.time()
 
     def _update_ui(self, on_status):
         on_status(

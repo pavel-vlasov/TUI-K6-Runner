@@ -76,13 +76,6 @@ Input, Select { width: 1fr; }
     margin-right: 1;
     height: 3;
 }
-
-#button_row { 
-    height: auto; 
-    padding: 1; 
-    background: $surface-darken-1; 
-    align: right middle; 
-}
 Button {
  
     border: solid $primary; 

@@ -14,19 +14,52 @@ let logConfig = k6cfg.logging || { enabled: false, level: 'off' };
 
 // --- Normalize & validate logging config ---
 logConfig.enabled = String(logConfig.enabled).toLowerCase() === 'true' || logConfig.enabled === true;
-logConfig.level = (logConfig.level || 'off').toLowerCase();
-if (!['off', 'failed', 'all'].includes(logConfig.level)) logConfig.level = 'off';
 
-// --- Validate auth modes ---
-(function () {
-  const modes = [
-    authConfig.useOAuth2 ? 'OAuth2' : null,
-    authConfig.basicauth ? 'BasicAuth' : null,
-    authConfig.ClientId_Enforcement ? 'ClientId_Enforcement' : null,
+const LOG_LEVEL_OFF = 'off';
+const LOG_LEVEL_ALL = 'all';
+const LOG_LEVEL_FAILED = 'failed';
+const LOG_LEVEL_FAILED_WITHOUT_PAYLOADS = 'failed_without_payloads';
+const LOGGING_LEVELS = [LOG_LEVEL_ALL, LOG_LEVEL_FAILED, LOG_LEVEL_FAILED_WITHOUT_PAYLOADS];
+
+function normalizeLoggingLevel(rawLevel) {
+  const key = String(rawLevel || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  const aliases = {
+    all: LOG_LEVEL_ALL,
+    failed: LOG_LEVEL_FAILED,
+    failed_without_payloads: LOG_LEVEL_FAILED_WITHOUT_PAYLOADS,
+    failures_without_payloads: LOG_LEVEL_FAILED_WITHOUT_PAYLOADS,
+  };
+
+  return aliases[key] || LOG_LEVEL_OFF;
+}
+
+logConfig.level = normalizeLoggingLevel(logConfig.level);
+if (!LOGGING_LEVELS.includes(logConfig.level)) {
+  logConfig.level = LOG_LEVEL_OFF;
+}
+
+function resolveAuthMode(auth) {
+  const mode = String(auth.mode || '').trim();
+  if (mode) return mode;
+
+  const legacyModes = [
+    auth.useOAuth2 ? 'oauth2_client_credentials' : null,
+    auth.basicauth ? 'basic' : null,
+    auth.ClientId_Enforcement ? 'client_id_enforcement' : null,
   ].filter(Boolean);
-  if (modes.length > 1)
-    throw new Error('❌ Multiple auth modes enabled simultaneously: ' + modes.join(', '));
-})();
+
+  if (legacyModes.length === 1) return legacyModes[0];
+  if (legacyModes.length > 1) {
+    throw new Error('❌ Multiple legacy auth modes enabled simultaneously: ' + legacyModes.join(', '));
+  }
+  return 'none';
+}
+
+const authMode = resolveAuthMode(authConfig);
 
 function encodingBase64(str) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
@@ -120,7 +153,9 @@ function buildSingleRequest(endpoint, data, correlationId) {
 }
 
 function logRequestResult(req, res, ok, correlationId) {
-  if (logConfig.enabled && (logConfig.level === 'all' || (!ok && logConfig.level === 'failed'))) {
+  const failedWithoutPayloads = logConfig.enabled && logConfig.level === LOG_LEVEL_FAILED_WITHOUT_PAYLOADS;
+
+  if (logConfig.enabled && (logConfig.level === LOG_LEVEL_ALL || (!ok && logConfig.level === LOG_LEVEL_FAILED))) {
     let prettyResBody;
     try {
       prettyResBody = JSON.stringify(JSON.parse(res.body), null, 2);
@@ -132,16 +167,31 @@ function logRequestResult(req, res, ok, correlationId) {
     if (typeof logReqBody === 'object' && logReqBody !== null) logReqBody = JSON.stringify(logReqBody);
 
     const entry =
-      `\n[${new Date().toISOString()}] ${ok ? '✅ SUCCESS' : '❌ FAILED'} (${req.name})\n` +
-      `URL: ${req.url}\nMethod: ${req.method}\n` +
-      `Request Headers: ${JSON.stringify(req.params.headers, null, 2)}\n` +
-      `Request Body: ${logReqBody}\n` +
-      `Query Params: ${req.query}\n` +
-      `Status: ${res.status}\nResponse Headers: ${JSON.stringify(res.headers, null, 2)}\n` +
-      `Response Body: ${prettyResBody}\n` +
-      `-----------------------------------\n`;
+      `
+[${new Date().toISOString()}] ${ok ? '✅ SUCCESS' : '❌ FAILED'} (${req.name})
+` +
+      `URL: ${req.url}
+Method: ${req.method}
+` +
+      `Request Headers: ${JSON.stringify(req.params.headers, null, 2)}
+` +
+      `Request Body: ${logReqBody}
+` +
+      `Query Params: ${req.query}
+` +
+      `Status: ${res.status}
+Response Headers: ${JSON.stringify(res.headers, null, 2)}
+` +
+      `Response Body: ${prettyResBody}
+` +
+      `-----------------------------------
+`;
 
     console.log(entry);
+  }
+
+  if (failedWithoutPayloads && !ok) {
+    console.log(`❌ Correlation-Id: ${correlationId} | Status: ${res.status}`);
   }
 
   if (ok) {
@@ -227,23 +277,27 @@ export let options = {
 export function setup() {
   const headers = {};
 
-  if (!authConfig.useOAuth2 && !authConfig.basicauth && !authConfig.ClientId_Enforcement) {
+  if (authMode === 'none') {
     console.log('🔓 Using no auth');
     return { authType: 'none' };
   }
 
-  if (authConfig.basicauth) {
+  if (authMode === 'basic') {
     const encoded = encodingBase64(`${authConfig.client_id}:${authConfig.client_secret}`);
     headers['Authorization'] = `Basic ${encoded}`;
     console.log('🔐 Using Basic Auth');
     return { authType: 'basic', authHeaders: headers };
   }
 
-  if (authConfig.ClientId_Enforcement) {
+  if (authMode === 'client_id_enforcement') {
     headers['client_id'] = authConfig.client_id;
     headers['client_secret'] = authConfig.client_secret;
     console.log('🔐 Using ClientId_Enforcement (client_id and client_secret in headers)');
     return { authType: 'clientid_headers', authHeaders: headers };
+  }
+
+  if (authMode !== 'oauth2_client_credentials') {
+    throw new Error(`❌ Unsupported auth.mode: ${authMode}`);
   }
 
   const resp = http.post(authConfig.token_url, {

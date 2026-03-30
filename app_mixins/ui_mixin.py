@@ -14,20 +14,27 @@ from textual.widgets import (
     TabPane,
 )
 
+from constants import LOGGING_LEVELS, LOGGING_LEVEL_LABELS, normalize_logging_level
 from ui_components import build_config_fields
 
 
 class UIMixin:
+    def _is_scale_supported_execution_type(self) -> bool:
+        execution_type = self.full_config.get("k6", {}).get("executionType", "external executor")
+        return execution_type == "external executor"
+
     def set_run_ui_state(self, running: bool) -> None:
         run_btn = self.query_one("#run_btn", Button)
         stop_btn = self.query_one("#stop_btn", Button)
         apply_btn = self.query_one("#apply_vu_btn", Button)
         web_dashboard_btn = self.query_one("#web_dashboard_btn", Button)
         web_dashboard_enabled = self.full_config.get("k6", {}).get("logging", {}).get("webDashboard", False)
+        external_terminal_mode = self._is_external_terminal_mode_selected()
+        scale_supported_execution_type = self._is_scale_supported_execution_type()
 
         run_btn.disabled = running
-        stop_btn.disabled = not running
-        apply_btn.disabled = not running
+        stop_btn.disabled = (not running) or external_terminal_mode
+        apply_btn.disabled = (not running) or external_terminal_mode or (not scale_supported_execution_type)
         web_dashboard_btn.display = True
         web_dashboard_btn.disabled = (not running) or (not web_dashboard_enabled)
 
@@ -35,6 +42,13 @@ class UIMixin:
         self.set_run_ui_state(False)
         self.toggle_execution_type_fields()
         self.toggle_auth_fields()
+        self.toggle_logging_fields()
+        if getattr(self, "config_load_error", None):
+            message = self.config_load_error
+            details = getattr(self, "config_load_error_details", None)
+            if details:
+                message = f"{message} {details} Using default config and leaving the source file untouched."
+            self.notify(message, severity="warning")
 
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
         if self._get_request_tab_panes():
@@ -82,16 +96,43 @@ class UIMixin:
         )
 
     def toggle_auth_fields(self) -> None:
-        oauth_switch = self.query_one("#bool___auth__useOAuth2", Switch)
-        no_auth_switch = self.query_one("#auth_noauth_switch", Switch)
-        oauth_enabled = bool(oauth_switch.value)
-        no_auth_enabled = bool(no_auth_switch.value)
+        auth_mode_select = self.query_one("#select___auth__mode", Select)
+        selected_mode = str(auth_mode_select.value or "none")
+        oauth_enabled = selected_mode == "oauth2_client_credentials"
+        no_auth_enabled = selected_mode == "none"
 
         for row_id in ["#auth_row__client_id", "#auth_row__client_secret"]:
             self.query_one(row_id, Horizontal).styles.display = "none" if no_auth_enabled else "block"
 
         for row_id in ["#auth_oauth_row__token_url", "#auth_oauth_row__scope"]:
             self.query_one(row_id, Horizontal).styles.display = "block" if oauth_enabled else "none"
+
+    def _normalize_logging_level(self, raw_value: object) -> str:
+        return normalize_logging_level(raw_value)
+
+    def toggle_logging_fields(self) -> None:
+        logging_enabled_switch = self.query_one("#bool___k6__logging__enabled", Switch)
+        web_dashboard_switch = self.query_one("#bool___k6__logging__webDashboard", Switch)
+        output_to_ui_select = self.query_one("#select___k6__logging__outputToUI", Select)
+
+        level_display = "block" if bool(logging_enabled_switch.value) else "none"
+        web_dashboard_url_display = "block" if bool(web_dashboard_switch.value) else "none"
+        external_warning_display = "block" if output_to_ui_select.value is False else "none"
+
+        self.query_one("#logging_level_label", Label).styles.display = level_display
+        self.query_one("#select___k6__logging__level", Select).styles.display = level_display
+        self.query_one("#logging_web_dashboard_url_label", Label).styles.display = web_dashboard_url_display
+        self.query_one("#input___k6__logging__webDashboardUrl", Input).styles.display = web_dashboard_url_display
+        self.query_one("#logging_external_mode_warning", Static).styles.display = external_warning_display
+        self.set_run_ui_state(self.run_controller.is_running)
+
+    def _is_external_terminal_mode_selected(self) -> bool:
+        try:
+            output_mode_select = self.query_one("#select___k6__logging__outputToUI", Select)
+            return output_mode_select.value is False
+        except Exception:
+            output_to_ui = self.full_config.get("k6", {}).get("logging", {}).get("outputToUI", True)
+            return not bool(output_to_ui)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -100,43 +141,30 @@ class UIMixin:
                 with TabbedContent(id="settings_subtabs"):
                     with TabPane("Auth", id="tab_auth"):
                         auth_data = self.full_config.get("auth", {})
-                        auth_mode_switches = [
-                            Horizontal(
-                                Label("useOAuth2"),
-                                Switch(bool(auth_data.get("useOAuth2", False)), id="bool___auth__useOAuth2"),
-                                classes="switch-group",
-                            ),
-                            Horizontal(
-                                Label("basicauth"),
-                                Switch(bool(auth_data.get("basicauth", False)), id="bool___auth__basicauth"),
-                                classes="switch-group",
-                            ),
-                            Horizontal(
-                                Label("ClientId_Enforcement"),
-                                Switch(
-                                    bool(auth_data.get("ClientId_Enforcement", False)),
-                                    id="bool___auth__ClientId_Enforcement",
-                                ),
-                                classes="switch-group",
-                            ),
-                            Horizontal(
-                                Label("no auth"),
-                                Switch(
-                                    not any(
-                                        [
-                                            bool(auth_data.get("useOAuth2", False)),
-                                            bool(auth_data.get("basicauth", False)),
-                                            bool(auth_data.get("ClientId_Enforcement", False)),
-                                        ]
-                                    ),
-                                    id="auth_noauth_switch",
-                                ),
-                                classes="switch-group",
-                            ),
-                        ]
+                        auth_mode = str(auth_data.get("mode", "")).strip()
+                        if auth_mode not in [
+                            "none",
+                            "oauth2_client_credentials",
+                            "basic",
+                            "client_id_enforcement",
+                        ]:
+                            auth_mode = "none"
 
                         yield ScrollableContainer(
-                            Horizontal(*auth_mode_switches, classes="field-row"),
+                            Horizontal(
+                                Label("mode:", classes="field-label"),
+                                Select(
+                                    [
+                                        ("none", "none"),
+                                        ("oauth2_client_credentials", "oauth2_client_credentials"),
+                                        ("basic", "basic"),
+                                        ("client_id_enforcement", "client_id_enforcement"),
+                                    ],
+                                    value=auth_mode,
+                                    id="select___auth__mode",
+                                ),
+                                classes="field-row",
+                            ),
                             Horizontal(
                                 Label("client_id:", classes="field-label"),
                                 Input(str(auth_data.get("client_id", "")), id="input___auth__client_id"),
@@ -312,7 +340,75 @@ class UIMixin:
                     with TabPane("Logging", id="tab_logging"):
                         log_data = self.full_config.setdefault("k6", {}).setdefault("logging", {})
                         log_data.setdefault("htmlSummaryReport", False)
-                        yield ScrollableContainer(*build_config_fields(log_data, "k6.logging"), classes="tab-container")
+
+                        other_logging_data = {
+                            k: v
+                            for k, v in log_data.items()
+                            if k
+                            not in [
+                                "enabled",
+                                "level",
+                                "outputToUI",
+                                "webDashboard",
+                                "webDashboardUrl",
+                                "htmlSummaryReport",
+                            ]
+                        }
+
+                        yield ScrollableContainer(
+                            Horizontal(
+                                Label("enabled:", classes="field-label"),
+                                Switch(bool(log_data.get("enabled", False)), id="bool___k6__logging__enabled"),
+                                Label("level:", classes="field-label", id="logging_level_label"),
+                                Select(
+                                    [
+                                        (LOGGING_LEVEL_LABELS[level], level)
+                                        for level in LOGGING_LEVELS
+                                    ],
+                                    value=self._normalize_logging_level(log_data.get("level", "failed")),
+                                    id="select___k6__logging__level",
+                                ),
+                                classes="field-row",
+                            ),
+                            Horizontal(
+                                Label("executionMode:", classes="field-label"),
+                                Select(
+                                    [
+                                        ("Embedded UI terminal", True),
+                                        ("External terminal (separate window)", False),
+                                    ],
+                                    value=bool(log_data.get("outputToUI", True)),
+                                    id="select___k6__logging__outputToUI",
+                                ),
+                                classes="field-row",
+                            ),
+                            Static(
+                                "⚠️ External terminal mode runs k6 outside this app. "
+                                "Stop and scale actions from UI are unavailable.",
+                                id="logging_external_mode_warning",
+                                classes="field-row",
+                            ),
+                            Horizontal(
+                                Label("webDashboard:", classes="field-label"),
+                                Switch(bool(log_data.get("webDashboard", False)), id="bool___k6__logging__webDashboard"),
+                                Label("webDashboardUrl:", classes="field-label", id="logging_web_dashboard_url_label"),
+                                Input(
+                                    str(log_data.get("webDashboardUrl", "http://localhost:5665")),
+                                    id="input___k6__logging__webDashboardUrl",
+                                ),
+                                classes="field-row",
+                            ),
+                            Horizontal(
+                                Label("htmlSummaryReport:", classes="field-label"),
+                                Switch(
+                                    bool(log_data.get("htmlSummaryReport", False)),
+                                    id="bool___k6__logging__htmlSummaryReport",
+                                ),
+                                classes="field-row",
+                            ),
+                            *build_config_fields(other_logging_data, "k6.logging"),
+                            classes="tab-container",
+                        )
 
             with TabPane("Logs", id="tab_logs"):
                 with Vertical(id="log_view_container"):

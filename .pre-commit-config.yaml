@@ -1,0 +1,8 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Keep this rev in sync with Ruff in requirements-dev.in/.txt
+    rev: v0.15.8
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format

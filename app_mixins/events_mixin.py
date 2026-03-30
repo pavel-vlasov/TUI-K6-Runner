@@ -8,7 +8,6 @@ from textual.widgets import Button, Input, RichLog, Select, Static, Switch, Text
 
 from application import RunCallbacks
 from config_handler import ConfigHandler
-from constants import AUTH_MAP
 
 
 class EventsMixin:
@@ -16,24 +15,16 @@ class EventsMixin:
         if not event.switch.id:
             return
 
-        if event.switch.id == "auth_noauth_switch" and event.value is True:
-            for sw_id in AUTH_MAP:
-                self.query_one(f"#{sw_id}", Switch).value = False
-            self.toggle_auth_fields()
-            return
-
-        if event.switch.id in AUTH_MAP and event.value is True:
-            self.query_one("#auth_noauth_switch", Switch).value = False
-            for sw_id in AUTH_MAP:
-                if sw_id != event.switch.id:
-                    self.query_one(f"#{sw_id}", Switch).value = False
-
-        if event.switch.id in AUTH_MAP or event.switch.id == "auth_noauth_switch":
-            self.toggle_auth_fields()
+        if event.switch.id in {"bool___k6__logging__enabled", "bool___k6__logging__webDashboard"}:
+            self.toggle_logging_fields()
 
     def on_select_changed(self, event: Select.Changed):
         if event.select.id == "select___k6__executionType":
             self.toggle_execution_type_fields()
+        if event.select.id == "select___auth__mode":
+            self.toggle_auth_fields()
+        if event.select.id == "select___k6__logging__outputToUI":
+            self.toggle_logging_fields()
 
     async def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "web_dashboard_btn":
@@ -49,6 +40,9 @@ class EventsMixin:
                 return
 
             web_dashboard_url = logging_config.get("webDashboardUrl", "http://localhost:5665")
+            if not ConfigHandler.is_valid_http_url(web_dashboard_url):
+                self.notify("❌ Web Dashboard URL is invalid. Please provide a valid http/https URL.", severity="error")
+                return
             refreshed_url = self._with_cache_busting_query(web_dashboard_url)
             webbrowser.open(refreshed_url)
             self.notify(f"Opening Web Dashboard: {refreshed_url}")
@@ -63,13 +57,15 @@ class EventsMixin:
             self.add_spike_stage()
             return
         if event.button.id == "remove_last_spike_stage_btn":
-            self.remove_last_spike_stage()
+            if not self.remove_last_spike_stage():
+                self.notify("At least one spike stage must remain.", severity="warning")
             return
         if event.button.id == "add_arrival_stage_btn":
             self.add_arrival_stage()
             return
         if event.button.id == "remove_last_arrival_stage_btn":
-            self.remove_last_arrival_stage()
+            if not self.remove_last_arrival_stage():
+                self.notify("At least one arrival stage must remain.", severity="warning")
             return
 
         log_view = self.query_one("#output_log", RichLog)
@@ -83,7 +79,6 @@ class EventsMixin:
             if not self.action_save_config():
                 return
 
-            self.set_run_ui_state(self.run_controller.is_running)
             log_view.clear()
             self.notify("Running K6 execution...")
 
@@ -98,13 +93,29 @@ class EventsMixin:
             await self.run_controller.stop_run()
             self.notify("Stop command sent", severity="warning")
         elif event.button.id == "copy_btn":
-            pyperclip.copy("\n".join([str(line.text) for line in log_view.lines]))
-            self.notify("Logs copied")
+            try:
+                pyperclip.copy("\n".join([str(line.text) for line in log_view.lines]))
+                self.notify("Logs copied")
+            except Exception:
+                self.notify(
+                    "Unable to copy logs to clipboard. Please install/configure a clipboard backend for pyperclip.",
+                    severity="warning",
+                )
         elif event.button.id == "apply_vu_btn":
             vu_input = self.query_one("#vu_input", Input)
-            if vu_input.value.isdigit():
-                await self.run_controller.scale(int(vu_input.value), log_view.write)
-                vu_input.value = ""
+            vu_raw_value = vu_input.value.strip()
+            if not vu_raw_value.isdigit():
+                self.notify("Please enter a valid VU value (positive integer).", severity="warning")
+                return
+
+            vu_value = int(vu_raw_value)
+            if vu_value < 1:
+                self.notify("VU value must be at least 1.", severity="error")
+                return
+
+            await self.run_controller.scale(vu_value, log_view.write)
+            self.notify(f"Scaled to {vu_value} VU(s).", severity="information")
+            vu_input.value = ""
 
     def _with_cache_busting_query(self, url: str) -> str:
         parsed = urlparse(url)

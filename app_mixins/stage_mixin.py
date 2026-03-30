@@ -3,6 +3,13 @@ from textual.widgets import Input, Label
 
 
 class StageMixin:
+    def _remove_last_stage(self, container_id: str) -> bool:
+        container = self.query_one(container_id, ScrollableContainer)
+        if len(container.children) <= 1:
+            return False
+        list(container.children)[-1].remove()
+        return True
+
     def get_spike_stages(self):
         stages = self.full_config.get("k6", {}).get("spikeStages", [])
         if not isinstance(stages, list) or not stages:
@@ -76,10 +83,7 @@ class StageMixin:
         container.mount(row)
 
     def remove_last_spike_stage(self):
-        container = self.query_one("#spike_stages_container", ScrollableContainer)
-        if len(container.children) <= 1:
-            return
-        list(container.children)[-1].remove()
+        return self._remove_last_stage("#spike_stages_container")
 
     def add_arrival_stage(self):
         container = self.query_one("#arrival_stages_container", ScrollableContainer)
@@ -88,7 +92,4 @@ class StageMixin:
         container.mount(row)
 
     def remove_last_arrival_stage(self):
-        container = self.query_one("#arrival_stages_container", ScrollableContainer)
-        if len(container.children) <= 1:
-            return
-        list(container.children)[-1].remove()
+        return self._remove_last_stage("#arrival_stages_container")

@@ -49,13 +49,16 @@ def test_add_and_remove_spike_stage():
     ui.add_spike_stage()
     assert ui.spike_container.mounted
 
-    ui.remove_last_spike_stage()
+    removed = ui.remove_last_spike_stage()
+    assert removed is True
     assert ui.spike_container.children[-1].removed is True
 
 
-def test_remove_last_spike_stage_keeps_single_row():
+def test_remove_last_spike_stage_does_not_remove_single_row():
     ui = DummyStageUI(spike_count=1)
-    ui.remove_last_spike_stage()
+    removed = ui.remove_last_spike_stage()
+    assert removed is False
+    assert len(ui.spike_container.children) == 1
     assert all(not child.removed for child in ui.spike_container.children)
 
 
@@ -65,5 +68,14 @@ def test_add_and_remove_arrival_stage():
     ui.add_arrival_stage()
     assert ui.arrival_container.mounted
 
-    ui.remove_last_arrival_stage()
+    removed = ui.remove_last_arrival_stage()
+    assert removed is True
     assert ui.arrival_container.children[-1].removed is True
+
+
+def test_remove_last_arrival_stage_does_not_remove_single_row():
+    ui = DummyStageUI(arrival_count=1)
+    removed = ui.remove_last_arrival_stage()
+    assert removed is False
+    assert len(ui.arrival_container.children) == 1
+    assert all(not child.removed for child in ui.arrival_container.children)

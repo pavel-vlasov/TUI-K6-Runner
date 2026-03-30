@@ -1,10 +1,14 @@
 import os
+import shutil
 import sys
+from pathlib import Path
+
+RUNTIME_DEPENDENCIES = ("textual", "pyperclip", "jsonschema", "pygments")
 
 
 def ensure_runtime_dependencies() -> None:
     missing = []
-    for dependency in ("textual", "pyperclip"):
+    for dependency in RUNTIME_DEPENDENCIES:
         try:
             __import__(dependency)
         except ImportError:
@@ -16,7 +20,14 @@ def ensure_runtime_dependencies() -> None:
             f"Missing runtime dependencies: {deps}. Install project dependencies via requirements.txt/pyproject before start."
         )
 
+    if shutil.which("k6") is None:
+        raise RuntimeError(
+            "k6 binary was not found in PATH. Install k6 and ensure the `k6` command is available in your shell. "
+            "Install guide: https://grafana.com/docs/k6/latest/set-up/install-k6/"
+        )
+
 
 def get_resource_path(relative_path: str) -> str:
     base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base_path, relative_path)
+    resource_path = os.path.join(base_path, relative_path)
+    return Path(resource_path).as_posix()
