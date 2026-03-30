@@ -22,8 +22,10 @@ def test_build_summary_paths_uses_timestamped_files(monkeypatch):
     service = K6Service()
     json_path, html_path = service._build_summary_paths()
 
-    assert str(json_path).endswith("artifacts/summary_20260307_195400.json")
-    assert str(html_path).endswith("artifacts/summary_20260307_195400.html")
+    assert json_path.name == "summary_20260307_195400.json"
+    assert json_path.parent.name == "artifacts"
+    assert html_path.name == "summary_20260307_195400.html"
+    assert html_path.parent.name == "artifacts"
 
 
 def test_handle_counter_lines_accumulates_categories_and_totals():
