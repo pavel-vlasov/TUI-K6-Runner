@@ -103,9 +103,9 @@ Rollout strategy:
 
 ## Coverage policy
 
-- CI workflow `Coverage` запускает `pytest` с `--cov-fail-under=80`.
+- CI workflow `Coverage` запускает `pytest` с генерацией `coverage.xml`, но не валит job из-за упавших тестов в этом шаге.
 - Порог также централизован в `.coveragerc` (`[report] fail_under = 80`) для локального и CI запуска с единым значением.
-- Если итоговое покрытие ниже 80%, шаг Coverage завершается с ошибкой, и весь workflow получает статус **failed**.
+- Если итоговое покрытие ниже 80%, шаг Coverage завершается с ошибкой, и весь workflow получает статус **failed** (именно по проценту покрытия).
 
 ## Architecture note
 
