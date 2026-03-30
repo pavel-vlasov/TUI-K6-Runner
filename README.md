@@ -44,6 +44,16 @@ This project uses **pip-tools** as a single source of truth for dependencies.
 - `requirements-dev.in` — top-level dev dependencies (includes runtime via `-r requirements.in`)
 - `requirements.txt` — compiled runtime lock file (pinned + hashes)
 - `requirements-dev.txt` — compiled dev lock file (pinned + hashes)
+- `requirements-lock-tools.txt` — canonical lock toolchain versions used to compile lock files
+
+### Canonical lock toolchain
+
+Lock files must be generated only with the canonical toolchain below:
+
+- `pip==25.0.1`
+- `pip-tools==7.4.1`
+
+These versions are pinned in `requirements-lock-tools.txt` and are validated in CI.
 
 ### Update dependencies
 
@@ -52,6 +62,8 @@ Use the helper script to re-lock both files:
 ```bash
 ./scripts/update-dependencies.sh
 ```
+
+The script always installs lock tooling from `requirements-lock-tools.txt`, so re-locking with ad-hoc `pip`/`pip-tools` versions is not supported.
 
 Then install with:
 

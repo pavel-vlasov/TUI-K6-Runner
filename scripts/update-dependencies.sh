@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-python -m pip install --upgrade pip pip-tools
+python -m pip install --upgrade -r requirements-lock-tools.txt
 
 pip-compile \
   --generate-hashes \

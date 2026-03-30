@@ -8,6 +8,39 @@ on:
   workflow_dispatch:
 
 jobs:
+  lock-toolchain-smoke:
+    name: Lock toolchain smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements-lock-tools.txt
+
+      - name: Install canonical lock toolchain
+        run: |
+          python -m pip install --upgrade -r requirements-lock-tools.txt
+
+      - name: Print lock toolchain versions
+        run: |
+          python -m pip --version
+          pip-compile --version
+
+      - name: Smoke compile (runtime lock)
+        run: |
+          pip-compile \
+            --generate-hashes \
+            --allow-unsafe \
+            --resolver=backtracking \
+            --output-file=/tmp/requirements-smoke.txt \
+            requirements.in
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -187,6 +220,7 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs:
+      - lock-toolchain-smoke
       - lint
       - tests-smoke
       - tests
@@ -196,6 +230,7 @@ jobs:
     steps:
       - name: Build pipeline summary
         env:
+          LOCK_TOOLCHAIN_RESULT: ${{ needs.lock-toolchain-smoke.result }}
           LINT_RESULT: ${{ needs.lint.result }}
           SMOKE_RESULT: ${{ needs.tests-smoke.result }}
           TESTS_RESULT: ${{ needs.tests.result }}
@@ -204,7 +239,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           overall="passed"
-          if [ "$LINT_RESULT" != "success" ] || [ "$SMOKE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ] || [ "$COVERAGE_RESULT" != "success" ] || [ "$SECURITY_RESULT" != "success" ]; then
+          if [ "$LOCK_TOOLCHAIN_RESULT" != "success" ] || [ "$LINT_RESULT" != "success" ] || [ "$SMOKE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ] || [ "$COVERAGE_RESULT" != "success" ] || [ "$SECURITY_RESULT" != "success" ]; then
             overall="failed"
           fi
 
@@ -215,6 +250,7 @@ jobs:
             echo
             echo "| Stage | Status | Report |"
             echo "|---|---|---|"
+            echo "| Lock toolchain smoke | $LOCK_TOOLCHAIN_RESULT | logs |"
             echo "| Lint | $LINT_RESULT | [lint-report]($RUN_URL#artifacts) |"
             echo "| Smoke | $SMOKE_RESULT | logs |"
             echo "| Tests (matrix) | $TESTS_RESULT | [pytest-report-<os>]($RUN_URL#artifacts) |"
@@ -224,13 +260,14 @@ jobs:
 
       - name: Fail summary job when any stage failed
         env:
+          LOCK_TOOLCHAIN_RESULT: ${{ needs.lock-toolchain-smoke.result }}
           LINT_RESULT: ${{ needs.lint.result }}
           SMOKE_RESULT: ${{ needs.tests-smoke.result }}
           TESTS_RESULT: ${{ needs.tests.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
           SECURITY_RESULT: ${{ needs.security.result }}
         run: |
-          if [ "$LINT_RESULT" != "success" ] || [ "$SMOKE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ] || [ "$COVERAGE_RESULT" != "success" ] || [ "$SECURITY_RESULT" != "success" ]; then
+          if [ "$LOCK_TOOLCHAIN_RESULT" != "success" ] || [ "$LINT_RESULT" != "success" ] || [ "$SMOKE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ] || [ "$COVERAGE_RESULT" != "success" ] || [ "$SECURITY_RESULT" != "success" ]; then
             echo "Quality Pipeline failed"
             exit 1
           fi
