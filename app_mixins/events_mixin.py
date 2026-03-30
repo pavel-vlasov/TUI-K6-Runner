@@ -40,7 +40,7 @@ class EventsMixin:
                 return
 
             web_dashboard_url = logging_config.get("webDashboardUrl", "http://localhost:5665")
-            if not ConfigHandler._is_valid_http_url(web_dashboard_url):
+            if not ConfigHandler.is_valid_http_url(web_dashboard_url):
                 self.notify("❌ Web Dashboard URL is invalid. Please provide a valid http/https URL.", severity="error")
                 return
             refreshed_url = self._with_cache_busting_query(web_dashboard_url)
