@@ -85,6 +85,35 @@ def test_non_200_status_zero_is_filtered_from_ui_and_not_counted():
     assert service.state.fail_categories == {}
 
 
+def test_handle_counter_lines_throttles_status_updates_but_keeps_totals(monkeypatch):
+    service = K6Service()
+    statuses = []
+    fake_time = {"current": 0.0}
+
+    def _time():
+        return fake_time["current"]
+
+    monkeypatch.setattr("k6.service.time.time", _time)
+
+    lines = [
+        'time="2026" level=info msg="Processed request: 200 ✅"',
+        'time="2026" level=error msg="❌ Non-200 Response (ep) | Correlation-Id: c1 | Status: 404"',
+        'time="2026" level=info msg="Processed request: 200 ✅"',
+        'time="2026" level=warning msg="Request Failed" error="Get "https://x": EOF"',
+        'time="2026" level=info msg="Processed request: 200 ✅"',
+        'time="2026" level=error msg="❌ Non-200 Response (ep) | Correlation-Id: c2 | Status: 500"',
+    ]
+
+    for line in lines:
+        service._handle_counter_lines(line, statuses.append)
+        fake_time["current"] += 0.01
+
+    assert len(statuses) < len(lines)
+    assert service.state.success_count == 3
+    assert service.state.fail_count == 3
+    assert service.state.fail_categories == {"4xx": 1, "EOF": 1, "500": 1}
+
+
 class _FakeStream:
     def __init__(self, lines: list[str]):
         self._lines = [line.encode("utf-8") for line in lines]

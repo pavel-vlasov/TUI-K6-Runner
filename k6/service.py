@@ -35,6 +35,8 @@ class K6Service:
     def __init__(self) -> None:
         self.state = K6State()
         self.last_update_time = 0.0
+        self.last_counter_update_time = 0.0
+        self.counter_update_interval = 0.15
         self.process_manager = K6ProcessManager()
 
     @property
@@ -71,6 +73,7 @@ class K6Service:
         self.state.fail_categories = {}
         self.state.last_counter = "requests: ✅ 0  [bold white]│[/bold white]  ❌ 0"
         self.last_update_time = 0.0
+        self.last_counter_update_time = 0.0
         run_result_reported = False
 
         try:
@@ -121,6 +124,7 @@ class K6Service:
 
                 await process.wait()
 
+                self._update_ui(on_status)
                 if not run_result_reported:
                     if enable_html_summary:
                         self._generate_html_summary_report(summary_json_path, summary_html_path, on_log)
@@ -296,7 +300,7 @@ class K6Service:
         if is_success_line(clean_text):
             self.state.success_count += 1
             self._refresh_counter()
-            self._update_ui(on_status)
+            self._update_counter_ui(on_status)
             return True
 
         fail_category = get_fail_category(clean_text)
@@ -304,7 +308,7 @@ class K6Service:
             self.state.fail_count += 1
             self.state.fail_categories[fail_category] = self.state.fail_categories.get(fail_category, 0) + 1
             self._refresh_counter()
-            self._update_ui(on_status)
+            self._update_counter_ui(on_status)
             return True
 
         # Keep raw k6 failure helper lines (e.g. Non-200 with Status: 0) out of UI log,
@@ -318,6 +322,11 @@ class K6Service:
         totals = f"requests: ✅ {self.state.success_count}  [bold white]│[/bold white]  ❌ {self.state.fail_count}"
         categories_table = format_error_categories_table(self.state.fail_categories)
         self.state.last_counter = f"{totals}  [bold white]│[/bold white]  {categories_table}"
+
+    def _update_counter_ui(self, on_status):
+        if time.time() - self.last_counter_update_time > self.counter_update_interval:
+            self._update_ui(on_status)
+            self.last_counter_update_time = time.time()
 
     def _update_ui(self, on_status):
         on_status(
