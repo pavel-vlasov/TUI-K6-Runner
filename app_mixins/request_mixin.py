@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from textual.containers import ScrollableContainer
 from textual.widgets import TabbedContent, TabPane
 
@@ -29,7 +31,7 @@ class RequestMixin:
             endpoint.setdefault("name", "Endpoint 1")
             return [endpoint]
 
-        fallback = DEFAULT_CONFIG["request"].copy()
+        fallback = deepcopy(DEFAULT_CONFIG["requestEndpoints"][0])
         fallback["name"] = "Endpoint 1"
         return [fallback]
 
@@ -53,7 +55,7 @@ class RequestMixin:
             return
 
         endpoint_index = len(existing_tabs)
-        new_endpoint = DEFAULT_CONFIG["request"].copy()
+        new_endpoint = deepcopy(DEFAULT_CONFIG["requestEndpoints"][0])
         new_endpoint["name"] = f"Endpoint {endpoint_index + 1}"
 
         await request_subtabs.add_pane(self.build_request_subtab(endpoint_index, new_endpoint))
