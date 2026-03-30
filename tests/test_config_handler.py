@@ -271,6 +271,21 @@ def test_validate_runtime_config_rejects_invalid_urls_and_k6_values():
     assert any("k6.duration" in error for error in errors)
 
 
+def test_is_valid_http_url_public_contract():
+    assert ConfigHandler.is_valid_http_url("https://example.com")
+    assert ConfigHandler.is_valid_http_url("http://localhost:5665/path?a=1")
+    assert not ConfigHandler.is_valid_http_url("ftp://example.com")
+    assert not ConfigHandler.is_valid_http_url("https://bad url")
+    assert not ConfigHandler.is_valid_http_url(None)
+
+
+def test_is_valid_http_url_private_alias_kept_for_backward_compatibility():
+    assert ConfigHandler._is_valid_http_url("https://example.com") == ConfigHandler.is_valid_http_url(
+        "https://example.com"
+    )
+    assert ConfigHandler._is_valid_http_url("not-a-url") == ConfigHandler.is_valid_http_url("not-a-url")
+
+
 def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
     runtime = ConfigHandler.build_runtime_config(
         {
