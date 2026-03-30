@@ -432,6 +432,32 @@ def test_validate_runtime_config_rejects_non_canonical_logging_level():
     assert any("k6.logging.level is invalid" in error for error in errors)
 
 
+def test_validate_runtime_config_allows_zero_target_stages_for_spike_and_ramping_arrival():
+    base_k6 = {
+        "thresholds": {"http_req_duration": ["p(95)<500"]},
+    }
+
+    runtime_spike = _base_runtime()
+    runtime_spike["k6"] = {
+        **base_k6,
+        "executionType": "Spike Tests",
+        "spikeStages": [{"duration": "30s", "target": 0}],
+    }
+
+    runtime_ramping_arrival = _base_runtime()
+    runtime_ramping_arrival["k6"] = {
+        **base_k6,
+        "executionType": "Ramping Arrival Rate",
+        "startRate": 1,
+        "timeUnit": "1s",
+        "preAllocatedVUs": 5,
+        "rampingArrivalStages": [{"duration": "30s", "target": 0}],
+    }
+
+    assert ConfigHandler.validate_runtime_config(runtime_spike) == []
+    assert ConfigHandler.validate_runtime_config(runtime_ramping_arrival) == []
+
+
 def test_validate_runtime_config_rejects_invalid_stage_shape():
     runtime = _base_runtime()
     runtime["k6"] = {
