@@ -71,6 +71,28 @@ Then install with:
 pip install --require-hashes -r requirements-dev.txt
 ```
 
+
+## Lint baseline and rollout plan
+
+Ruff linting now uses an expanded baseline in `[tool.ruff.lint].select`:
+
+- `E`, `F`
+- `B` (bugbear)
+- `I` (isort)
+- `UP` (pyupgrade)
+- `SIM` (flake8-simplify)
+- `C4` (flake8-comprehensions)
+- `ASYNC` (async anti-patterns)
+- `RUF` (ruff-specific checks)
+
+To avoid breaking CI in a single change, Phase 1 keeps a minimal temporary ignore list in `pyproject.toml` (including `E501` for now).
+
+Rollout strategy:
+
+1. Enable the full rule families above with the temporary baseline ignore list.
+2. Reduce `ignore` in small, focused PRs (for example: import sorting first, then simplify/pyupgrade rules).
+3. Remove `E501` after targeted line-wrap cleanup and keep line-length enforcement fully enabled.
+
 ## Coverage policy
 
 - CI workflow `Coverage` запускает `pytest` с `--cov-fail-under=80`.

@@ -10,8 +10,26 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-select = ["E", "F"]
-ignore = ["E501"]
+select = ["E", "F", "B", "I", "UP", "SIM", "C4", "ASYNC", "RUF"]
+# Phase 1 baseline: keep a minimal temporary ignore set to avoid breaking CI,
+# then remove items incrementally in dedicated PRs.
+ignore = [
+  "E501",
+  "ASYNC109",
+  "B011",
+  "I001",
+  "RUF010",
+  "RUF022",
+  "RUF046",
+  "SIM102",
+  "SIM103",
+  "SIM105",
+  "SIM115",
+  "SIM117",
+  "UP015",
+  "UP041",
+  "UP045",
+]
 
 [tool.ruff.format]
 quote-style = "double"
