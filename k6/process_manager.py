@@ -79,7 +79,7 @@ class K6ProcessManager:
 
         try:
             if platform.system() == "Windows":
-                os.kill(self.process.pid, signal.CTRL_BREAK_EVENT)
+                self.process.send_signal(signal.CTRL_BREAK_EVENT)
             else:
                 self.process.send_signal(signal.SIGINT)
         except Exception:
