@@ -53,7 +53,7 @@ Lock files must be generated only with the canonical toolchain below:
 - `pip==25.0.1`
 - `pip-tools==7.4.1`
 
-These versions are pinned in `requirements-lock-tools.txt` and are validated in CI.
+These versions are pinned in `requirements-lock-tools.txt` and are validated in CI (version print + lock regeneration drift check).
 
 ### Update dependencies
 

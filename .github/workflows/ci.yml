@@ -32,14 +32,14 @@ jobs:
           python -m pip --version
           pip-compile --version
 
-      - name: Smoke compile (runtime lock)
+      - name: Smoke compile lock files
         run: |
-          pip-compile \
-            --generate-hashes \
-            --allow-unsafe \
-            --resolver=backtracking \
-            --output-file=/tmp/requirements-smoke.txt \
-            requirements.in
+          ./scripts/update-dependencies.sh
+
+      - name: Verify lock files are stable
+        run: |
+          git diff -- requirements.txt requirements-dev.txt
+          git diff --exit-code -- requirements.txt requirements-dev.txt
 
   lint:
     name: Lint
