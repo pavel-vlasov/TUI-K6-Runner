@@ -163,6 +163,27 @@ jobs:
           if-no-files-found: warn
           path: test-artifact-url-${{ matrix.os }}.txt
 
+  tests-summary:
+    name: Tests
+    if: always()
+    needs:
+      - tests-smoke
+      - tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check upstream test jobs
+        env:
+          TESTS_SMOKE_RESULT: ${{ needs.tests-smoke.result }}
+          TESTS_MATRIX_RESULT: ${{ needs.tests.result }}
+        run: |
+          echo "tests-smoke: ${TESTS_SMOKE_RESULT}"
+          echo "tests-matrix: ${TESTS_MATRIX_RESULT}"
+          if [ "${TESTS_SMOKE_RESULT}" != "success" ] || [ "${TESTS_MATRIX_RESULT}" != "success" ]; then
+            echo "Tests stage failed."
+            exit 1
+          fi
+
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
@@ -250,6 +271,7 @@ jobs:
       - lint
       - tests-smoke
       - tests
+      - tests-summary
       - coverage
       - security
 
