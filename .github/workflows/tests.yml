@@ -67,6 +67,7 @@ jobs:
           pytest -q --junitxml=pytest-report.xml
 
       - name: Upload test report artifact
+        id: upload_report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -77,11 +78,37 @@ jobs:
       - name: Publish tests summary
         if: always()
         env:
-          SMOKE_RESULT: ${{ needs.smoke.result }}
+          SMOKE_GATE: ${{ needs.smoke.result }}
+          ARTIFACT_NAME: pytest-report-${{ matrix.os }}
+          ARTIFACT_URL: ${{ steps.upload_report.outputs.artifact-url }}
         run: |
+          md_cell() {
+            local value="${1-}"
+            if [[ -z "$value" ]]; then
+              printf '%s' 'N/A'
+              return
+            fi
+            value="${value//$'\n'/ }"
+            value="${value//|/\\|}"
+            value="${value//`/\\`}"
+            printf '%s' "$value"
+          }
+
+          smoke_gate="$(md_cell "$SMOKE_GATE")"
+          artifact_name="$(md_cell "$ARTIFACT_NAME")"
+
+          if [[ -n "${ARTIFACT_URL:-}" ]]; then
+            artifact_url="$(md_cell "$ARTIFACT_URL")"
+            junit_artifact="[${artifact_name}](${artifact_url})"
+          else
+            junit_artifact="$artifact_name"
+          fi
+
           {
             echo "### Test job (${{ matrix.os }})"
             echo
-            echo "- Smoke gate: \\`$SMOKE_RESULT\\`"
-            echo "- JUnit artifact: \\`pytest-report-${{ matrix.os }}\\`"
+            echo "| Check | Value |"
+            echo "| --- | --- |"
+            echo "| Smoke gate | ${smoke_gate} |"
+            echo "| JUnit artifact | ${junit_artifact} |"
           } >> "$GITHUB_STEP_SUMMARY"
