@@ -250,8 +250,18 @@ jobs:
           SECURITY_ARTIFACT_URL: ${{ needs.security.outputs.security_artifact_url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          tests_result_display="$TESTS_RESULT"
+          tests_failed="false"
+          if [ "$TESTS_RESULT" != "success" ]; then
+            if [ "$SMOKE_RESULT" = "success" ] || [ "$TESTS_RESULT" != "skipped" ]; then
+              tests_failed="true"
+            else
+              tests_result_display="skipped (blocked by smoke failure)"
+            fi
+          fi
+
           overall="passed"
-          if [ "$LOCK_TOOLCHAIN_RESULT" != "success" ] || [ "$LINT_RESULT" != "success" ] || [ "$SMOKE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ] || [ "$COVERAGE_RESULT" != "success" ] || [ "$SECURITY_RESULT" != "success" ]; then
+          if [ "$LOCK_TOOLCHAIN_RESULT" != "success" ] || [ "$LINT_RESULT" != "success" ] || [ "$SMOKE_RESULT" != "success" ] || [ "$tests_failed" = "true" ] || [ "$COVERAGE_RESULT" != "success" ] || [ "$SECURITY_RESULT" != "success" ]; then
             overall="failed"
           fi
 
@@ -284,7 +294,7 @@ jobs:
             echo "|---|---|---|"
             echo "| Lint | $LINT_RESULT | [Artifacts on run page]($RUN_URL) — `lint-report` |"
             echo "| Smoke | $SMOKE_RESULT | [Open run logs]($RUN_URL) |"
-            echo "| Tests (matrix) | $TESTS_RESULT | [Open run (Artifacts section)]($RUN_URL) — artifact: `pytest-report-<os>` |"
+            echo "| Tests (matrix) | $tests_result_display | [Open run (Artifacts section)]($RUN_URL) — artifact: `pytest-report-<os>` |"
             echo "| Coverage | $COVERAGE_RESULT | [Artifacts on run page]($RUN_URL) — `coverage-report` |"
             echo "| Security | $SECURITY_RESULT | [Artifacts on run page]($RUN_URL) — `security-report` |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -298,7 +308,14 @@ jobs:
           COVERAGE_RESULT: ${{ needs.coverage.result }}
           SECURITY_RESULT: ${{ needs.security.result }}
         run: |
-          if [ "$LOCK_TOOLCHAIN_RESULT" != "success" ] || [ "$LINT_RESULT" != "success" ] || [ "$SMOKE_RESULT" != "success" ] || [ "$TESTS_RESULT" != "success" ] || [ "$COVERAGE_RESULT" != "success" ] || [ "$SECURITY_RESULT" != "success" ]; then
+          tests_failed="false"
+          if [ "$TESTS_RESULT" != "success" ]; then
+            if [ "$SMOKE_RESULT" = "success" ] || [ "$TESTS_RESULT" != "skipped" ]; then
+              tests_failed="true"
+            fi
+          fi
+
+          if [ "$LOCK_TOOLCHAIN_RESULT" != "success" ] || [ "$LINT_RESULT" != "success" ] || [ "$SMOKE_RESULT" != "success" ] || [ "$tests_failed" = "true" ] || [ "$COVERAGE_RESULT" != "success" ] || [ "$SECURITY_RESULT" != "success" ]; then
             echo "Quality Pipeline failed"
             exit 1
           fi
