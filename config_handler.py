@@ -4,15 +4,15 @@ import os
 import re
 import tempfile
 from collections.abc import Mapping
-from pathlib import Path
 from urllib.parse import urlparse
 
 from jsonschema import Draft202012Validator, FormatChecker
 
 from constants import AUTH_MODES, HTTP_METHODS, LOGGING_LEVELS, normalize_logging_level
+from resources import get_resource_locator
 
 K6_DURATION_RE = re.compile(r"^\d+(ms|s|m|h)$")
-SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "test_config.schema.json"
+SCHEMA_PATH = get_resource_locator().schema_path()
 with SCHEMA_PATH.open("r", encoding="utf-8") as schema_file:
     TEST_CONFIG_SCHEMA = json.load(schema_file)
 TEST_CONFIG_VALIDATOR = Draft202012Validator(TEST_CONFIG_SCHEMA, format_checker=FormatChecker())

@@ -29,6 +29,7 @@ from k6.presenters import (
 )
 from k6.process_manager import K6ProcessManager
 from k6.state import K6State
+from resources import get_resource_locator
 
 
 class K6Service:
@@ -162,7 +163,7 @@ class K6Service:
 
     def _build_summary_paths(self) -> tuple[Path, Path]:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        artifacts_dir = Path("artifacts")
+        artifacts_dir = get_resource_locator().artifacts_dir()
         return artifacts_dir / f"summary_{timestamp}.json", artifacts_dir / f"summary_{timestamp}.html"
 
     def _build_external_terminal_command(self, command: str, system_name: str | None = None) -> list[str]:
@@ -187,9 +188,7 @@ class K6Service:
         terminal_candidates: list[tuple[str, list[str]]] = []
 
         if preferred_terminal:
-            terminal_candidates.append(
-                (preferred_terminal, ["-e", "bash", "-lc", bash_command])
-            )
+            terminal_candidates.append((preferred_terminal, ["-e", "bash", "-lc", bash_command]))
 
         terminal_candidates.extend(
             [
@@ -233,7 +232,7 @@ class K6Service:
         def _powershell_quote(value: str) -> str:
             return "'" + value.replace("'", "''") + "'"
 
-        command_parts = ["k6", "run", "test.js"]
+        command_parts = ["k6", "run", str(get_resource_locator().test_script_path())]
         env_parts: list[tuple[str, str]] = []
 
         if enable_web_dashboard:
@@ -251,17 +250,18 @@ class K6Service:
 
         if shell_type == "powershell":
             command_text = " ".join(_powershell_quote(part) for part in command_parts)
+            workdir_command = f"Set-Location -Path {_powershell_quote(str(get_resource_locator().user_data_root))};"
             if not env_parts:
-                return command_text
+                return f"{workdir_command} {command_text}"
             env_commands = [f"$env:{name}={_powershell_quote(value)};" for name, value in env_parts]
-            return f"{' '.join(env_commands)} {command_text}"
+            return f"{workdir_command} {' '.join(env_commands)} {command_text}"
 
         command_text = shlex.join(command_parts)
+        workdir_prefix = f"cd {shlex.quote(str(get_resource_locator().user_data_root))} && "
         if not env_parts:
-            return command_text
+            return f"{workdir_prefix}{command_text}"
         env_prefix = " ".join(f"{name}={shlex.quote(value)}" for name, value in env_parts)
-        return f"{env_prefix} {command_text}"
-
+        return f"{workdir_prefix}{env_prefix} {command_text}"
 
     def _generate_html_summary_report(self, summary_json_path: Path, summary_html_path: Path, on_log) -> None:
         try:

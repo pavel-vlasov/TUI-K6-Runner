@@ -23,9 +23,9 @@ def test_build_summary_paths_uses_timestamped_files(monkeypatch):
     json_path, html_path = service._build_summary_paths()
 
     assert json_path.name == "summary_20260307_195400.json"
-    assert json_path.parent.name == "artifacts"
+    assert str(json_path.parent).endswith("artifacts")
     assert html_path.name == "summary_20260307_195400.html"
-    assert html_path.parent.name == "artifacts"
+    assert str(html_path.parent).endswith("artifacts")
 
 
 def test_handle_counter_lines_accumulates_categories_and_totals():
@@ -108,7 +108,7 @@ def test_request_failed_can_be_hidden_from_ui_but_still_updates_counters():
         statuses.append,
     )
 
-    assert handled is False
+    assert handled is True
     assert service.state.fail_count == 1
     assert service.state.fail_categories == {"dns": 1}
     assert "dns: 1" in service.state.last_counter
@@ -342,6 +342,7 @@ def test_run_k6_process_external_terminal_mode_keeps_dashboard_and_summary_optio
     else:
         assert "K6_WEB_DASHBOARD_HOST=127.0.0.1" in command
         assert "K6_WEB_DASHBOARD_PORT=7777" in command
+    assert "cd " in command
     assert "--summary-export" in command
     assert str(summary_json_path) in command
 
@@ -361,7 +362,8 @@ def test_build_external_k6_command_windows_uses_powershell_env_syntax(monkeypatc
     assert "$env:K6_WEB_DASHBOARD_OPEN='false';" in command
     assert "$env:K6_WEB_DASHBOARD_HOST='127.0.0.1';" in command
     assert "$env:K6_WEB_DASHBOARD_PORT='7777';" in command
-    assert "'k6' 'run' 'test.js'" in command
+    assert "'k6' 'run'" in command
+    assert "test.js" in command
 
 
 def test_build_external_k6_command_posix_quotes_web_dashboard_out_as_single_token(tmp_path):

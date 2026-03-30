@@ -24,6 +24,7 @@ def test_start_run_includes_web_dashboard_output_when_enabled(monkeypatch):
 
     assert "--out" in captured["args"]
     assert "web-dashboard=period=5s&open=false" in captured["args"]
+    assert captured["kwargs"]["cwd"] is not None
 
 
 def test_start_run_sets_web_dashboard_open_env_when_enabled(monkeypatch):
@@ -169,7 +170,7 @@ def test_start_run_includes_summary_export_when_html_summary_enabled(monkeypatch
     )
 
     assert "--summary-export" in captured["args"]
-    assert "artifacts/summary.json" in captured["args"]
+    assert any(str(arg).endswith("artifacts/summary.json") for arg in captured["args"])
 
 
 def test_start_run_creates_summary_directory_when_needed(monkeypatch, tmp_path):

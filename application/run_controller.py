@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from config_handler import ConfigHandler
 from k6.service import K6Service
+from resources import get_resource_locator
 
 
 @dataclass
@@ -14,9 +15,10 @@ class RunCallbacks:
 
 
 class RunController:
-    def __init__(self, k6_service: K6Service, config_path: str = "test_config.json") -> None:
+    def __init__(self, k6_service: K6Service, config_path: str | None = None) -> None:
         self.k6_service = k6_service
-        self.config_path = config_path
+        default_path = get_resource_locator().default_config_path()
+        self.config_path = str(config_path or default_path)
 
     @property
     def is_running(self) -> bool:
