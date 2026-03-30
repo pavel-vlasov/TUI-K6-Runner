@@ -57,20 +57,18 @@ def test_handle_counter_lines_accumulates_categories_and_totals():
         statuses.append,
     )
 
-    assert service.state.fail_count == 6
+    assert service.state.fail_count == 5
     assert service.state.fail_categories["4xx"] == 1
     assert service.state.fail_categories["500"] == 1
     assert service.state.fail_categories["5xx (not 500)"] == 1
     assert service.state.fail_categories["EOF"] == 1
     assert service.state.fail_categories["timeout"] == 1
-    assert service.state.fail_categories["status 0"] == 1
     assert "errors:" in service.state.last_counter
     assert "4xx: 1" in service.state.last_counter
     assert "500: 1" in service.state.last_counter
     assert "5xx (not 500): 1" in service.state.last_counter
     assert "EOF: 1" in service.state.last_counter
     assert "timeout: 1" in service.state.last_counter
-    assert "status 0: 1" in service.state.last_counter
     assert "\n" not in service.state.last_counter
 
 
@@ -87,7 +85,7 @@ def test_request_failed_without_eof_is_counted_with_category():
     assert service.state.fail_categories == {"timeout": 1}
 
 
-def test_non_200_status_zero_is_filtered_from_ui_but_counted():
+def test_non_200_status_zero_is_filtered_from_ui_and_not_double_counted():
     service = K6Service()
     statuses = []
 
@@ -97,8 +95,8 @@ def test_non_200_status_zero_is_filtered_from_ui_but_counted():
     )
 
     assert handled is True
-    assert service.state.fail_count == 1
-    assert service.state.fail_categories == {"status 0": 1}
+    assert service.state.fail_count == 0
+    assert service.state.fail_categories == {}
 
 
 def test_request_failed_can_be_hidden_from_ui_but_still_updates_counters():
@@ -110,7 +108,7 @@ def test_request_failed_can_be_hidden_from_ui_but_still_updates_counters():
         statuses.append,
     )
 
-    assert handled is True
+    assert handled is False
     assert service.state.fail_count == 1
     assert service.state.fail_categories == {"dns": 1}
     assert "dns: 1" in service.state.last_counter
