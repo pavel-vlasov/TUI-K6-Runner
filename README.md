@@ -96,7 +96,8 @@ Please make future UI changes in these modules, not in legacy monolithic entrypo
   "executionType": "Spike Tests",
   "spikeStages": [
     { "duration": "30s", "target": 10 },
-    { "duration": "10s", "target": 50 }
+    { "duration": "10s", "target": 50 },
+    { "duration": "20s", "target": 0 }
   ],
   "thresholds": { "http_req_duration": ["p(95)<500"] }
 }
@@ -132,7 +133,8 @@ Please make future UI changes in these modules, not in legacy monolithic entrypo
   "maxVUs": 30,
   "rampingArrivalStages": [
     { "duration": "30s", "target": 10 },
-    { "duration": "30s", "target": 20 }
+    { "duration": "30s", "target": 20 },
+    { "duration": "20s", "target": 0 }
   ],
   "thresholds": { "http_req_duration": ["p(95)<500"] }
 }
