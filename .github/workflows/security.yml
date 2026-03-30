@@ -24,8 +24,18 @@ jobs:
 
       - name: Dependency check (runtime)
         run: |
-          pip-audit --require-hashes -r requirements.txt
+          pip-audit --require-hashes -r requirements.txt 2>&1 | tee security-runtime-report.txt
 
       - name: Dependency check (dev)
         run: |
-          pip-audit --require-hashes -r requirements-dev.txt
+          pip-audit --require-hashes -r requirements-dev.txt 2>&1 | tee security-dev-report.txt
+
+      - name: Upload security report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          if-no-files-found: warn
+          path: |
+            security-runtime-report.txt
+            security-dev-report.txt
