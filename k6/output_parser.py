@@ -68,10 +68,16 @@ def get_fail_category(text: str) -> str | None:
     if "Non-200" in text:
         status_match = HTTP_STATUS_PATTERN.search(text)
         if not status_match:
-            return None
+            return "transport/no_status"
 
         status = int(status_match.group(1))
-        return _bucket_http_status(status)
+        if status == 0:
+            return "transport/no_status"
+
+        category = _bucket_http_status(status)
+        if category:
+            return category
+        return "transport/no_status"
 
     return None
 

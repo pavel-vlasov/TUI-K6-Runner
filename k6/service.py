@@ -308,20 +308,21 @@ class K6Service:
             self._update_counter_ui(on_status)
             return True
 
+        # failure counting and UI log filtering are independent stages.
+        # 1) Failure counting uses a single source of truth: get_fail_category(clean_text).
         fail_category = get_fail_category(clean_text)
         if fail_category:
             self.state.fail_count += 1
             self.state.fail_categories[fail_category] = self.state.fail_categories.get(fail_category, 0) + 1
             self._refresh_counter()
             self._update_counter_ui(on_status)
-            return True
 
-        # Keep raw k6 failure helper lines (e.g. Non-200 with Status: 0) out of UI log,
-        # while counting only lines that have a valid category.
-        if "Non-200" in clean_text:
-            return True
+        # 2) UI log filtering decides only whether to hide/show the line in UI log.
+        return self._should_hide_ui_failure_helper_line(clean_text)
 
-        return False
+    def _should_hide_ui_failure_helper_line(self, clean_text: str) -> bool:
+        # Keep raw k6 failure helper lines (e.g. Non-200 with Status: 0) out of UI log.
+        return "Non-200" in clean_text
 
     def _refresh_counter(self):
         totals = f"requests: ✅ {self.state.success_count}  [bold white]│[/bold white]  ❌ {self.state.fail_count}"
