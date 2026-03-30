@@ -67,7 +67,7 @@ jobs:
           pytest -q --junitxml=pytest-report.xml
 
       - name: Upload test report artifact
-        id: upload_report
+        id: upload_test_report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -78,9 +78,7 @@ jobs:
       - name: Publish tests summary
         if: always()
         env:
-          SMOKE_GATE: ${{ needs.smoke.result }}
-          ARTIFACT_NAME: pytest-report-${{ matrix.os }}
-          ARTIFACT_URL: ${{ steps.upload_report.outputs.artifact-url }}
+          JUNIT_ARTIFACT_URL: ${{ steps.upload_test_report.outputs.artifact-url }}
         run: |
           md_cell() {
             local value="${1-}"
@@ -107,8 +105,10 @@ jobs:
           {
             echo "### Test job (${{ matrix.os }})"
             echo
-            echo "| Check | Value |"
-            echo "| --- | --- |"
-            echo "| Smoke gate | ${smoke_gate} |"
-            echo "| JUnit artifact | ${junit_artifact} |"
+            echo "- Smoke gate: \\`needs.smoke\\`"
+            if [ -n "$JUNIT_ARTIFACT_URL" ]; then
+              echo "- JUnit artifact: [pytest-report-${{ matrix.os }}]($JUNIT_ARTIFACT_URL)"
+            else
+              echo "- JUnit artifact: \\`pytest-report-${{ matrix.os }}\\` (artifact URL unavailable; see run artifacts section)"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
