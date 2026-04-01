@@ -1,6 +1,7 @@
 import asyncio
 
 from application.run_controller import RunCallbacks, RunController
+from k6.backends import ExecutionCapabilities
 
 
 class DummyK6Service:
@@ -8,10 +9,22 @@ class DummyK6Service:
         self.is_running = False
         self.run_calls = 0
         self.last_kwargs = None
+        self.capabilities = ExecutionCapabilities(
+            can_stop=True,
+            can_scale=True,
+            can_capture_logs=True,
+            can_read_metrics=True,
+        )
 
     async def run_k6_process(self, **kwargs):
         self.run_calls += 1
         self.last_kwargs = kwargs
+
+    def get_execution_capabilities(self):
+        return self.capabilities
+
+    def resolve_capabilities(self, _config=None):
+        return self.capabilities
 
 
 class FailingStateCallback:

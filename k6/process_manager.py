@@ -119,12 +119,5 @@ class K6ProcessManager:
         stdout, stderr = await process.communicate()
         return process.returncode, stdout, stderr
 
-    async def status(self) -> tuple[int, bytes, bytes]:
-        process = await asyncio.create_subprocess_exec(
-            "k6", "status", stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        stdout, stderr = await process.communicate()
-        return process.returncode, stdout, stderr
-
     def clear_process(self) -> None:
         self.process = None

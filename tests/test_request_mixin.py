@@ -1,6 +1,7 @@
 import asyncio
 
 from app_mixins.request_mixin import RequestMixin
+from constants import DEFAULT_CONFIG
 
 
 class DummyTabPane:
@@ -24,8 +25,8 @@ class DummyTabbedContent:
 
 
 class DummyRequestUI(RequestMixin):
-    def __init__(self, full_config, pane_count=1):
-        self.full_config = full_config
+    def __init__(self, ui_config, pane_count=1):
+        self.ui_config = ui_config
         self.notifications = []
         panes = [DummyTabPane(f"tab_req_endpoint_{i}") for i in range(pane_count)]
         self.request_subtabs = DummyTabbedContent(panes)
@@ -59,16 +60,36 @@ def test_get_request_endpoints_from_config_with_limit_and_default_names():
     assert endpoints[0]["name"] == "Endpoint 1"
 
 
-def test_get_request_endpoints_falls_back_to_legacy_and_default():
-    legacy_ui = DummyRequestUI({"request": {"path": "/legacy"}})
-    endpoints = legacy_ui.get_request_endpoints()
-    assert endpoints[0]["name"] == "Endpoint 1"
-    assert endpoints[0]["path"] == "/legacy"
-
+def test_get_request_endpoints_falls_back_to_default():
     default_ui = DummyRequestUI({})
     defaults = default_ui.get_request_endpoints()
-    assert defaults[0]["name"] == "Endpoint 1"
-    assert defaults[0]["path"].startswith("/")
+    assert defaults[0] == DEFAULT_CONFIG["requestEndpoints"][0]
+
+
+def test_default_config_has_no_root_request_template():
+    assert "request" not in DEFAULT_CONFIG
+
+
+def test_add_request_endpoint_tab_uses_request_endpoints_default_template():
+    class CapturingRequestUI(DummyRequestUI):
+        def __init__(self):
+            super().__init__({}, pane_count=1)
+            self.captured_request_data = None
+
+        def build_request_subtab(self, index, request_data):
+            self.captured_request_data = request_data
+            return DummyTabPane(f"tab_req_endpoint_{index}")
+
+    ui = CapturingRequestUI()
+
+    asyncio.run(ui.add_request_endpoint_tab())
+
+    assert len(ui.request_subtabs._panes) == 2
+    assert ui.request_subtabs.active == "tab_req_endpoint_1"
+    assert ui.captured_request_data == {
+        **DEFAULT_CONFIG["requestEndpoints"][0],
+        "name": "Endpoint 2",
+    }
 
 
 def test_add_request_endpoint_tab_enforces_maximum():

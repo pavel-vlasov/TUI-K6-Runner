@@ -13,32 +13,78 @@ from textual.widgets import (
     TabbedContent,
     TabPane,
 )
+from copy import deepcopy
 
-from constants import LOGGING_LEVELS, LOGGING_LEVEL_LABELS, normalize_logging_level
+from constants import (
+    AUTH_MODE_OPTIONS,
+    EXECUTION_TYPES,
+    EXECUTION_TYPE_OPTIONS,
+    AuthMode,
+    ExecutionType,
+    LOGGING_LEVEL_FAILED,
+    LOGGING_LEVEL_OPTIONS,
+    normalize_logging_level,
+)
+from k6.backends import ExecutionCapabilities
 from ui_components import build_config_fields
 
 
 class UIMixin:
-    def _is_scale_supported_execution_type(self) -> bool:
-        execution_type = self.full_config.get("k6", {}).get("executionType", "external executor")
-        return execution_type == "external executor"
+    execution_capabilities: ExecutionCapabilities
+
+    def _ensure_execution_capabilities(self) -> ExecutionCapabilities:
+        capabilities = getattr(self, "execution_capabilities", None)
+        if capabilities is None:
+            capabilities = self.run_controller.resolve_capabilities(self.ui_config)
+            self.execution_capabilities = capabilities
+        return capabilities
+
+    def refresh_execution_capabilities(self, config: dict | None = None) -> ExecutionCapabilities:
+        capabilities_source = deepcopy(config or self.ui_config)
+        try:
+            output_mode_select = self.query_one("#select___k6__logging__outputToUI", Select)
+            capabilities_source.setdefault("k6", {}).setdefault("logging", {})["outputToUI"] = bool(
+                output_mode_select.value
+            )
+        except Exception:
+            pass
+
+        capabilities = self.run_controller.resolve_capabilities(capabilities_source)
+        self.execution_capabilities = capabilities
+        return capabilities
+
+    def _capabilities_warning_text(self, capabilities: ExecutionCapabilities) -> str:
+        missing = []
+        if not capabilities.can_stop:
+            missing.append("stop")
+        if not capabilities.can_scale:
+            missing.append("scale")
+        if not capabilities.can_capture_logs:
+            missing.append("capture logs")
+        if not capabilities.can_read_metrics:
+            missing.append("read metrics")
+
+        if not missing:
+            return "✅ Selected execution mode supports stop, scaling, logs, and metrics."
+
+        return "⚠️ Selected execution mode has limited features: " + ", ".join(missing) + "."
 
     def set_run_ui_state(self, running: bool) -> None:
         run_btn = self.query_one("#run_btn", Button)
         stop_btn = self.query_one("#stop_btn", Button)
         apply_btn = self.query_one("#apply_vu_btn", Button)
         web_dashboard_btn = self.query_one("#web_dashboard_btn", Button)
-        web_dashboard_enabled = self.full_config.get("k6", {}).get("logging", {}).get("webDashboard", False)
-        external_terminal_mode = self._is_external_terminal_mode_selected()
-        scale_supported_execution_type = self._is_scale_supported_execution_type()
+        web_dashboard_enabled = self.ui_config.get("k6", {}).get("logging", {}).get("webDashboard", False)
+        capabilities = self._ensure_execution_capabilities()
 
         run_btn.disabled = running
-        stop_btn.disabled = (not running) or external_terminal_mode
-        apply_btn.disabled = (not running) or external_terminal_mode or (not scale_supported_execution_type)
+        stop_btn.disabled = (not running) or (not capabilities.can_stop)
+        apply_btn.disabled = (not running) or (not capabilities.can_scale)
         web_dashboard_btn.display = True
         web_dashboard_btn.disabled = (not running) or (not web_dashboard_enabled)
 
     async def on_mount(self) -> None:
+        self.refresh_execution_capabilities(self.ui_config)
         self.set_run_ui_state(False)
         self.toggle_execution_type_fields()
         self.toggle_auth_fields()
@@ -61,11 +107,11 @@ class UIMixin:
     def toggle_execution_type_fields(self) -> None:
         execution_select = self.query_one("#select___k6__executionType", Select)
 
-        show_external_fields = execution_select.value == "external executor"
-        show_spike_fields = execution_select.value == "Spike Tests"
-        show_constant_vus_fields = execution_select.value == "Constant VUs"
-        show_constant_arrival_fields = execution_select.value == "Constant Arrival Rate"
-        show_ramping_arrival_fields = execution_select.value == "Ramping Arrival Rate"
+        show_external_fields = execution_select.value == ExecutionType.EXTERNAL_EXECUTOR.value
+        show_spike_fields = execution_select.value == ExecutionType.SPIKE_TESTS.value
+        show_constant_vus_fields = execution_select.value == ExecutionType.CONSTANT_VUS.value
+        show_constant_arrival_fields = execution_select.value == ExecutionType.CONSTANT_ARRIVAL_RATE.value
+        show_ramping_arrival_fields = execution_select.value == ExecutionType.RAMPING_ARRIVAL_RATE.value
 
         self.query_one("#k6_vus_row").styles.display = (
             "block" if (show_external_fields or show_constant_vus_fields) else "none"
@@ -97,9 +143,9 @@ class UIMixin:
 
     def toggle_auth_fields(self) -> None:
         auth_mode_select = self.query_one("#select___auth__mode", Select)
-        selected_mode = str(auth_mode_select.value or "none")
-        oauth_enabled = selected_mode == "oauth2_client_credentials"
-        no_auth_enabled = selected_mode == "none"
+        selected_mode = str(auth_mode_select.value or AuthMode.NONE.value)
+        oauth_enabled = selected_mode == AuthMode.OAUTH2_CLIENT_CREDENTIALS.value
+        no_auth_enabled = selected_mode == AuthMode.NONE.value
 
         for row_id in ["#auth_row__client_id", "#auth_row__client_secret"]:
             self.query_one(row_id, Horizontal).styles.display = "none" if no_auth_enabled else "block"
@@ -113,26 +159,27 @@ class UIMixin:
     def toggle_logging_fields(self) -> None:
         logging_enabled_switch = self.query_one("#bool___k6__logging__enabled", Switch)
         web_dashboard_switch = self.query_one("#bool___k6__logging__webDashboard", Switch)
-        output_to_ui_select = self.query_one("#select___k6__logging__outputToUI", Select)
+        warning_widget = self.query_one("#logging_external_mode_warning", Static)
+        capabilities = self.refresh_execution_capabilities(self.ui_config)
 
         level_display = "block" if bool(logging_enabled_switch.value) else "none"
         web_dashboard_url_display = "block" if bool(web_dashboard_switch.value) else "none"
-        external_warning_display = "block" if output_to_ui_select.value is False else "none"
+        external_warning_display = (
+            "block"
+            if (not capabilities.can_stop)
+            or (not capabilities.can_scale)
+            or (not capabilities.can_capture_logs)
+            or (not capabilities.can_read_metrics)
+            else "none"
+        )
 
         self.query_one("#logging_level_label", Label).styles.display = level_display
         self.query_one("#select___k6__logging__level", Select).styles.display = level_display
         self.query_one("#logging_web_dashboard_url_label", Label).styles.display = web_dashboard_url_display
         self.query_one("#input___k6__logging__webDashboardUrl", Input).styles.display = web_dashboard_url_display
-        self.query_one("#logging_external_mode_warning", Static).styles.display = external_warning_display
+        warning_widget.styles.display = external_warning_display
+        warning_widget.update(self._capabilities_warning_text(capabilities))
         self.set_run_ui_state(self.run_controller.is_running)
-
-    def _is_external_terminal_mode_selected(self) -> bool:
-        try:
-            output_mode_select = self.query_one("#select___k6__logging__outputToUI", Select)
-            return output_mode_select.value is False
-        except Exception:
-            output_to_ui = self.full_config.get("k6", {}).get("logging", {}).get("outputToUI", True)
-            return not bool(output_to_ui)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -140,26 +187,16 @@ class UIMixin:
             with TabPane("Settings", id="tab_settings"):
                 with TabbedContent(id="settings_subtabs"):
                     with TabPane("Auth", id="tab_auth"):
-                        auth_data = self.full_config.get("auth", {})
+                        auth_data = self.ui_config.get("auth", {})
                         auth_mode = str(auth_data.get("mode", "")).strip()
-                        if auth_mode not in [
-                            "none",
-                            "oauth2_client_credentials",
-                            "basic",
-                            "client_id_enforcement",
-                        ]:
-                            auth_mode = "none"
+                        if auth_mode not in {option[1] for option in AUTH_MODE_OPTIONS}:
+                            auth_mode = AuthMode.NONE.value
 
                         yield ScrollableContainer(
                             Horizontal(
                                 Label("mode:", classes="field-label"),
                                 Select(
-                                    [
-                                        ("none", "none"),
-                                        ("oauth2_client_credentials", "oauth2_client_credentials"),
-                                        ("basic", "basic"),
-                                        ("client_id_enforcement", "client_id_enforcement"),
-                                    ],
+                                    list(AUTH_MODE_OPTIONS),
                                     value=auth_mode,
                                     id="select___auth__mode",
                                 ),
@@ -196,7 +233,7 @@ class UIMixin:
                         yield ScrollableContainer(
                             Horizontal(
                                 Label("baseURL:", classes="field-label"),
-                                Input(self.full_config.get("baseURL", ""), id="input___baseURL"),
+                                Input(self.ui_config.get("baseURL", ""), id="input___baseURL"),
                                 classes="field-row",
                             ),
                             Horizontal(
@@ -210,16 +247,10 @@ class UIMixin:
                         )
 
                     with TabPane("K6", id="tab_k6"):
-                        k6_config = self.full_config.get("k6", {})
-                        execution_type = k6_config.get("executionType", "external executor")
-                        if execution_type not in [
-                            "external executor",
-                            "Spike Tests",
-                            "Constant VUs",
-                            "Constant Arrival Rate",
-                            "Ramping Arrival Rate",
-                        ]:
-                            execution_type = "external executor"
+                        k6_config = self.ui_config.get("k6", {})
+                        execution_type = k6_config.get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value)
+                        if execution_type not in EXECUTION_TYPES:
+                            execution_type = ExecutionType.EXTERNAL_EXECUTOR.value
                         k6_other_data = {
                             k: v
                             for k, v in k6_config.items()
@@ -236,7 +267,6 @@ class UIMixin:
                                 "preAllocatedVUs",
                                 "startRate",
                                 "rampingArrivalStages",
-                                "requestMode",
                             ]
                         }
 
@@ -244,13 +274,7 @@ class UIMixin:
                             Horizontal(
                                 Label("execution type:", classes="field-label"),
                                 Select(
-                                    [
-                                        ("external executor", "external executor"),
-                                        ("Spike Tests", "Spike Tests"),
-                                        ("Constant VUs", "Constant VUs"),
-                                        ("Constant Arrival Rate", "Constant Arrival Rate"),
-                                        ("Ramping Arrival Rate", "Ramping Arrival Rate"),
-                                    ],
+                                    list(EXECUTION_TYPE_OPTIONS),
                                     value=execution_type,
                                     id="select___k6__executionType",
                                 ),
@@ -338,7 +362,7 @@ class UIMixin:
                         )
 
                     with TabPane("Logging", id="tab_logging"):
-                        log_data = self.full_config.setdefault("k6", {}).setdefault("logging", {})
+                        log_data = self.ui_config.setdefault("k6", {}).setdefault("logging", {})
                         log_data.setdefault("htmlSummaryReport", False)
 
                         other_logging_data = {
@@ -361,11 +385,8 @@ class UIMixin:
                                 Switch(bool(log_data.get("enabled", False)), id="bool___k6__logging__enabled"),
                                 Label("level:", classes="field-label", id="logging_level_label"),
                                 Select(
-                                    [
-                                        (LOGGING_LEVEL_LABELS[level], level)
-                                        for level in LOGGING_LEVELS
-                                    ],
-                                    value=self._normalize_logging_level(log_data.get("level", "failed")),
+                                    list(LOGGING_LEVEL_OPTIONS),
+                                    value=self._normalize_logging_level(log_data.get("level", LOGGING_LEVEL_FAILED)),
                                     id="select___k6__logging__level",
                                 ),
                                 classes="field-row",

@@ -6,7 +6,7 @@ SCENARIO_PROGRESS_PATTERN = re.compile(
     r"^\s*[A-Za-z0-9_-]+\s+\[\s*\d+%\s*\]\s+\d+/\d+\s+VUs\s+\S+/\S+"
 )
 RUN_COMPLETE_PATTERN = re.compile(r"^\s*[A-Za-z0-9_-]+\s+\[\s*100%\s*\]\s+")
-HTTP_STATUS_PATTERN = re.compile(r"(?:\bStatus:\s*|\bstatus:\s*)(\d{3})")
+HTTP_STATUS_PATTERN = re.compile(r"(?:\bStatus:\s*|\bstatus:\s*)(\d+)")
 
 
 def clean_cursor_sequences(line: str) -> str:
@@ -37,6 +37,8 @@ def is_success_line(text: str) -> bool:
 
 
 def _bucket_http_status(status: int) -> str | None:
+    if status == 0:
+        return "status 0"
     if 400 <= status <= 499:
         return "4xx"
     if status == 500:
@@ -47,22 +49,37 @@ def _bucket_http_status(status: int) -> str | None:
 
 
 def get_fail_category(text: str) -> str | None:
-    if "Request Failed" in text and "EOF" in text:
-        return "EOF"
+    if "Request Failed" in text:
+        lowered = text.lower()
+        if "eof" in lowered:
+            return "EOF"
+        if any(pattern in lowered for pattern in ("context deadline exceeded", "timed out", "timeout")):
+            return "timeout"
+        if any(pattern in lowered for pattern in ("no such host", "name resolution", "dns")):
+            return "dns"
+        if "connection refused" in lowered:
+            return "connection refused"
+        if "reset by peer" in lowered or "connection reset" in lowered:
+            return "reset by peer"
+        if "tls" in lowered or "handshake" in lowered or "x509" in lowered:
+            return "tls/handshake"
+        return "other"
 
     if "Non-200" in text:
         status_match = HTTP_STATUS_PATTERN.search(text)
         if not status_match:
-            return None
+            return "transport/no_status"
 
         status = int(status_match.group(1))
-        return _bucket_http_status(status)
+        if status == 0:
+            return "transport/no_status"
+
+        category = _bucket_http_status(status)
+        if category:
+            return category
+        return "transport/no_status"
 
     return None
-
-
-def is_fail_line(text: str) -> bool:
-    return get_fail_category(text) is not None
 
 
 def is_run_complete_line(text: str) -> bool:

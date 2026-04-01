@@ -1,4 +1,8 @@
 import os
+import re
+import sys
+import builtins
+import importlib
 from pathlib import Path
 
 import pytest
@@ -6,17 +10,32 @@ import pytest
 from config_handler import ConfigHandler
 from constants import (
     DEFAULT_CONFIG,
+    AuthMode,
+    ExecutionType,
     HTTP_METHODS,
-    LOGGING_LEVEL_ALL,
-    LOGGING_LEVEL_FAILED,
     LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
 )
+
+
+def test_config_handler_import_fails_without_jsonschema(monkeypatch):
+    original_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "jsonschema":
+            raise ModuleNotFoundError("No module named 'jsonschema'")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    sys.modules.pop("config_handler", None)
+
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("config_handler")
 
 
 def _base_runtime() -> dict:
     return {
         "baseURL": "https://example.com",
-        "auth": {"mode": "none", "client_id": "", "client_secret": ""},
+        "auth": {"mode": AuthMode.NONE.value, "client_id": "", "client_secret": ""},
         "requestEndpoints": [
             {
                 "name": "Endpoint 1",
@@ -27,7 +46,7 @@ def _base_runtime() -> dict:
             }
         ],
         "k6": {
-            "executionType": "Constant VUs",
+            "executionType": ExecutionType.CONSTANT_VUS.value,
             "vus": 1,
             "duration": "10s",
             "thresholds": {"http_req_duration": ["p(95)<500"]},
@@ -42,7 +61,7 @@ def test_update_from_fields_builds_nested_payload_without_ui_types():
         "input___k6__vus": "10",
         "input___k6__spikeStages__0__target": "25",
         "textarea___requestEndpoints__0__body": '{"ok": true}',
-        "select___k6__executionType": "Constant VUs",
+        "select___k6__executionType": ExecutionType.CONSTANT_VUS.value,
     }
 
     updated = ConfigHandler.update_from_fields(config, fields)
@@ -51,14 +70,14 @@ def test_update_from_fields_builds_nested_payload_without_ui_types():
     assert updated["k6"]["vus"] == 10
     assert updated["k6"]["spikeStages"][0]["target"] == 25
     assert updated["requestEndpoints"][0]["body"] == {"ok": True}
-    assert updated["k6"]["executionType"] == "Constant VUs"
+    assert updated["k6"]["executionType"] == ExecutionType.CONSTANT_VUS.value
 
 
 def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
     ui_config = {
         "baseURL": "https://example.com",
         "auth": {
-            "mode": "client_id_enforcement",
+            "mode": AuthMode.CLIENT_ID_ENFORCEMENT.value,
             "client_id": "cid",
             "client_secret": "sec",
             "token_url": "should-be-removed",
@@ -75,7 +94,7 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
             },
         ],
         "k6": {
-            "executionType": "Constant VUs",
+            "executionType": ExecutionType.CONSTANT_VUS.value,
             "vus": 3,
             "duration": "10s",
             "rate": 100,
@@ -93,7 +112,7 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
 
     runtime = ConfigHandler.build_runtime_config(ui_config)
 
-    assert runtime["auth"]["mode"] == "client_id_enforcement"
+    assert runtime["auth"]["mode"] == AuthMode.CLIENT_ID_ENFORCEMENT.value
     assert "token_url" not in runtime["auth"]
     assert "scope" not in runtime["auth"]
     assert "rate" not in runtime["k6"]
@@ -121,10 +140,10 @@ def test_save_to_file_writes_json_to_target_file(tmp_path: Path):
 
 def test_validate_runtime_config_allows_auth_modes():
     valid_modes = [
-        ("none", {}),
-        ("basic", {"client_id": "cid", "client_secret": "sec"}),
+        (AuthMode.NONE.value, {}),
+        (AuthMode.BASIC.value, {"client_id": "cid", "client_secret": "sec"}),
         (
-            "oauth2_client_credentials",
+            AuthMode.OAUTH2_CLIENT_CREDENTIALS.value,
             {
                 "client_id": "cid",
                 "client_secret": "sec",
@@ -132,7 +151,7 @@ def test_validate_runtime_config_allows_auth_modes():
                 "scope": "read",
             },
         ),
-        ("client_id_enforcement", {"client_id": "cid", "client_secret": "sec"}),
+        (AuthMode.CLIENT_ID_ENFORCEMENT.value, {"client_id": "cid", "client_secret": "sec"}),
     ]
 
     for mode, auth_fields in valid_modes:
@@ -142,17 +161,11 @@ def test_validate_runtime_config_allows_auth_modes():
         assert not any(error.startswith("auth") for error in errors), (mode, errors)
 
 
-def test_build_runtime_config_migrates_legacy_use_oauth2_flag_to_mode():
-    runtime = ConfigHandler.build_runtime_config(
+def test_build_runtime_config_uses_none_when_auth_mode_is_missing_or_invalid():
+    runtime_missing_mode = ConfigHandler.build_runtime_config(
         {
             "baseURL": "https://example.com",
-            "auth": {
-                "useOAuth2": True,
-                "client_id": "cid",
-                "client_secret": "sec",
-                "token_url": "https://idp.example.com/token",
-                "scope": "read",
-            },
+            "auth": {"client_id": "cid", "client_secret": "sec"},
             "requestEndpoints": [
                 {
                     "name": "Endpoint 1",
@@ -163,21 +176,17 @@ def test_build_runtime_config_migrates_legacy_use_oauth2_flag_to_mode():
                 }
             ],
             "k6": {
-                "executionType": "Constant VUs",
+                "executionType": ExecutionType.CONSTANT_VUS.value,
                 "vus": 1,
                 "duration": "10s",
                 "thresholds": {},
             },
         }
     )
-    assert runtime["auth"]["mode"] == "oauth2_client_credentials"
-
-
-def test_build_runtime_config_migrates_legacy_basic_flag_to_mode():
-    runtime = ConfigHandler.build_runtime_config(
+    runtime_invalid_mode = ConfigHandler.build_runtime_config(
         {
             "baseURL": "https://example.com",
-            "auth": {"basicauth": True, "client_id": "cid", "client_secret": "sec"},
+            "auth": {"mode": "legacy_mode", "client_id": "cid", "client_secret": "sec"},
             "requestEndpoints": [
                 {
                     "name": "Endpoint 1",
@@ -188,49 +197,22 @@ def test_build_runtime_config_migrates_legacy_basic_flag_to_mode():
                 }
             ],
             "k6": {
-                "executionType": "Constant VUs",
+                "executionType": ExecutionType.CONSTANT_VUS.value,
                 "vus": 1,
                 "duration": "10s",
                 "thresholds": {},
             },
         }
     )
-    assert runtime["auth"]["mode"] == "basic"
 
-
-def test_build_runtime_config_migrates_legacy_client_id_enforcement_flag_to_mode():
-    runtime = ConfigHandler.build_runtime_config(
-        {
-            "baseURL": "https://example.com",
-            "auth": {
-                "ClientId_Enforcement": True,
-                "client_id": "cid",
-                "client_secret": "sec",
-            },
-            "requestEndpoints": [
-                {
-                    "name": "Endpoint 1",
-                    "method": "GET",
-                    "path": "/",
-                    "headers": {},
-                    "query": {},
-                }
-            ],
-            "k6": {
-                "executionType": "Constant VUs",
-                "vus": 1,
-                "duration": "10s",
-                "thresholds": {},
-            },
-        }
-    )
-    assert runtime["auth"]["mode"] == "client_id_enforcement"
+    assert runtime_missing_mode["auth"]["mode"] == AuthMode.NONE.value
+    assert runtime_invalid_mode["auth"]["mode"] == AuthMode.NONE.value
 
 
 def test_validate_runtime_config_requires_fields_per_auth_mode():
     runtime = _base_runtime()
     runtime["auth"] = {
-        "mode": "oauth2_client_credentials",
+        "mode": AuthMode.OAUTH2_CLIENT_CREDENTIALS.value,
         "client_id": "",
         "client_secret": "sec",
         "token_url": "bad",
@@ -274,7 +256,7 @@ def test_validate_runtime_config_rejects_invalid_urls_and_k6_values():
     assert any("k6.duration" in error for error in errors)
 
 
-def test_is_valid_http_url_public_contract():
+def test_http_url_validation_public_contract():
     assert ConfigHandler.is_valid_http_url("https://example.com")
     assert ConfigHandler.is_valid_http_url("http://localhost:5665/path?a=1")
     assert not ConfigHandler.is_valid_http_url("ftp://example.com")
@@ -282,19 +264,13 @@ def test_is_valid_http_url_public_contract():
     assert not ConfigHandler.is_valid_http_url(None)
 
 
-def test_is_valid_http_url_private_alias_kept_for_backward_compatibility():
-    assert ConfigHandler._is_valid_http_url("https://example.com") == ConfigHandler.is_valid_http_url(
-        "https://example.com"
-    )
-    assert ConfigHandler._is_valid_http_url("not-a-url") == ConfigHandler.is_valid_http_url("not-a-url")
-
 
 def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
     runtime = ConfigHandler.build_runtime_config(
         {
             "baseURL": "https://example.com",
             "auth": {
-                "mode": "oauth2_client_credentials",
+                "mode": AuthMode.OAUTH2_CLIENT_CREDENTIALS.value,
                 "client_id": "cid",
                 "client_secret": "sec",
                 "token_url": "https://idp.example.com/token",
@@ -310,7 +286,7 @@ def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
                 }
             ],
             "k6": {
-                "executionType": "Ramping Arrival Rate",
+                "executionType": ExecutionType.RAMPING_ARRIVAL_RATE.value,
                 "startRate": 5,
                 "timeUnit": "1s",
                 "preAllocatedVUs": 10,
@@ -335,6 +311,8 @@ def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
     assert "config.baseURL" in script
     assert "config.auth" in script
     assert "config.requestEndpoints" in script
+    assert re.search(r"\bconfig\.request\b", script) is None
+    assert "reqConfig" not in script
     assert "config.k6" in script
 
     for key in runtime["k6"]:
@@ -365,80 +343,23 @@ def test_validate_runtime_config_rejects_invalid_web_dashboard_url_when_enabled(
     assert any("k6.logging.webDashboardUrl" in error for error in errors)
 
 
-def test_build_runtime_config_normalizes_legacy_logging_level_to_canonical_wire_format():
+def test_build_runtime_config_preserves_canonical_logging_level_in_runtime_payload():
     runtime = ConfigHandler.build_runtime_config(
         {
             "baseURL": "https://example.com",
-            "auth": {"mode": "none"},
+            "auth": {"mode": AuthMode.NONE.value},
             "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
             "k6": {
-                "executionType": "Constant VUs",
+                "executionType": ExecutionType.CONSTANT_VUS.value,
                 "vus": 1,
                 "duration": "10s",
                 "thresholds": {"http_req_duration": ["p(95)<500"]},
-                "logging": {"enabled": True, "level": "Failures - without payloads"},
+                "logging": {"enabled": True, "level": LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS},
             },
         }
     )
 
     assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
-
-
-def test_build_runtime_config_falls_back_to_default_canonical_logging_level():
-    runtime = ConfigHandler.build_runtime_config(
-        {
-            "baseURL": "https://example.com",
-            "auth": {"mode": "none"},
-            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
-            "k6": {
-                "executionType": "Constant VUs",
-                "vus": 1,
-                "duration": "10s",
-                "thresholds": {"http_req_duration": ["p(95)<500"]},
-                "logging": {"enabled": True, "level": "INVALID"},
-            },
-        }
-    )
-
-    assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_FAILED
-
-
-def test_build_runtime_config_normalizes_logging_level_with_hyphens_to_canonical():
-    runtime = ConfigHandler.build_runtime_config(
-        {
-            "baseURL": "https://example.com",
-            "auth": {"mode": "none"},
-            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
-            "k6": {
-                "executionType": "Constant VUs",
-                "vus": 1,
-                "duration": "10s",
-                "thresholds": {"http_req_duration": ["p(95)<500"]},
-                "logging": {"enabled": True, "level": "failures-without-payloads"},
-            },
-        }
-    )
-
-    assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
-
-
-def test_build_runtime_config_normalizes_logging_level_with_spaces_to_canonical():
-    runtime = ConfigHandler.build_runtime_config(
-        {
-            "baseURL": "https://example.com",
-            "auth": {"mode": "none"},
-            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
-            "k6": {
-                "executionType": "Constant VUs",
-                "vus": 1,
-                "duration": "10s",
-                "thresholds": {"http_req_duration": ["p(95)<500"]},
-                "logging": {"enabled": True, "level": "  ALL  "},
-            },
-        }
-    )
-
-    assert runtime["k6"]["logging"]["level"] == LOGGING_LEVEL_ALL
 
 
 def test_validate_runtime_config_rejects_non_canonical_logging_level():
@@ -458,14 +379,14 @@ def test_validate_runtime_config_allows_zero_target_stages_for_spike_and_ramping
     runtime_spike = _base_runtime()
     runtime_spike["k6"] = {
         **base_k6,
-        "executionType": "Spike Tests",
+        "executionType": ExecutionType.SPIKE_TESTS.value,
         "spikeStages": [{"duration": "30s", "target": 0}],
     }
 
     runtime_ramping_arrival = _base_runtime()
     runtime_ramping_arrival["k6"] = {
         **base_k6,
-        "executionType": "Ramping Arrival Rate",
+        "executionType": ExecutionType.RAMPING_ARRIVAL_RATE.value,
         "startRate": 1,
         "timeUnit": "1s",
         "preAllocatedVUs": 5,
@@ -479,7 +400,7 @@ def test_validate_runtime_config_allows_zero_target_stages_for_spike_and_ramping
 def test_validate_runtime_config_rejects_invalid_stage_shape():
     runtime = _base_runtime()
     runtime["k6"] = {
-        "executionType": "Ramping Arrival Rate",
+        "executionType": ExecutionType.RAMPING_ARRIVAL_RATE.value,
         "startRate": 1,
         "timeUnit": "1s",
         "preAllocatedVUs": 5,
@@ -496,7 +417,7 @@ def test_validate_runtime_config_rejects_invalid_stage_shape():
 def test_validate_runtime_config_allows_zero_stage_target_for_spike_and_ramping_arrival():
     runtime = _base_runtime()
     runtime["k6"] = {
-        "executionType": "Spike Tests",
+        "executionType": ExecutionType.SPIKE_TESTS.value,
         "spikeStages": [{"duration": "20s", "target": 0}],
         "thresholds": {"http_req_duration": ["p(95)<500"]},
     }
@@ -504,7 +425,7 @@ def test_validate_runtime_config_allows_zero_stage_target_for_spike_and_ramping_
     assert ConfigHandler.validate_against_schema(runtime) == []
 
     runtime["k6"] = {
-        "executionType": "Ramping Arrival Rate",
+        "executionType": ExecutionType.RAMPING_ARRIVAL_RATE.value,
         "startRate": 1,
         "timeUnit": "1s",
         "preAllocatedVUs": 5,
@@ -518,7 +439,7 @@ def test_validate_runtime_config_allows_zero_stage_target_for_spike_and_ramping_
 def test_validate_runtime_config_and_schema_reject_negative_stage_target():
     runtime = _base_runtime()
     runtime["k6"] = {
-        "executionType": "Spike Tests",
+        "executionType": ExecutionType.SPIKE_TESTS.value,
         "spikeStages": [{"duration": "20s", "target": -1}],
         "thresholds": {"http_req_duration": ["p(95)<500"]},
     }
@@ -532,7 +453,7 @@ def test_validate_runtime_config_and_schema_reject_negative_stage_target():
 def test_schema_validation_accepts_minimal_and_full_runtime_configs():
     minimal_runtime = {
         "baseURL": "https://example.com",
-        "auth": {"mode": "none", "client_id": "", "client_secret": ""},
+        "auth": {"mode": AuthMode.NONE.value, "client_id": "", "client_secret": ""},
         "requestEndpoints": [
             {
                 "name": "Endpoint 1",
@@ -543,7 +464,7 @@ def test_schema_validation_accepts_minimal_and_full_runtime_configs():
             }
         ],
         "k6": {
-            "executionType": "Constant VUs",
+            "executionType": ExecutionType.CONSTANT_VUS.value,
             "vus": 1,
             "duration": "10s",
             "thresholds": {"http_req_duration": ["p(95)<500"]},
@@ -611,13 +532,10 @@ def test_validate_against_schema_returns_prefixed_errors_for_invalid_payload():
     assert all(error.startswith("schema[") for error in errors)
 
 
-def test_normalize_auth_mode_returns_none_when_multiple_legacy_flags_enabled():
-    assert (
-        ConfigHandler._normalize_auth_mode(
-            {"useOAuth2": True, "basicauth": True, "ClientId_Enforcement": False}
-        )
-        == "none"
-    )
+def test_normalize_auth_mode_ignores_legacy_auth_flags_without_mode():
+    assert ConfigHandler._normalize_auth_mode({"useOAuth2": True}) == "none"
+    assert ConfigHandler._normalize_auth_mode({"basicauth": True}) == "none"
+    assert ConfigHandler._normalize_auth_mode({"ClientId_Enforcement": True}) == "none"
 
 
 def test_build_logging_config_uses_normalize_logging_level_for_unknown_values(

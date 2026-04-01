@@ -1,85 +1,60 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import encoding from 'k6/encoding';
 import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 
 // === CONFIG ===
 const config = JSON.parse(open('./test_config.json'));
 const baseURL = config.baseURL || '';
-const reqConfig = config.request || {};
 const requestEndpointsRaw = Array.isArray(config.requestEndpoints) ? config.requestEndpoints : [];
 const authConfig = config.auth || {};
 const k6cfg = config.k6 || {};
-let logConfig = k6cfg.logging || { enabled: false, level: 'off' };
+let logConfig = k6cfg.logging || { enabled: false, level: 'failed' };
 
 // --- Normalize & validate logging config ---
 logConfig.enabled = String(logConfig.enabled).toLowerCase() === 'true' || logConfig.enabled === true;
 
-const LOG_LEVEL_OFF = 'off';
 const LOG_LEVEL_ALL = 'all';
 const LOG_LEVEL_FAILED = 'failed';
 const LOG_LEVEL_FAILED_WITHOUT_PAYLOADS = 'failed_without_payloads';
 const LOGGING_LEVELS = [LOG_LEVEL_ALL, LOG_LEVEL_FAILED, LOG_LEVEL_FAILED_WITHOUT_PAYLOADS];
 
 function normalizeLoggingLevel(rawLevel) {
-  const key = String(rawLevel || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
-
-  const aliases = {
-    all: LOG_LEVEL_ALL,
-    failed: LOG_LEVEL_FAILED,
-    failed_without_payloads: LOG_LEVEL_FAILED_WITHOUT_PAYLOADS,
-    failures_without_payloads: LOG_LEVEL_FAILED_WITHOUT_PAYLOADS,
-  };
-
-  return aliases[key] || LOG_LEVEL_OFF;
+  return String(rawLevel || '').trim();
 }
 
 logConfig.level = normalizeLoggingLevel(logConfig.level);
-if (!LOGGING_LEVELS.includes(logConfig.level)) {
-  logConfig.level = LOG_LEVEL_OFF;
+if (logConfig.enabled && !LOGGING_LEVELS.includes(logConfig.level)) {
+  throw new Error(`❌ Unsupported k6.logging.level: ${logConfig.level}`);
 }
+
+const AUTH_MODE_NONE = 'none';
+const AUTH_MODE_BASIC = 'basic';
+const AUTH_MODE_CLIENT_ID_ENFORCEMENT = 'client_id_enforcement';
+const AUTH_MODE_OAUTH2_CLIENT_CREDENTIALS = 'oauth2_client_credentials';
+const AUTH_MODES = [
+  AUTH_MODE_NONE,
+  AUTH_MODE_BASIC,
+  AUTH_MODE_CLIENT_ID_ENFORCEMENT,
+  AUTH_MODE_OAUTH2_CLIENT_CREDENTIALS,
+];
 
 function resolveAuthMode(auth) {
   const mode = String(auth.mode || '').trim();
-  if (mode) return mode;
-
-  const legacyModes = [
-    auth.useOAuth2 ? 'oauth2_client_credentials' : null,
-    auth.basicauth ? 'basic' : null,
-    auth.ClientId_Enforcement ? 'client_id_enforcement' : null,
-  ].filter(Boolean);
-
-  if (legacyModes.length === 1) return legacyModes[0];
-  if (legacyModes.length > 1) {
-    throw new Error('❌ Multiple legacy auth modes enabled simultaneously: ' + legacyModes.join(', '));
+  if (!mode) {
+    return AUTH_MODE_NONE;
   }
-  return 'none';
+  if (!AUTH_MODES.includes(mode)) {
+    throw new Error(`❌ Unsupported auth.mode: ${mode}`);
+  }
+  return mode;
 }
 
 const authMode = resolveAuthMode(authConfig);
 
-function encodingBase64(str) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-  let out = '', i = 0;
-  while (i < str.length) {
-    const chr1 = str.charCodeAt(i++), chr2 = str.charCodeAt(i++), chr3 = str.charCodeAt(i++);
-    const enc1 = chr1 >> 2;
-    const enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
-    const enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
-    const enc4 = chr3 & 63;
-    if (isNaN(chr2)) out += chars.charAt(enc1) + chars.charAt(enc2) + '==';
-    else if (isNaN(chr3)) out += chars.charAt(enc1) + chars.charAt(enc2) + chars.charAt(enc3) + '=';
-    else out += chars.charAt(enc1) + chars.charAt(enc2) + chars.charAt(enc3) + chars.charAt(enc4);
-  }
-  return out;
-}
-
 function normalizeEndpoints() {
-  const source = requestEndpointsRaw.length ? requestEndpointsRaw : [reqConfig];
-  return source
+  return requestEndpointsRaw
     .filter((endpoint) => endpoint && typeof endpoint === 'object')
     .slice(0, 5)
     .map((endpoint, index) => ({
@@ -93,6 +68,9 @@ function normalizeEndpoints() {
 }
 
 const requestEndpoints = normalizeEndpoints();
+if (requestEndpoints.length === 0) {
+  throw new Error('❌ config.requestEndpoints must contain at least one valid endpoint object.');
+}
 
 function buildQuery(queryConfig) {
   if (!queryConfig) return '';
@@ -122,9 +100,9 @@ function buildSingleRequest(endpoint, data, correlationId) {
   }
   headers['Correlation-Id'] = correlationId;
 
-  if (data.authType === 'basic' || data.authType === 'clientid_headers') {
+  if (data.authType === AUTH_MODE_BASIC || data.authType === AUTH_MODE_CLIENT_ID_ENFORCEMENT) {
     Object.assign(headers, data.authHeaders);
-  } else if (data.authType === 'oauth2') {
+  } else if (data.authType === AUTH_MODE_OAUTH2_CLIENT_CREDENTIALS) {
     headers['Authorization'] = data.authToken;
   }
 
@@ -277,26 +255,26 @@ export let options = {
 export function setup() {
   const headers = {};
 
-  if (authMode === 'none') {
+  if (authMode === AUTH_MODE_NONE) {
     console.log('🔓 Using no auth');
-    return { authType: 'none' };
+    return { authType: AUTH_MODE_NONE };
   }
 
-  if (authMode === 'basic') {
-    const encoded = encodingBase64(`${authConfig.client_id}:${authConfig.client_secret}`);
+  if (authMode === AUTH_MODE_BASIC) {
+    const encoded = encoding.b64encode(`${authConfig.client_id}:${authConfig.client_secret}`);
     headers['Authorization'] = `Basic ${encoded}`;
     console.log('🔐 Using Basic Auth');
-    return { authType: 'basic', authHeaders: headers };
+    return { authType: AUTH_MODE_BASIC, authHeaders: headers };
   }
 
-  if (authMode === 'client_id_enforcement') {
+  if (authMode === AUTH_MODE_CLIENT_ID_ENFORCEMENT) {
     headers['client_id'] = authConfig.client_id;
     headers['client_secret'] = authConfig.client_secret;
-    console.log('🔐 Using ClientId_Enforcement (client_id and client_secret in headers)');
-    return { authType: 'clientid_headers', authHeaders: headers };
+    console.log('🔐 Using client_id_enforcement (client_id and client_secret in headers)');
+    return { authType: AUTH_MODE_CLIENT_ID_ENFORCEMENT, authHeaders: headers };
   }
 
-  if (authMode !== 'oauth2_client_credentials') {
+  if (authMode !== AUTH_MODE_OAUTH2_CLIENT_CREDENTIALS) {
     throw new Error(`❌ Unsupported auth.mode: ${authMode}`);
   }
 
@@ -309,7 +287,7 @@ export function setup() {
   if (resp.status !== 200) throw new Error('❌ OAuth2 token request failed: ' + resp.status);
   const token = resp.json()['access_token'];
   console.log('🔐 Using OAuth2');
-  return { authType: 'oauth2', authToken: `Bearer ${token}` };
+  return { authType: AUTH_MODE_OAUTH2_CLIENT_CREDENTIALS, authToken: `Bearer ${token}` };
 }
 
 export default function (data) {

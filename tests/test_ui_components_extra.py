@@ -100,9 +100,9 @@ def test_build_config_fields_supports_multiline_and_bool_and_logging_level(monke
     assert ("Failed (without payloads)", LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS) in level_row.children[1].options
 
 
-def test_build_config_fields_normalizes_legacy_logging_level_for_select_value(monkeypatch):
+def test_build_config_fields_uses_canonical_logging_level_for_select_value(monkeypatch):
     _patch_ui_components(monkeypatch)
-    fields = uc.build_config_fields({"level": "Failures - without payloads"}, "k6.logging")
+    fields = uc.build_config_fields({"level": LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS}, "k6.logging")
     level_row = fields[0]
     assert level_row.children[1].value == LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS
 

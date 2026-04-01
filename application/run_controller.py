@@ -3,6 +3,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from config_handler import ConfigHandler
+from constants import DEFAULT_CONFIG_PATH
+from k6.backends import ExecutionCapabilities
 from k6.service import K6Service
 
 
@@ -11,12 +13,14 @@ class RunCallbacks:
     on_log: Callable[[str], None]
     on_status: Callable[[str], None]
     on_run_state_changed: Callable[[bool], None]
+    on_capabilities_changed: Callable[[ExecutionCapabilities], None] | None = None
 
 
 class RunController:
-    def __init__(self, k6_service: K6Service, config_path: str = "test_config.json") -> None:
+    def __init__(self, k6_service: K6Service, config_path: str = DEFAULT_CONFIG_PATH) -> None:
         self.k6_service = k6_service
         self.config_path = config_path
+        self.execution_capabilities = self.k6_service.get_execution_capabilities()
 
     @property
     def is_running(self) -> bool:
@@ -25,12 +29,18 @@ class RunController:
     def save_config(self, config: dict) -> None:
         ConfigHandler.save_to_file(config, filename=self.config_path)
 
+    def resolve_capabilities(self, config: dict | None = None) -> ExecutionCapabilities:
+        capabilities = self.k6_service.resolve_capabilities(config)
+        self.execution_capabilities = capabilities
+        return capabilities
+
     async def start_run(self, config: dict, callbacks: RunCallbacks):
         if self.is_running:
             callbacks.on_status("[bold red]⛔ k6 is already running. Wait for the current run to finish.[/bold red]")
             callbacks.on_log("[bold red]⛔ Re-run blocked: test is already in progress.[/bold red]\n")
             return
 
+        self._notify_capabilities_changed(callbacks, self.resolve_capabilities(config))
         self._notify_run_state_changed(callbacks, True)
         run_task_coro = None
         try:
@@ -57,7 +67,7 @@ class RunController:
             raise
 
     async def stop_run(self):
-        await self.k6_service.stop_k6_process()
+        return await self.k6_service.stop_k6_process()
 
     async def scale(self, vus: int, on_log: Callable[[str], None]):
         return await self.k6_service.set_vus(vus, on_log)
@@ -65,6 +75,15 @@ class RunController:
     def _notify_run_state_changed(self, callbacks: RunCallbacks, running: bool) -> None:
         try:
             callbacks.on_run_state_changed(running)
+        except Exception:
+            # UI can already be unmounted during shutdown; state callback is best-effort.
+            pass
+
+    def _notify_capabilities_changed(self, callbacks: RunCallbacks, capabilities: ExecutionCapabilities) -> None:
+        if callbacks.on_capabilities_changed is None:
+            return
+        try:
+            callbacks.on_capabilities_changed(capabilities)
         except Exception:
             # UI can already be unmounted during shutdown; state callback is best-effort.
             pass

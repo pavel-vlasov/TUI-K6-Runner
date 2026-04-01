@@ -1,10 +1,13 @@
 # TUI-K6-Runner
 
 [![Quality Pipeline](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Lint](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=lint&label=Lint)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=tests&label=Tests)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=coverage&label=Coverage)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
-[![Security](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=security&label=Security)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Lint](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Lint&label=Lint)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests Summary](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20Summary&label=Tests%20(summary))](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests Ubuntu](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20Ubuntu&label=Tests%20ubuntu)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests Windows](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20Windows&label=Tests%20windows)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Tests macOS](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Tests%20macOS&label=Tests%20macos)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Coverage&label=Coverage)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Security](https://img.shields.io/github/actions/workflow/status/pavel-vlasov/TUI-K6-Runner/ci.yml?branch=main&event=push&job=Security&label=Security)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
 [![Python version](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/downloads/release/python-3110/)
 
 <img width="1102" height="618" alt="image" src="https://github.com/user-attachments/assets/c4d43c8a-66bf-4ee4-aac3-feb11462fb2d" />
@@ -12,6 +15,13 @@
 <img width="1118" height="677" alt="image" src="https://github.com/user-attachments/assets/3cef3d48-81fd-4fc7-83ee-445371efc5dc" />
 
 <img width="1118" height="682" alt="image" src="https://github.com/user-attachments/assets/e05ea0ed-60fe-4cd5-bc42-3d5e529745af" />
+
+## CI test badges
+
+- `Tests Summary` badge → job `Tests Summary` (`tests-summary`): строгий агрегирующий гейт; падает, если упал `tests-smoke` или хотя бы один matrix-runner в `tests`.
+- `Tests Ubuntu` badge → job-name `Tests Ubuntu` (матрица `tests`, `matrix.os=ubuntu-latest`).
+- `Tests Windows` badge → job-name `Tests Windows` (матрица `tests`, `matrix.os=windows-latest`).
+- `Tests macOS` badge → job-name `Tests macOS` (матрица `tests`, `matrix.os=macos-latest`).
 
 ## How to use
 
@@ -50,7 +60,7 @@ This project uses **pip-tools** as a single source of truth for dependencies.
 
 Lock files must be generated only with the canonical toolchain below:
 
-- `pip==25.0.1`
+- `pip==26.0`
 - `pip-tools==7.4.1`
 
 These versions are pinned in `requirements-lock-tools.txt` and are validated in CI (version print + lock regeneration drift check).
@@ -71,11 +81,33 @@ Then install with:
 pip install --require-hashes -r requirements-dev.txt
 ```
 
+
+## Lint baseline and rollout plan
+
+Ruff linting now uses an expanded baseline in `[tool.ruff.lint].select`:
+
+- `E`, `F`
+- `B` (bugbear)
+- `I` (isort)
+- `UP` (pyupgrade)
+- `SIM` (flake8-simplify)
+- `C4` (flake8-comprehensions)
+- `ASYNC` (async anti-patterns)
+- `RUF` (ruff-specific checks)
+
+To avoid breaking CI in a single change, Phase 1 keeps a minimal temporary ignore list in `pyproject.toml` (including `E501` for now).
+
+Rollout strategy:
+
+1. Enable the full rule families above with the temporary baseline ignore list.
+2. Reduce `ignore` in small, focused PRs (for example: import sorting first, then simplify/pyupgrade rules).
+3. Remove `E501` after targeted line-wrap cleanup and keep line-length enforcement fully enabled.
+
 ## Coverage policy
 
-- CI workflow `Coverage` запускает `pytest` с `--cov-fail-under=80`.
+- CI workflow `Coverage` запускает `pytest` с генерацией `coverage.xml`, но не валит job из-за упавших тестов в этом шаге.
 - Порог также централизован в `.coveragerc` (`[report] fail_under = 80`) для локального и CI запуска с единым значением.
-- Если итоговое покрытие ниже 80%, шаг Coverage завершается с ошибкой, и весь workflow получает статус **failed**.
+- Если итоговое покрытие ниже 80%, шаг Coverage завершается с ошибкой, и весь workflow получает статус **failed** (именно по проценту покрытия).
 
 ## Architecture note
 
@@ -87,10 +119,49 @@ The launch bootstrap is now in `main.py` only. The main UI and application behav
 
 Please make future UI changes in these modules, not in legacy monolithic entrypoint implementations.
 
+### Config flow in the app
+
+- `ui_config` хранит актуальное состояние полей UI (read/write модель для экранов и миксинов).
+- `runtime_config` строится из `ui_config` только перед валидацией/запуском и содержит финальный конфиг, который уходит в k6.
+- В кодовой базе используется только имя `ui_config` для UI-модели конфигурации.
+
 ## Config schema
 
 В проект добавлена JSON Schema: `schema/test_config.schema.json`.
 Она описывает обязательные поля рантайм-конфига, enum-значения (например, `auth.mode`, `requestEndpoints[].method`, `k6.executionType`, `k6.logging.level`) и условные требования для разных режимов запуска.
+
+Пример секции `auth` в JSON-конфиге (только через `auth.mode`):
+
+```json
+{
+  "auth": {
+    "mode": "oauth2_client_credentials",
+    "client_id": "my-client",
+    "client_secret": "my-secret",
+    "token_url": "https://idp.example.com/oauth2/token",
+    "scope": "read write"
+  }
+}
+```
+
+Поддерживаются только канонические значения `auth.mode`: `none`, `basic`, `client_id_enforcement`, `oauth2_client_credentials`.
+
+Пример секции `k6.logging` (только канонические `level`):
+
+```json
+{
+  "k6": {
+    "logging": {
+      "enabled": true,
+      "level": "failed_without_payloads",
+      "outputToUI": true,
+      "webDashboard": false,
+      "webDashboardUrl": "http://localhost:5665",
+      "htmlSummaryReport": false
+    }
+  }
+}
+```
 
 ### Logging warnings
 
