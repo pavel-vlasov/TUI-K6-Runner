@@ -113,12 +113,18 @@ class RequestMixin:
 
         removed_index = len(existing_tabs) - 1
         last_tab = existing_tabs[-1]
-        request_subtabs.remove_pane(last_tab.id)
+        removal_result = request_subtabs.remove_pane(last_tab.id)
+        if hasattr(removal_result, "__await__"):
+            await removal_result
+
         remaining_endpoints = self.get_request_endpoints()[:removed_index]
         self.ui_config["requestEndpoints"] = remaining_endpoints
 
         await self._rebuild_request_subtabs(remaining_endpoints)
-        request_subtabs.active = self.request_endpoint_tab_id(removed_index - 1)
+        new_active_index = max(0, len(remaining_endpoints) - 1)
+        new_active_tab_id = self.request_endpoint_tab_id(new_active_index)
+        if any(pane.id == new_active_tab_id for pane in self._get_request_tab_panes()):
+            request_subtabs.active = new_active_tab_id
         await self.rebuild_k6_scenario_tabs()
 
     async def _rebuild_request_subtabs(self, request_endpoints: list[dict]) -> None:

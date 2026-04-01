@@ -23,9 +23,10 @@ class ImmutableIdDummyTabPane(DummyTabPane):
 
 
 class DummyTabbedContent:
-    def __init__(self, panes):
+    def __init__(self, panes, async_remove=False):
         self._panes = panes
         self.active = None
+        self.async_remove = async_remove
 
     def query(self, _kind):
         return self._panes
@@ -34,15 +35,21 @@ class DummyTabbedContent:
         self._panes.append(pane)
 
     def remove_pane(self, pane_id):
+        if self.async_remove:
+            async def _remove_async():
+                self._panes = [pane for pane in self._panes if pane.id != pane_id]
+
+            return _remove_async()
+
         self._panes = [pane for pane in self._panes if pane.id != pane_id]
 
 
 class DummyRequestUI(RequestMixin):
-    def __init__(self, ui_config, pane_count=1):
+    def __init__(self, ui_config, pane_count=1, async_remove=False):
         self.ui_config = ui_config
         self.notifications = []
         panes = [DummyTabPane(f"tab_req_endpoint_{i}", title=f"Endpoint {i + 1}") for i in range(pane_count)]
-        self.request_subtabs = DummyTabbedContent(panes)
+        self.request_subtabs = DummyTabbedContent(panes, async_remove=async_remove)
         self.scenario_subtabs = DummyTabbedContent(
             [DummyTabPane(f"k6_scenario_{i}", title=f"Endpoint {i + 1}") for i in range(pane_count)]
         )
@@ -138,6 +145,27 @@ def test_remove_last_request_endpoint_tab_sets_previous_active():
 
     assert len(ui.request_subtabs._panes) == 2
     assert ui.request_subtabs.active == "tab_req_endpoint_1"
+    assert ui.rebuild_k6_scenario_tabs_calls == 1
+
+
+def test_remove_last_request_endpoint_tab_uses_remaining_endpoints_length_for_active_tab():
+    ui = DummyRequestUI(
+        {
+            "requestEndpoints": [
+                {"name": "Endpoint 1", "path": "/1"},
+                "stale-endpoint",
+                None,
+            ]
+        },
+        pane_count=3,
+        async_remove=True,
+    )
+
+    asyncio.run(ui.remove_last_request_endpoint_tab())
+
+    assert len(ui.request_subtabs._panes) == 1
+    assert ui.request_subtabs.active == "tab_req_endpoint_0"
+    assert len(ui.ui_config["requestEndpoints"]) == 1
     assert ui.rebuild_k6_scenario_tabs_calls == 1
 
 
