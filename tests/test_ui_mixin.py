@@ -33,6 +33,20 @@ class DummyWidget:
         self.renderable = value
 
 
+class DummyPane:
+    def __init__(self, pane_id):
+        self.id = pane_id
+
+
+class DummyK6ModeSubtabs:
+    def __init__(self, active="tab_k6_batch", pane_ids=None):
+        self.active = active
+        self._panes = [DummyPane(pane_id) for pane_id in (pane_ids or [])]
+
+    def query(self, _kind):
+        return self._panes
+
+
 class DummyRequestSubtabs:
     def __init__(self):
         self.added_panes = []
@@ -107,7 +121,10 @@ class DummyUI(UIMixin):
         }
         self.execution_select = DummyValueWidget(execution_type)
         self.request_mode_select = DummyValueWidget("batch")
-        self.k6_request_mode_subtabs = type("Tabs", (), {"active": "tab_k6_batch"})()
+        self.k6_request_mode_subtabs = DummyK6ModeSubtabs(
+            active="tab_k6_batch",
+            pane_ids=["tab_k6_batch", "tab_k6_scenarios"],
+        )
         self.execution_rows = {
             "#k6_vus_row": DummyRow(),
             "#k6_maxvus_row": DummyRow(),
@@ -353,6 +370,30 @@ def test_update_k6_request_mode_ui_switches_between_batch_and_scenarios():
     ui.request_mode_select.value = "batch"
     ui.update_k6_request_mode_ui()
     assert ui.k6_request_mode_subtabs.active == "tab_k6_batch"
+
+
+def test_update_k6_request_mode_ui_notifies_when_mode_value_blank_like():
+    ui = DummyUI(web_dashboard_enabled=False)
+
+    ui.request_mode_select.value = object()
+    ui.update_k6_request_mode_ui()
+
+    assert ui.k6_request_mode_subtabs.active == "tab_k6_batch"
+    assert ui.notifications == []
+
+
+def test_update_k6_request_mode_ui_notifies_when_target_tab_is_missing():
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.k6_request_mode_subtabs = DummyK6ModeSubtabs(active="tab_k6_batch", pane_ids=["tab_k6_batch"])
+
+    ui.request_mode_select.value = "scenarios"
+    ui.update_k6_request_mode_ui()
+
+    assert ui.k6_request_mode_subtabs.active == "tab_k6_batch"
+    assert ui.notifications[-1] == (
+        "warning",
+        "Expected k6 request mode tab 'tab_k6_scenarios' was not found.",
+    )
 
 
 async def _run_rebuild(ui):
