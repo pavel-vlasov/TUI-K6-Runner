@@ -231,7 +231,7 @@ def test_build_external_k6_command_windows_uses_powershell_env_syntax(monkeypatc
     assert "$env:K6_WEB_DASHBOARD_OPEN='false';" in command
     assert "$env:K6_WEB_DASHBOARD_HOST='127.0.0.1';" in command
     assert "$env:K6_WEB_DASHBOARD_PORT='7777';" in command
-    assert "'k6' 'run' 'test.js'" in command
+    assert "& 'k6' 'run' 'test.js'" in command
 
 
 def test_build_external_k6_command_posix_quotes_web_dashboard_out_as_single_token(tmp_path):

@@ -140,7 +140,7 @@ class ExternalTerminalBackend(ExecutionBackend):
             command_parts.extend(["--summary-export", str(summary_json_path)])
 
         if shell_type == "powershell":
-            command_text = " ".join(_powershell_quote(part) for part in command_parts)
+            command_text = "& " + " ".join(_powershell_quote(part) for part in command_parts)
             if not env_parts:
                 return command_text
             env_commands = [f"$env:{name}={_powershell_quote(value)};" for name, value in env_parts]
