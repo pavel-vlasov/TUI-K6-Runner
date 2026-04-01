@@ -28,8 +28,8 @@ class EventsMixin:
         if event.select.id == "select___k6__executionType":
             self.toggle_execution_type_fields()
         if event.select.id == "select___k6__requestMode":
-            self.update_k6_request_mode_ui()
             await self.rebuild_k6_scenario_tabs()
+            self.update_k6_request_mode_ui()
         if event.select.id == "select___auth__mode":
             self.toggle_auth_fields()
         if event.select.id == "select___k6__logging__outputToUI":
