@@ -377,6 +377,48 @@ def test_rebuild_k6_scenario_tabs_matches_endpoint_count():
     assert ui.execution_rows["#ramping_arrival_scroll_group"].styles.display == "none"
 
 
+def test_rebuild_k6_scenario_tabs_waits_for_removals_before_adding():
+    import asyncio
+
+    class AsyncRemovalSubtabs(DummyRequestSubtabs):
+        def __init__(self):
+            super().__init__()
+            self.pending_removals = set()
+
+        def remove_pane(self, pane_id):
+            self.pending_removals.add(pane_id)
+
+            async def _remove():
+                await asyncio.sleep(0)
+                self.pending_removals.discard(pane_id)
+                self.added_panes = [pane for pane in self.added_panes if pane.get("id") != pane_id]
+
+            return _remove()
+
+        async def add_pane(self, pane):
+            pane_id = pane.get("id")
+            existing_ids = {existing.get("id") for existing in self.added_panes}
+            if pane_id in existing_ids or pane_id in self.pending_removals:
+                raise RuntimeError(f"duplicate pane id: {pane_id}")
+            await super().add_pane(pane)
+
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.k6_scenario_subtabs = AsyncRemovalSubtabs()
+    ui.k6_scenario_subtabs.added_panes = [
+        {"id": "k6_scenario_0", "endpoint_data": {"name": "Old A"}},
+        {"id": "k6_scenario_1", "endpoint_data": {"name": "Old B"}},
+    ]
+    ui.k6_scenario_subtabs.active = "k6_scenario_1"
+    ui.request_endpoints = [{"name": "New A"}, {"name": "New B"}]
+
+    asyncio.run(_run_rebuild(ui))
+
+    pane_ids = [pane["id"] for pane in ui.k6_scenario_subtabs.added_panes]
+    assert pane_ids == ["k6_scenario_0", "k6_scenario_1"]
+    assert len(set(pane_ids)) == len(pane_ids)
+    assert ui.k6_scenario_subtabs.active == "k6_scenario_1"
+
+
 def test_toggle_execution_type_fields_for_constant_vus():
     ui = DummyUI(web_dashboard_enabled=False, execution_type=ExecutionType.CONSTANT_VUS.value)
     ui.execution_select.value = ExecutionType.CONSTANT_VUS.value
