@@ -148,13 +148,22 @@ def test_remove_last_request_endpoint_tab_sets_previous_active():
     assert ui.rebuild_k6_scenario_tabs_calls == 1
 
 
-def test_remove_last_request_endpoint_tab_uses_remaining_endpoints_length_for_active_tab():
-    ui = DummyRequestUI(
+def test_remove_last_request_endpoint_tab_removes_only_last_endpoint_from_ui_snapshot():
+    class SnapshotRequestUI(DummyRequestUI):
+        def _collect_ui_field_values(self):
+            return {
+                "input___requestEndpoints__0__name": "Endpoint 1",
+                "input___requestEndpoints__0__path": "/one",
+                "input___requestEndpoints__1__name": "Endpoint 2",
+                "input___requestEndpoints__1__path": "/two",
+                "input___requestEndpoints__2__name": "Endpoint 3",
+                "input___requestEndpoints__2__path": "/three",
+            }
+
+    ui = SnapshotRequestUI(
         {
             "requestEndpoints": [
-                {"name": "Endpoint 1", "path": "/1"},
-                "stale-endpoint",
-                None,
+                {"name": "Old 1", "path": "/old-1"},
             ]
         },
         pane_count=3,
@@ -163,9 +172,12 @@ def test_remove_last_request_endpoint_tab_uses_remaining_endpoints_length_for_ac
 
     asyncio.run(ui.remove_last_request_endpoint_tab())
 
-    assert len(ui.request_subtabs._panes) == 1
-    assert ui.request_subtabs.active == "tab_req_endpoint_0"
-    assert len(ui.ui_config["requestEndpoints"]) == 1
+    assert len(ui.request_subtabs._panes) == 2
+    assert ui.request_subtabs.active == "tab_req_endpoint_1"
+    assert ui.ui_config["requestEndpoints"] == [
+        {"name": "Endpoint 1", "path": "/one"},
+        {"name": "Endpoint 2", "path": "/two"},
+    ]
     assert ui.rebuild_k6_scenario_tabs_calls == 1
 
 
