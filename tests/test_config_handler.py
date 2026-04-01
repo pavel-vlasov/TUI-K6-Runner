@@ -327,6 +327,7 @@ def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
             ],
             "k6": {
                 "executionType": ExecutionType.RAMPING_ARRIVAL_RATE.value,
+                "requestMode": REQUEST_MODE_SCENARIOS,
                 "startRate": 5,
                 "timeUnit": "1s",
                 "preAllocatedVUs": 10,
@@ -354,6 +355,7 @@ def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
     assert re.search(r"\bconfig\.request\b", script) is None
     assert "reqConfig" not in script
     assert "config.k6" in script
+    assert "k6cfg.requestMode" in script
 
     for key in runtime["k6"]:
         if key == "logging":
