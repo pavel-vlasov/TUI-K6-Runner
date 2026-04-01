@@ -186,11 +186,16 @@ Response Headers: ${JSON.stringify(res.headers, null, 2)}
 }
 
 const executionType = k6cfg.executionType || 'external executor';
-const spikeStages = Array.isArray(k6cfg.spikeStages) ? k6cfg.spikeStages : [];
 
 function buildBaseScenario() {
-  if (executionType === 'Spike Tests') {
-    const stages = spikeStages
+  return buildBaseScenarioFromConfig(k6cfg);
+}
+
+function buildBaseScenarioFromConfig(scenarioConfig) {
+  const cfg = scenarioConfig || {};
+  const scenarioExecutionType = cfg.executionType || executionType;
+  if (scenarioExecutionType === 'Spike Tests') {
+    const stages = (Array.isArray(cfg.spikeStages) ? cfg.spikeStages : [])
       .map((stage) => ({
         duration: String((stage && stage.duration) || '').trim(),
         target: Number(stage && stage.target),
@@ -206,27 +211,27 @@ function buildBaseScenario() {
     };
   }
 
-  if (executionType === 'Constant VUs') {
+  if (scenarioExecutionType === 'Constant VUs') {
     return {
       executor: 'constant-vus',
-      vus: Number(k6cfg.vus) || 1,
-      duration: String(k6cfg.duration || '60s'),
+      vus: Number(cfg.vus) || 1,
+      duration: String(cfg.duration || '60s'),
     };
   }
 
-  if (executionType === 'Constant Arrival Rate') {
+  if (scenarioExecutionType === 'Constant Arrival Rate') {
     return {
       executor: 'constant-arrival-rate',
-      rate: Number(k6cfg.rate) || 10,
-      timeUnit: String(k6cfg.timeUnit || '1s'),
-      duration: String(k6cfg.duration || '60s'),
-      preAllocatedVUs: Number(k6cfg.preAllocatedVUs) || 10,
-      maxVUs: Number(k6cfg.maxVUs) || 50,
+      rate: Number(cfg.rate) || 10,
+      timeUnit: String(cfg.timeUnit || '1s'),
+      duration: String(cfg.duration || '60s'),
+      preAllocatedVUs: Number(cfg.preAllocatedVUs) || 10,
+      maxVUs: Number(cfg.maxVUs) || 50,
     };
   }
 
-  if (executionType === 'Ramping Arrival Rate') {
-    const stages = (Array.isArray(k6cfg.rampingArrivalStages) ? k6cfg.rampingArrivalStages : [])
+  if (scenarioExecutionType === 'Ramping Arrival Rate') {
+    const stages = (Array.isArray(cfg.rampingArrivalStages) ? cfg.rampingArrivalStages : [])
       .map((stage) => ({
         duration: String((stage && stage.duration) || '').trim(),
         target: Number(stage && stage.target),
@@ -236,19 +241,19 @@ function buildBaseScenario() {
 
     return {
       executor: 'ramping-arrival-rate',
-      startRate: Number(k6cfg.startRate) || 1,
-      timeUnit: String(k6cfg.timeUnit || '1s'),
-      preAllocatedVUs: Number(k6cfg.preAllocatedVUs) || 10,
-      maxVUs: Number(k6cfg.maxVUs) || 50,
+      startRate: Number(cfg.startRate) || 1,
+      timeUnit: String(cfg.timeUnit || '1s'),
+      preAllocatedVUs: Number(cfg.preAllocatedVUs) || 10,
+      maxVUs: Number(cfg.maxVUs) || 50,
       stages: stages.length ? stages : [{ duration: '30s', target: 10 }],
     };
   }
 
   return {
     executor: 'externally-controlled',
-    vus: k6cfg.vus || 1,
-    maxVUs: k6cfg.maxVUs || 50,
-    duration: k6cfg.duration || '60s',
+    vus: cfg.vus || 1,
+    maxVUs: cfg.maxVUs || 50,
+    duration: cfg.duration || '60s',
   };
 }
 
@@ -264,10 +269,15 @@ function buildScenarios() {
   }
 
   const scenarios = {};
+  const scenarioConfigs = Array.isArray(k6cfg.scenarios) ? k6cfg.scenarios : [];
   requestEndpoints.forEach((endpoint, index) => {
     const safeName = `endpoint_${index + 1}`;
+    const mergedScenarioConfig = {
+      ...k6cfg,
+      ...(scenarioConfigs[index] && typeof scenarioConfigs[index] === 'object' ? scenarioConfigs[index] : {}),
+    };
     scenarios[safeName] = {
-      ...baseScenario,
+      ...(index === 0 ? baseScenario : buildBaseScenarioFromConfig(mergedScenarioConfig)),
       exec: `runScenarioEndpoint${index + 1}`,
       tags: { endpoint: endpoint.name || `Endpoint ${index + 1}` },
     };

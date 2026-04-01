@@ -218,6 +218,7 @@ class ConfigHandler:
             "executionType": execution_type,
             "thresholds": source.get("thresholds", {}),
             "logging": ConfigHandler._build_logging_config(source.get("logging", {})),
+            "scenarios": source.get("scenarios", []) if isinstance(source.get("scenarios", []), list) else [],
         }
 
         if execution_type == ExecutionType.SPIKE_TESTS.value:
@@ -351,6 +352,10 @@ class ConfigHandler:
         if execution_type not in EXECUTION_TYPES:
             errors.append(f"k6.executionType is invalid: {execution_type}.")
             return errors
+
+        scenarios = source.get("scenarios", [])
+        if scenarios is not None and not isinstance(scenarios, list):
+            errors.append("k6.scenarios must be a list when provided.")
 
         for field, rule_type in mode_rules[execution_type]:
             if field not in source:

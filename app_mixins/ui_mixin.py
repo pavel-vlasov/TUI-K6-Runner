@@ -127,10 +127,16 @@ class UIMixin:
             return
 
         request_mode = str(k6_mode_select.value or self.get_request_mode())
-        endpoint_names = [
-            str(endpoint.get("name", f"Endpoint {index + 1}")).strip() or f"Endpoint {index + 1}"
-            for index, endpoint in enumerate(self.get_request_endpoints())
-        ]
+        endpoint_names: list[str] = []
+        request_panes = self._get_request_tab_panes()
+        for index, pane in enumerate(request_panes):
+            fallback_name = f"Endpoint {index + 1}"
+            try:
+                endpoint_name_input = self.query_one(f"#input___requestEndpoints__{index}__name", Input)
+                endpoint_name = str(endpoint_name_input.value).strip() or fallback_name
+            except Exception:
+                endpoint_name = fallback_name
+            endpoint_names.append(endpoint_name)
         if not endpoint_names:
             endpoint_names = ["Endpoint 1"]
 
@@ -349,14 +355,119 @@ class UIMixin:
                 ScrollableContainer(*self.build_k6_settings_fields(), classes="tab-container"),
                 id=f"tab_k6_scenario_{index}",
             )
+        scenario_config = self.get_additional_scenario_config(index)
+        scenario_other_data = {
+            key: value
+            for key, value in scenario_config.items()
+            if key
+            not in {
+                "executionType",
+                "vus",
+                "maxVUs",
+                "duration",
+                "rate",
+                "timeUnit",
+                "preAllocatedVUs",
+                "startRate",
+            }
+        }
         return TabPane(
             tab_title,
             ScrollableContainer(
-                Static("Scenario is linked to this endpoint automatically.", classes="field-row"),
+                Horizontal(
+                    Label("execution type:", classes="field-label"),
+                    Select(
+                        list(EXECUTION_TYPE_OPTIONS),
+                        value=scenario_config.get(
+                            "executionType",
+                            ExecutionType.EXTERNAL_EXECUTOR.value,
+                        ),
+                        id=f"select___k6__scenarios__{index}__executionType",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("vus:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("vus", "")),
+                        id=f"input___k6__scenarios__{index}__vus",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("maxVUs:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("maxVUs", "")),
+                        id=f"input___k6__scenarios__{index}__maxVUs",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("duration:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("duration", "")),
+                        id=f"input___k6__scenarios__{index}__duration",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("rate:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("rate", "")),
+                        id=f"input___k6__scenarios__{index}__rate",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("timeUnit:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("timeUnit", "")),
+                        id=f"input___k6__scenarios__{index}__timeUnit",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("preAllocatedVUs:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("preAllocatedVUs", "")),
+                        id=f"input___k6__scenarios__{index}__preAllocatedVUs",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("startRate:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("startRate", "")),
+                        id=f"input___k6__scenarios__{index}__startRate",
+                    ),
+                    classes="field-row",
+                ),
+                *build_config_fields(scenario_other_data, f"k6.scenarios.{index}"),
                 classes="tab-container",
             ),
             id=f"tab_k6_scenario_{index}",
         )
+
+    def get_additional_scenario_config(self, index: int) -> dict:
+        root_k6 = self.ui_config.get("k6", {})
+        scenarios = root_k6.setdefault("scenarios", [])
+        while len(scenarios) <= index:
+            scenarios.append(
+                {
+                    "executionType": root_k6.get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value),
+                    "vus": root_k6.get("vus", 1),
+                    "maxVUs": root_k6.get("maxVUs", 50),
+                    "duration": root_k6.get("duration", "60s"),
+                    "rate": root_k6.get("rate", 10),
+                    "timeUnit": root_k6.get("timeUnit", "1s"),
+                    "preAllocatedVUs": root_k6.get("preAllocatedVUs", 10),
+                    "startRate": root_k6.get("startRate", 1),
+                    "spikeStages": root_k6.get("spikeStages", [{"duration": "30s", "target": 10}]),
+                    "rampingArrivalStages": root_k6.get("rampingArrivalStages", [{"duration": "30s", "target": 10}]),
+                }
+            )
+        scenario_cfg = scenarios[index]
+        return scenario_cfg if isinstance(scenario_cfg, dict) else {}
 
     def compose(self) -> ComposeResult:
         yield Header()
