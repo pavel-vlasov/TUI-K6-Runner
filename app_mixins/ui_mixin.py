@@ -143,7 +143,15 @@ class UIMixin:
         except Exception:
             return
 
-        k6_subtabs.active = "tab_k6_scenarios" if request_mode == "scenarios" else "tab_k6_batch"
+        target_tab = "tab_k6_scenarios" if request_mode == "scenarios" else "tab_k6_batch"
+        tab_panes = [pane for pane in k6_subtabs.query(TabPane) if pane.id]
+        tab_pane_ids = {pane.id for pane in tab_panes}
+        if target_tab in tab_pane_ids:
+            k6_subtabs.active = target_tab
+            return
+
+        if tab_panes:
+            k6_subtabs.active = tab_panes[0].id
 
     def build_k6_scenario_subtab(self, index: int, endpoint_data: dict) -> TabPane:
         k6_config = self.ui_config.get("k6", {})
