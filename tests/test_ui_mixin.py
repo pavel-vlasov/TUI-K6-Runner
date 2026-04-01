@@ -66,6 +66,17 @@ class DummyK6ModeSubtabsGetTabRaises(DummyK6ModeSubtabs):
         raise ValueError("missing tab")
 
 
+class DummyK6ModeSubtabsLifecycleTransition(DummyK6ModeSubtabs):
+    def __init__(self, active="tab_k6_batch"):
+        super().__init__(active=active, pane_ids=["tab_k6_batch"])
+        self.ready = False
+
+    def query(self, _kind):
+        if self.ready:
+            return self._panes + [DummyPane("tab_k6_scenarios")]
+        return self._panes
+
+
 class DummyRequestSubtabs:
     def __init__(self):
         self.added_panes = []
@@ -212,6 +223,9 @@ class DummyUI(UIMixin):
         tab = {"id": f"k6_scenario_{index}", "endpoint_data": endpoint_data}
         self.built_k6_scenario_tabs.append(tab)
         return tab
+
+    def call_later(self, callback):
+        callback()
 
 
 def test_web_dashboard_button_disabled_when_not_running():
@@ -444,6 +458,22 @@ def test_update_k6_request_mode_ui_handles_get_tab_errors_without_crashing():
         "warning",
         "Expected k6 request mode tab 'tab_k6_scenarios' was not found.",
     )
+
+
+def test_update_k6_request_mode_ui_retries_during_lifecycle_transition_without_warning():
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.k6_request_mode_subtabs = DummyK6ModeSubtabsLifecycleTransition(active="tab_k6_batch")
+    ui.request_mode_select.value = "scenarios"
+
+    def _call_later(callback):
+        ui.k6_request_mode_subtabs.ready = True
+        callback()
+
+    ui.call_later = _call_later
+    ui.update_k6_request_mode_ui()
+
+    assert ui.k6_request_mode_subtabs.active == "tab_k6_scenarios"
+    assert ui.notifications == []
 
 
 async def _run_rebuild(ui):
