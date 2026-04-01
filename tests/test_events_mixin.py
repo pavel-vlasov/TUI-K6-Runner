@@ -26,6 +26,7 @@ class DummyEventsUI(EventsMixin):
         }
         self.run_controller = SimpleNamespace(is_running=True)
         self.rebuild_calls = 0
+        self.renamed_endpoints = []
 
     def query_one(self, selector, _widget_type):
         return self.switches[selector]
@@ -47,6 +48,14 @@ class DummyEventsUI(EventsMixin):
 
     def rebuild_k6_scenario_tabs(self):
         self.rebuild_calls += 1
+
+    def parse_request_endpoint_name_input_id(self, field_id):
+        if field_id == "input___requestEndpoints__2__name":
+            return 2
+        return None
+
+    def rename_request_endpoint(self, index, name):
+        self.renamed_endpoints.append((index, name))
 
 
 class DummyLogLine:
@@ -200,6 +209,15 @@ def test_on_select_changed_request_mode_updates_k6_tabs():
     ui.on_select_changed(event)
 
     assert ui.rebuild_calls == 11
+
+
+def test_on_input_changed_renames_request_endpoint_and_scenario_tabs():
+    ui = DummyEventsUI()
+    event = SimpleNamespace(input=SimpleNamespace(id="input___requestEndpoints__2__name"), value="Orders")
+
+    ui.on_input_changed(event)
+
+    assert ui.renamed_endpoints == [(2, "Orders")]
 
 
 def test_on_button_pressed_web_dashboard_rejects_invalid_url(monkeypatch):

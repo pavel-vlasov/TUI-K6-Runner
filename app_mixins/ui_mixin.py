@@ -118,6 +118,7 @@ class UIMixin:
             scenario_subtabs = self.query_one("#k6_scenarios_subtabs", TabbedContent)
         except Exception:
             return
+        active_tab_id = scenario_subtabs.active
 
         for pane in list(scenario_subtabs.query(TabPane)):
             scenario_subtabs.remove_pane(pane.id)
@@ -125,8 +126,9 @@ class UIMixin:
         for index, endpoint in enumerate(self.get_request_endpoints()):
             await scenario_subtabs.add_pane(self.build_k6_scenario_subtab(index, endpoint))
 
-        if self._get_k6_scenario_tab_panes():
-            scenario_subtabs.active = "k6_scenario_0"
+        panes = self._get_k6_scenario_tab_panes()
+        if panes:
+            scenario_subtabs.active = active_tab_id if any(pane.id == active_tab_id for pane in panes) else self.scenario_tab_id(0)
 
     def update_k6_request_mode_ui(self) -> None:
         try:
@@ -205,7 +207,7 @@ class UIMixin:
                 ),
                 classes="tab-container",
             ),
-            id=f"k6_scenario_{index}",
+            id=self.scenario_tab_id(index),
         )
 
     def toggle_execution_type_fields(self) -> None:
