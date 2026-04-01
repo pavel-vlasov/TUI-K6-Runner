@@ -23,7 +23,9 @@ from constants import (
     ExecutionType,
     LOGGING_LEVEL_FAILED,
     LOGGING_LEVEL_OPTIONS,
+    REQUEST_MODE_OPTIONS,
     normalize_logging_level,
+    RequestMode,
 )
 from k6.backends import ExecutionCapabilities
 from ui_components import build_config_fields
@@ -86,7 +88,6 @@ class UIMixin:
     async def on_mount(self) -> None:
         self.refresh_execution_capabilities(self.ui_config)
         self.set_run_ui_state(False)
-        self.toggle_execution_type_fields()
         self.toggle_auth_fields()
         self.toggle_logging_fields()
         if getattr(self, "config_load_error", None):
@@ -98,11 +99,57 @@ class UIMixin:
 
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
         if self._get_request_tab_panes():
+            await self.sync_k6_scenario_tabs()
+            self.toggle_execution_type_fields()
             return
 
         request_endpoints = self.get_request_endpoints()
         for index, request_data in enumerate(request_endpoints):
             await request_subtabs.add_pane(self.build_request_subtab(index, request_data))
+
+        await self.sync_k6_scenario_tabs()
+        self.toggle_execution_type_fields()
+
+    def get_request_mode(self) -> str:
+        configured_mode = str(
+            self.ui_config.get("k6", {}).get("requestMode", RequestMode.BATCH.value)
+        ).strip()
+        valid_modes = {value for _, value in REQUEST_MODE_OPTIONS}
+        if configured_mode in valid_modes:
+            return configured_mode
+        return RequestMode.BATCH.value
+
+    async def sync_k6_scenario_tabs(self) -> None:
+        try:
+            k6_scenario_subtabs = self.query_one("#k6_scenario_subtabs", TabbedContent)
+            k6_mode_select = self.query_one("#select___k6__requestMode", Select)
+        except Exception:
+            return
+
+        request_mode = str(k6_mode_select.value or self.get_request_mode())
+        endpoint_names = [
+            str(endpoint.get("name", f"Endpoint {index + 1}")).strip() or f"Endpoint {index + 1}"
+            for index, endpoint in enumerate(self.get_request_endpoints())
+        ]
+        if not endpoint_names:
+            endpoint_names = ["Endpoint 1"]
+
+        active_pane_id = k6_scenario_subtabs.active
+        for pane in list(k6_scenario_subtabs.query(TabPane)):
+            k6_scenario_subtabs.remove_pane(pane.id)
+
+        if request_mode == RequestMode.BATCH.value:
+            await k6_scenario_subtabs.add_pane(self.build_k6_settings_tab("Base Scenario", 0))
+            k6_scenario_subtabs.active = "tab_k6_scenario_0"
+            return
+
+        for index, endpoint_name in enumerate(endpoint_names):
+            await k6_scenario_subtabs.add_pane(self.build_k6_settings_tab(endpoint_name, index))
+
+        if active_pane_id and any(pane.id == active_pane_id for pane in k6_scenario_subtabs.query(TabPane)):
+            k6_scenario_subtabs.active = active_pane_id
+        else:
+            k6_scenario_subtabs.active = "tab_k6_scenario_0"
 
     def toggle_execution_type_fields(self) -> None:
         execution_select = self.query_one("#select___k6__executionType", Select)
@@ -181,6 +228,136 @@ class UIMixin:
         warning_widget.update(self._capabilities_warning_text(capabilities))
         self.set_run_ui_state(self.run_controller.is_running)
 
+    def build_k6_settings_fields(self):
+        k6_config = self.ui_config.get("k6", {})
+        execution_type = k6_config.get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value)
+        if execution_type not in EXECUTION_TYPES:
+            execution_type = ExecutionType.EXTERNAL_EXECUTOR.value
+        k6_other_data = {
+            k: v
+            for k, v in k6_config.items()
+            if k
+            not in [
+                "requestMode",
+                "logging",
+                "executionType",
+                "vus",
+                "maxVUs",
+                "duration",
+                "spikeStages",
+                "rate",
+                "timeUnit",
+                "preAllocatedVUs",
+                "startRate",
+                "rampingArrivalStages",
+            ]
+        }
+        return (
+            Horizontal(
+                Label("execution type:", classes="field-label"),
+                Select(
+                    list(EXECUTION_TYPE_OPTIONS),
+                    value=execution_type,
+                    id="select___k6__executionType",
+                ),
+                classes="field-row",
+            ),
+            Horizontal(
+                Label("vus:", classes="field-label"),
+                Input(str(k6_config.get("vus", "")), id="input___k6__vus"),
+                classes="field-row",
+                id="k6_vus_row",
+            ),
+            Horizontal(
+                Label("maxVUs:", classes="field-label"),
+                Input(str(k6_config.get("maxVUs", "")), id="input___k6__maxVUs"),
+                classes="field-row",
+                id="k6_maxvus_row",
+            ),
+            Horizontal(
+                Label("duration:", classes="field-label"),
+                Input(str(k6_config.get("duration", "")), id="input___k6__duration"),
+                classes="field-row",
+                id="k6_duration_row",
+            ),
+            Vertical(
+                Horizontal(
+                    Label("rate:", classes="field-label"),
+                    Input(str(k6_config.get("rate", "")), id="input___k6__rate"),
+                    classes="field-row",
+                    id="k6_rate_row",
+                ),
+                Horizontal(
+                    Label("timeUnit:", classes="field-label"),
+                    Input(str(k6_config.get("timeUnit", "")), id="input___k6__timeUnit"),
+                    classes="field-row",
+                    id="k6_timeunit_row",
+                ),
+                Horizontal(
+                    Label("preAllocatedVUs:", classes="field-label"),
+                    Input(str(k6_config.get("preAllocatedVUs", "")), id="input___k6__preAllocatedVUs"),
+                    classes="field-row",
+                    id="k6_preallocated_row",
+                ),
+                Horizontal(
+                    Label("startRate:", classes="field-label"),
+                    Input(str(k6_config.get("startRate", "")), id="input___k6__startRate"),
+                    classes="field-row",
+                    id="k6_start_rate_row",
+                ),
+                Vertical(
+                    ScrollableContainer(
+                        *[
+                            self.build_arrival_stage_row(i, stage)
+                            for i, stage in enumerate(self.get_ramping_arrival_stages())
+                        ],
+                        id="arrival_stages_container",
+                    ),
+                    Horizontal(
+                        Label("", classes="field-label"),
+                        Button("+", id="add_arrival_stage_btn", variant="primary"),
+                        Button("-", id="remove_last_arrival_stage_btn", variant="error"),
+                        classes="field-row",
+                    ),
+                    id="arrival_stages_group",
+                ),
+                id="ramping_arrival_scroll_group",
+            ),
+            Vertical(
+                ScrollableContainer(
+                    *[
+                        self.build_spike_stage_row(i, stage)
+                        for i, stage in enumerate(self.get_spike_stages())
+                    ],
+                    id="spike_stages_container",
+                ),
+                Horizontal(
+                    Label("", classes="field-label"),
+                    Button("+", id="add_spike_stage_btn", variant="primary"),
+                    Button("-", id="remove_last_spike_stage_btn", variant="error"),
+                    classes="field-row",
+                ),
+                id="spike_stages_group",
+            ),
+            *build_config_fields(k6_other_data, "k6"),
+        )
+
+    def build_k6_settings_tab(self, tab_title: str, index: int) -> TabPane:
+        if index == 0:
+            return TabPane(
+                tab_title,
+                ScrollableContainer(*self.build_k6_settings_fields(), classes="tab-container"),
+                id=f"tab_k6_scenario_{index}",
+            )
+        return TabPane(
+            tab_title,
+            ScrollableContainer(
+                Static("Scenario is linked to this endpoint automatically.", classes="field-row"),
+                classes="tab-container",
+            ),
+            id=f"tab_k6_scenario_{index}",
+        )
+
     def compose(self) -> ComposeResult:
         yield Header()
         with TabbedContent(id="main_tabs"):
@@ -247,117 +424,17 @@ class UIMixin:
                         )
 
                     with TabPane("K6", id="tab_k6"):
-                        k6_config = self.ui_config.get("k6", {})
-                        execution_type = k6_config.get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value)
-                        if execution_type not in EXECUTION_TYPES:
-                            execution_type = ExecutionType.EXTERNAL_EXECUTOR.value
-                        k6_other_data = {
-                            k: v
-                            for k, v in k6_config.items()
-                            if k
-                            not in [
-                                "logging",
-                                "executionType",
-                                "vus",
-                                "maxVUs",
-                                "duration",
-                                "spikeStages",
-                                "rate",
-                                "timeUnit",
-                                "preAllocatedVUs",
-                                "startRate",
-                                "rampingArrivalStages",
-                            ]
-                        }
-
                         yield ScrollableContainer(
                             Horizontal(
-                                Label("execution type:", classes="field-label"),
+                                Label("requestMode:", classes="field-label"),
                                 Select(
-                                    list(EXECUTION_TYPE_OPTIONS),
-                                    value=execution_type,
-                                    id="select___k6__executionType",
+                                    list(REQUEST_MODE_OPTIONS),
+                                    value=self.get_request_mode(),
+                                    id="select___k6__requestMode",
                                 ),
                                 classes="field-row",
                             ),
-                            Horizontal(
-                                Label("vus:", classes="field-label"),
-                                Input(str(k6_config.get("vus", "")), id="input___k6__vus"),
-                                classes="field-row",
-                                id="k6_vus_row",
-                            ),
-                            Horizontal(
-                                Label("maxVUs:", classes="field-label"),
-                                Input(str(k6_config.get("maxVUs", "")), id="input___k6__maxVUs"),
-                                classes="field-row",
-                                id="k6_maxvus_row",
-                            ),
-                            Horizontal(
-                                Label("duration:", classes="field-label"),
-                                Input(str(k6_config.get("duration", "")), id="input___k6__duration"),
-                                classes="field-row",
-                                id="k6_duration_row",
-                            ),
-                            Vertical(
-                                Horizontal(
-                                    Label("rate:", classes="field-label"),
-                                    Input(str(k6_config.get("rate", "")), id="input___k6__rate"),
-                                    classes="field-row",
-                                    id="k6_rate_row",
-                                ),
-                                Horizontal(
-                                    Label("timeUnit:", classes="field-label"),
-                                    Input(str(k6_config.get("timeUnit", "")), id="input___k6__timeUnit"),
-                                    classes="field-row",
-                                    id="k6_timeunit_row",
-                                ),
-                                Horizontal(
-                                    Label("preAllocatedVUs:", classes="field-label"),
-                                    Input(str(k6_config.get("preAllocatedVUs", "")), id="input___k6__preAllocatedVUs"),
-                                    classes="field-row",
-                                    id="k6_preallocated_row",
-                                ),
-                                Horizontal(
-                                    Label("startRate:", classes="field-label"),
-                                    Input(str(k6_config.get("startRate", "")), id="input___k6__startRate"),
-                                    classes="field-row",
-                                    id="k6_start_rate_row",
-                                ),
-                                Vertical(
-                                    ScrollableContainer(
-                                        *[
-                                            self.build_arrival_stage_row(i, stage)
-                                            for i, stage in enumerate(self.get_ramping_arrival_stages())
-                                        ],
-                                        id="arrival_stages_container",
-                                    ),
-                                    Horizontal(
-                                        Label("", classes="field-label"),
-                                        Button("+", id="add_arrival_stage_btn", variant="primary"),
-                                        Button("-", id="remove_last_arrival_stage_btn", variant="error"),
-                                        classes="field-row",
-                                    ),
-                                    id="arrival_stages_group",
-                                ),
-                                id="ramping_arrival_scroll_group",
-                            ),
-                            Vertical(
-                                ScrollableContainer(
-                                    *[
-                                        self.build_spike_stage_row(i, stage)
-                                        for i, stage in enumerate(self.get_spike_stages())
-                                    ],
-                                    id="spike_stages_container",
-                                ),
-                                Horizontal(
-                                    Label("", classes="field-label"),
-                                    Button("+", id="add_spike_stage_btn", variant="primary"),
-                                    Button("-", id="remove_last_spike_stage_btn", variant="error"),
-                                    classes="field-row",
-                                ),
-                                id="spike_stages_group",
-                            ),
-                            *build_config_fields(k6_other_data, "k6"),
+                            TabbedContent(id="k6_scenario_subtabs"),
                             classes="tab-container",
                         )
 
