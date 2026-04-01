@@ -138,7 +138,7 @@ class UIMixin:
 
     def update_k6_request_mode_ui(self) -> None:
         try:
-            request_mode = self.query_one("#select___k6__requestMode", Select).value
+            request_mode = str(self.query_one("#select___k6__requestMode", Select).value)
             k6_subtabs = self.query_one("#k6_request_mode_subtabs", TabbedContent)
         except Exception:
             return
