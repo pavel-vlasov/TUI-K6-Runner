@@ -136,7 +136,7 @@ class DummyButtonUI(EventsMixin):
     async def add_request_endpoint_tab(self):
         self.add_request_endpoint_tab_calls += 1
 
-    def remove_last_request_endpoint_tab(self):
+    async def remove_last_request_endpoint_tab(self):
         self.remove_last_request_endpoint_tab_calls += 1
 
     def add_spike_stage(self):
@@ -158,7 +158,7 @@ def test_on_switch_changed_no_auth_disables_other_auth_modes():
     ui = DummyEventsUI()
     event = SimpleNamespace(select=SimpleNamespace(id="select___auth__mode"))
 
-    ui.on_select_changed(event)
+    asyncio.run(ui.on_select_changed(event))
 
     assert ui.auth_toggle_count == 1
 

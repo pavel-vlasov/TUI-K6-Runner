@@ -18,6 +18,7 @@ from constants import (
     AuthMode,
     EXECUTION_TYPES,
     ExecutionType,
+    RequestMode,
     normalize_logging_level,
 )
 
@@ -213,9 +214,11 @@ class ConfigHandler:
         execution_type = str(source.get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value)).strip()
 
         runtime = {
+            "requestMode": str(source.get("requestMode", RequestMode.BATCH.value)).strip(),
             "executionType": execution_type,
             "thresholds": source.get("thresholds", {}),
             "logging": ConfigHandler._build_logging_config(source.get("logging", {})),
+            "scenarios": source.get("scenarios", []) if isinstance(source.get("scenarios", []), list) else [],
         }
 
         if execution_type == ExecutionType.SPIKE_TESTS.value:
@@ -317,6 +320,9 @@ class ConfigHandler:
         errors: list[str] = []
         source = k6cfg if isinstance(k6cfg, dict) else {}
         execution_type = str(source.get("executionType", "")).strip()
+        request_mode = str(source.get("requestMode", RequestMode.BATCH.value)).strip()
+        if request_mode not in {RequestMode.BATCH.value, RequestMode.SCENARIOS.value}:
+            errors.append(f"k6.requestMode is invalid: {request_mode}.")
         if not execution_type:
             return ["k6.executionType is required."]
 
@@ -346,6 +352,10 @@ class ConfigHandler:
         if execution_type not in EXECUTION_TYPES:
             errors.append(f"k6.executionType is invalid: {execution_type}.")
             return errors
+
+        scenarios = source.get("scenarios", [])
+        if scenarios is not None and not isinstance(scenarios, list):
+            errors.append("k6.scenarios must be a list when provided.")
 
         for field, rule_type in mode_rules[execution_type]:
             if field not in source:

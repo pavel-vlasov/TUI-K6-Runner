@@ -27,6 +27,11 @@ class LoggingLevel(StrEnum):
     FAILED_WITHOUT_PAYLOADS = "failed_without_payloads"
 
 
+class RequestMode(StrEnum):
+    BATCH = "batch"
+    SCENARIOS = "scenarios"
+
+
 HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
 
 AUTH_MODES = tuple(mode.value for mode in AuthMode)
@@ -54,6 +59,7 @@ LOGGING_LEVEL_LABELS = {
     LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS: "Failed (without payloads)",
 }
 LOGGING_LEVEL_OPTIONS = tuple((LOGGING_LEVEL_LABELS[level], level) for level in LOGGING_LEVELS)
+REQUEST_MODE_OPTIONS = tuple((mode.value, mode.value) for mode in RequestMode)
 
 LOGGING_LEVEL_ALIASES = {
     "all": LOGGING_LEVEL_ALL,
@@ -93,6 +99,7 @@ DEFAULT_CONFIG = {
         }
     ],
     "k6": {
+        "requestMode": RequestMode.BATCH.value,
         "executionType": ExecutionType.EXTERNAL_EXECUTOR.value,
         "vus": 1,
         "maxVUs": 10,

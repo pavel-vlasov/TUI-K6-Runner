@@ -71,6 +71,12 @@ const requestEndpoints = normalizeEndpoints();
 if (requestEndpoints.length === 0) {
   throw new Error('❌ config.requestEndpoints must contain at least one valid endpoint object.');
 }
+const REQUEST_MODE_BATCH = 'batch';
+const REQUEST_MODE_SCENARIOS = 'scenarios';
+const requestMode = String(k6cfg.requestMode || REQUEST_MODE_BATCH).trim().toLowerCase();
+if (![REQUEST_MODE_BATCH, REQUEST_MODE_SCENARIOS].includes(requestMode)) {
+  throw new Error(`❌ Unsupported k6.requestMode: ${requestMode}`);
+}
 
 function buildQuery(queryConfig) {
   if (!queryConfig) return '';
@@ -180,11 +186,16 @@ Response Headers: ${JSON.stringify(res.headers, null, 2)}
 }
 
 const executionType = k6cfg.executionType || 'external executor';
-const spikeStages = Array.isArray(k6cfg.spikeStages) ? k6cfg.spikeStages : [];
 
 function buildBaseScenario() {
-  if (executionType === 'Spike Tests') {
-    const stages = spikeStages
+  return buildBaseScenarioFromConfig(k6cfg);
+}
+
+function buildBaseScenarioFromConfig(scenarioConfig) {
+  const cfg = scenarioConfig || {};
+  const scenarioExecutionType = cfg.executionType || executionType;
+  if (scenarioExecutionType === 'Spike Tests') {
+    const stages = (Array.isArray(cfg.spikeStages) ? cfg.spikeStages : [])
       .map((stage) => ({
         duration: String((stage && stage.duration) || '').trim(),
         target: Number(stage && stage.target),
@@ -200,27 +211,27 @@ function buildBaseScenario() {
     };
   }
 
-  if (executionType === 'Constant VUs') {
+  if (scenarioExecutionType === 'Constant VUs') {
     return {
       executor: 'constant-vus',
-      vus: Number(k6cfg.vus) || 1,
-      duration: String(k6cfg.duration || '60s'),
+      vus: Number(cfg.vus) || 1,
+      duration: String(cfg.duration || '60s'),
     };
   }
 
-  if (executionType === 'Constant Arrival Rate') {
+  if (scenarioExecutionType === 'Constant Arrival Rate') {
     return {
       executor: 'constant-arrival-rate',
-      rate: Number(k6cfg.rate) || 10,
-      timeUnit: String(k6cfg.timeUnit || '1s'),
-      duration: String(k6cfg.duration || '60s'),
-      preAllocatedVUs: Number(k6cfg.preAllocatedVUs) || 10,
-      maxVUs: Number(k6cfg.maxVUs) || 50,
+      rate: Number(cfg.rate) || 10,
+      timeUnit: String(cfg.timeUnit || '1s'),
+      duration: String(cfg.duration || '60s'),
+      preAllocatedVUs: Number(cfg.preAllocatedVUs) || 10,
+      maxVUs: Number(cfg.maxVUs) || 50,
     };
   }
 
-  if (executionType === 'Ramping Arrival Rate') {
-    const stages = (Array.isArray(k6cfg.rampingArrivalStages) ? k6cfg.rampingArrivalStages : [])
+  if (scenarioExecutionType === 'Ramping Arrival Rate') {
+    const stages = (Array.isArray(cfg.rampingArrivalStages) ? cfg.rampingArrivalStages : [])
       .map((stage) => ({
         duration: String((stage && stage.duration) || '').trim(),
         target: Number(stage && stage.target),
@@ -230,26 +241,50 @@ function buildBaseScenario() {
 
     return {
       executor: 'ramping-arrival-rate',
-      startRate: Number(k6cfg.startRate) || 1,
-      timeUnit: String(k6cfg.timeUnit || '1s'),
-      preAllocatedVUs: Number(k6cfg.preAllocatedVUs) || 10,
-      maxVUs: Number(k6cfg.maxVUs) || 50,
+      startRate: Number(cfg.startRate) || 1,
+      timeUnit: String(cfg.timeUnit || '1s'),
+      preAllocatedVUs: Number(cfg.preAllocatedVUs) || 10,
+      maxVUs: Number(cfg.maxVUs) || 50,
       stages: stages.length ? stages : [{ duration: '30s', target: 10 }],
     };
   }
 
   return {
     executor: 'externally-controlled',
-    vus: k6cfg.vus || 1,
-    maxVUs: k6cfg.maxVUs || 50,
-    duration: k6cfg.duration || '60s',
+    vus: cfg.vus || 1,
+    maxVUs: cfg.maxVUs || 50,
+    duration: cfg.duration || '60s',
   };
 }
 
 export let options = {
   thresholds: k6cfg.thresholds || { 'http_req_duration': ['p(95)<5000'] },
-  scenarios: { default: buildBaseScenario() },
+  scenarios: buildScenarios(),
 };
+
+function buildScenarios() {
+  const baseScenario = buildBaseScenario();
+  if (requestMode === REQUEST_MODE_BATCH) {
+    return { default: { ...baseScenario, exec: 'runBatchScenario' } };
+  }
+
+  const scenarios = {};
+  const scenarioConfigs = Array.isArray(k6cfg.scenarios) ? k6cfg.scenarios : [];
+  requestEndpoints.forEach((endpoint, index) => {
+    const safeName = `endpoint_${index + 1}`;
+    const mergedScenarioConfig = {
+      ...k6cfg,
+      ...(scenarioConfigs[index] && typeof scenarioConfigs[index] === 'object' ? scenarioConfigs[index] : {}),
+    };
+    scenarios[safeName] = {
+      ...(index === 0 ? baseScenario : buildBaseScenarioFromConfig(mergedScenarioConfig)),
+      exec: `runScenarioEndpoint${index + 1}`,
+      tags: { endpoint: endpoint.name || `Endpoint ${index + 1}` },
+    };
+  });
+
+  return scenarios;
+}
 
 // --- setup ---
 export function setup() {
@@ -290,7 +325,7 @@ export function setup() {
   return { authType: AUTH_MODE_OAUTH2_CLIENT_CREDENTIALS, authToken: `Bearer ${token}` };
 }
 
-export default function (data) {
+export function runBatchScenario(data) {
   const correlationId = uuidv4();
   if (!requestEndpoints.length) throw new Error('❌ No request endpoints configured.');
 
@@ -312,6 +347,29 @@ export default function (data) {
 
   sleep(Math.random() * 0.4 + 0.1);
 }
+
+function runSingleEndpoint(data, endpointIndex) {
+  const endpoint = requestEndpoints[endpointIndex];
+  if (!endpoint) {
+    throw new Error(`❌ Missing endpoint for scenario index: ${endpointIndex}`);
+  }
+  const correlationId = uuidv4();
+  const req = buildSingleRequest(endpoint, data, correlationId);
+  const res = http.request(req.method, req.url, req.body, req.params);
+  const ok = check(res, {
+    [`${req.name} status 200`]: (r) => r.status === 200,
+  });
+  logRequestResult(req, res, ok, correlationId);
+  sleep(Math.random() * 0.4 + 0.1);
+}
+
+export function runScenarioEndpoint1(data) { runSingleEndpoint(data, 0); }
+export function runScenarioEndpoint2(data) { runSingleEndpoint(data, 1); }
+export function runScenarioEndpoint3(data) { runSingleEndpoint(data, 2); }
+export function runScenarioEndpoint4(data) { runSingleEndpoint(data, 3); }
+export function runScenarioEndpoint5(data) { runSingleEndpoint(data, 4); }
+
+export default runBatchScenario;
 
 export function handleSummary(data) {
   return {
