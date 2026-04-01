@@ -11,6 +11,12 @@ from config_handler import ConfigHandler
 
 
 class EventsMixin:
+    def on_input_changed(self, event: Input.Changed):
+        endpoint_index = self.parse_request_endpoint_name_input_id(event.input.id)
+        if endpoint_index is None:
+            return
+        self.rename_request_endpoint(endpoint_index, event.value)
+
     def on_switch_changed(self, event: Switch.Changed):
         if not event.switch.id:
             return

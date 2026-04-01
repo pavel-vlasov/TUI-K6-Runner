@@ -5,8 +5,9 @@ from constants import DEFAULT_CONFIG
 
 
 class DummyTabPane:
-    def __init__(self, id_value):
+    def __init__(self, id_value, title=""):
         self.id = id_value
+        self.title = title
 
 
 class DummyTabbedContent:
@@ -28,13 +29,18 @@ class DummyRequestUI(RequestMixin):
     def __init__(self, ui_config, pane_count=1):
         self.ui_config = ui_config
         self.notifications = []
-        panes = [DummyTabPane(f"tab_req_endpoint_{i}") for i in range(pane_count)]
+        panes = [DummyTabPane(f"tab_req_endpoint_{i}", title=f"Endpoint {i + 1}") for i in range(pane_count)]
         self.request_subtabs = DummyTabbedContent(panes)
+        self.scenario_subtabs = DummyTabbedContent(
+            [DummyTabPane(f"k6_scenario_{i}", title=f"Endpoint {i + 1}") for i in range(pane_count)]
+        )
         self.rebuild_k6_scenario_tabs_calls = 0
 
     def query_one(self, selector, _widget_type):
         if selector == "#request_subtabs":
             return self.request_subtabs
+        if selector == "#k6_scenarios_subtabs":
+            return self.scenario_subtabs
         raise KeyError(selector)
 
     def notify(self, message, severity=None):
@@ -121,3 +127,33 @@ def test_remove_last_request_endpoint_tab_sets_previous_active():
     assert len(ui.request_subtabs._panes) == 2
     assert ui.request_subtabs.active == "tab_req_endpoint_1"
     assert ui.rebuild_k6_scenario_tabs_calls == 1
+
+
+def test_rename_request_endpoint_updates_request_and_scenario_titles():
+    ui = DummyRequestUI({}, pane_count=2)
+
+    ui.rename_request_endpoint(1, "Checkout API")
+
+    assert ui.request_subtabs._panes[1].title == "Checkout API"
+    assert ui.scenario_subtabs._panes[1].title == "Checkout API"
+
+
+def test_parse_request_endpoint_name_input_id_returns_index():
+    ui = DummyRequestUI({}, pane_count=1)
+
+    assert ui.parse_request_endpoint_name_input_id("input___requestEndpoints__0__name") == 0
+    assert ui.parse_request_endpoint_name_input_id("input___requestEndpoints__x__name") is None
+    assert ui.parse_request_endpoint_name_input_id("input___k6__scenarios__0__vus") is None
+
+
+def test_remove_last_request_endpoint_tab_reindexes_remaining_tab_ids():
+    ui = DummyRequestUI({}, pane_count=4)
+    ui.request_subtabs._panes[2].id = "tab_req_endpoint_99"
+
+    asyncio.run(ui.remove_last_request_endpoint_tab())
+
+    assert [pane.id for pane in ui.request_subtabs._panes] == [
+        "tab_req_endpoint_0",
+        "tab_req_endpoint_1",
+        "tab_req_endpoint_2",
+    ]
