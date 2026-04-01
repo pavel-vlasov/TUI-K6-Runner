@@ -138,20 +138,23 @@ class UIMixin:
 
     def update_k6_request_mode_ui(self) -> None:
         try:
-            request_mode = str(self.query_one("#select___k6__requestMode", Select).value)
+            select = self.query_one("#select___k6__requestMode", Select)
             k6_subtabs = self.query_one("#k6_request_mode_subtabs", TabbedContent)
-        except Exception:
+        except (KeyError, AttributeError, TypeError) as error:
+            self.notify(f"Unable to update k6 request mode UI: {error}", severity="warning")
             return
 
+        request_mode = str(select.value).strip().lower()
         target_tab = "tab_k6_scenarios" if request_mode == "scenarios" else "tab_k6_batch"
-        tab_panes = [pane for pane in k6_subtabs.query(TabPane) if pane.id]
-        tab_pane_ids = {pane.id for pane in tab_panes}
-        if target_tab in tab_pane_ids:
-            k6_subtabs.active = target_tab
+        tab_pane_ids = {pane.id for pane in k6_subtabs.query(TabPane) if pane.id}
+        if target_tab not in tab_pane_ids:
+            self.notify(
+                f"Expected k6 request mode tab '{target_tab}' was not found.",
+                severity="warning",
+            )
             return
 
-        if tab_panes:
-            k6_subtabs.active = tab_panes[0].id
+        k6_subtabs.active = target_tab
 
     def build_k6_scenario_subtab(self, index: int, endpoint_data: dict) -> TabPane:
         k6_config = self.ui_config.get("k6", {})
