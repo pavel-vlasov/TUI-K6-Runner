@@ -15,6 +15,8 @@ from constants import (
     HTTP_METHODS,
     LOGGING_LEVEL_FAILED,
     LOGGING_LEVELS,
+    REQUEST_MODE_BATCH,
+    REQUEST_MODES,
     AuthMode,
     EXECUTION_TYPES,
     ExecutionType,
@@ -211,9 +213,13 @@ class ConfigHandler:
     def _build_k6_config(k6cfg: object) -> dict:
         source = k6cfg if isinstance(k6cfg, dict) else {}
         execution_type = str(source.get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value)).strip()
+        request_mode = str(source.get("requestMode", REQUEST_MODE_BATCH)).strip()
+        if request_mode not in REQUEST_MODES:
+            request_mode = REQUEST_MODE_BATCH
 
         runtime = {
             "executionType": execution_type,
+            "requestMode": request_mode,
             "thresholds": source.get("thresholds", {}),
             "logging": ConfigHandler._build_logging_config(source.get("logging", {})),
         }
@@ -346,6 +352,10 @@ class ConfigHandler:
         if execution_type not in EXECUTION_TYPES:
             errors.append(f"k6.executionType is invalid: {execution_type}.")
             return errors
+
+        request_mode = str(source.get("requestMode", REQUEST_MODE_BATCH)).strip()
+        if request_mode not in REQUEST_MODES:
+            errors.append(f"k6.requestMode is invalid: {request_mode}.")
 
         for field, rule_type in mode_rules[execution_type]:
             if field not in source:
