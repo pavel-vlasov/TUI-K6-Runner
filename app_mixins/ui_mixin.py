@@ -147,7 +147,15 @@ class UIMixin:
         request_mode = str(select.value).strip().lower()
         target_tab = "tab_k6_scenarios" if request_mode == "scenarios" else "tab_k6_batch"
         tab_pane_ids = {pane.id for pane in k6_subtabs.query(TabPane) if pane.id}
-        if target_tab not in tab_pane_ids:
+        tab_exists = target_tab in tab_pane_ids
+        if not tab_exists and hasattr(k6_subtabs, "get_tab"):
+            try:
+                k6_subtabs.get_tab(target_tab)
+                tab_exists = True
+            except (KeyError, AttributeError, TypeError):
+                tab_exists = False
+
+        if not tab_exists:
             self.notify(
                 f"Expected k6 request mode tab '{target_tab}' was not found.",
                 severity="warning",
