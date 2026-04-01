@@ -14,6 +14,8 @@ from constants import (
     ExecutionType,
     HTTP_METHODS,
     LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
+    REQUEST_MODE_BATCH,
+    REQUEST_MODE_SCENARIOS,
 )
 
 
@@ -118,6 +120,44 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
     assert "rate" not in runtime["k6"]
     assert runtime["k6"]["vus"] == 3
     assert runtime["k6"]["duration"] == "10s"
+
+
+def test_build_runtime_config_preserves_request_mode_in_runtime():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"mode": AuthMode.NONE.value},
+            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+            "k6": {
+                "executionType": ExecutionType.CONSTANT_VUS.value,
+                "requestMode": REQUEST_MODE_SCENARIOS,
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {"http_req_duration": ["p(95)<500"]},
+            },
+        }
+    )
+
+    assert runtime["k6"]["requestMode"] == REQUEST_MODE_SCENARIOS
+
+
+def test_build_runtime_config_falls_back_to_batch_for_invalid_request_mode():
+    runtime = ConfigHandler.build_runtime_config(
+        {
+            "baseURL": "https://example.com",
+            "auth": {"mode": AuthMode.NONE.value},
+            "requestEndpoints": [{"name": "Endpoint 1", "method": "GET", "path": "/", "headers": {}, "query": {}}],
+            "k6": {
+                "executionType": ExecutionType.CONSTANT_VUS.value,
+                "requestMode": "legacy",
+                "vus": 1,
+                "duration": "10s",
+                "thresholds": {"http_req_duration": ["p(95)<500"]},
+            },
+        }
+    )
+
+    assert runtime["k6"]["requestMode"] == REQUEST_MODE_BATCH
 
 
 def test_validate_runtime_config_rejects_invalid_thresholds():
@@ -369,6 +409,15 @@ def test_validate_runtime_config_rejects_non_canonical_logging_level():
     errors = ConfigHandler.validate_runtime_config(runtime)
 
     assert any("k6.logging.level is invalid" in error for error in errors)
+
+
+def test_validate_runtime_config_rejects_invalid_request_mode():
+    runtime = _base_runtime()
+    runtime["k6"]["requestMode"] = "legacy"
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert any("k6.requestMode is invalid" in error for error in errors)
 
 
 def test_validate_runtime_config_allows_zero_target_stages_for_spike_and_ramping_arrival():
