@@ -71,6 +71,12 @@ const requestEndpoints = normalizeEndpoints();
 if (requestEndpoints.length === 0) {
   throw new Error('❌ config.requestEndpoints must contain at least one valid endpoint object.');
 }
+const REQUEST_MODE_BATCH = 'batch';
+const REQUEST_MODE_SCENARIOS = 'scenarios';
+const requestMode = String(k6cfg.requestMode || REQUEST_MODE_BATCH).trim().toLowerCase();
+if (![REQUEST_MODE_BATCH, REQUEST_MODE_SCENARIOS].includes(requestMode)) {
+  throw new Error(`❌ Unsupported k6.requestMode: ${requestMode}`);
+}
 
 function buildQuery(queryConfig) {
   if (!queryConfig) return '';
@@ -248,8 +254,27 @@ function buildBaseScenario() {
 
 export let options = {
   thresholds: k6cfg.thresholds || { 'http_req_duration': ['p(95)<5000'] },
-  scenarios: { default: buildBaseScenario() },
+  scenarios: buildScenarios(),
 };
+
+function buildScenarios() {
+  const baseScenario = buildBaseScenario();
+  if (requestMode === REQUEST_MODE_BATCH) {
+    return { default: { ...baseScenario, exec: 'runBatchScenario' } };
+  }
+
+  const scenarios = {};
+  requestEndpoints.forEach((endpoint, index) => {
+    const safeName = `endpoint_${index + 1}`;
+    scenarios[safeName] = {
+      ...baseScenario,
+      exec: `runScenarioEndpoint${index + 1}`,
+      tags: { endpoint: endpoint.name || `Endpoint ${index + 1}` },
+    };
+  });
+
+  return scenarios;
+}
 
 // --- setup ---
 export function setup() {
@@ -290,7 +315,7 @@ export function setup() {
   return { authType: AUTH_MODE_OAUTH2_CLIENT_CREDENTIALS, authToken: `Bearer ${token}` };
 }
 
-export default function (data) {
+export function runBatchScenario(data) {
   const correlationId = uuidv4();
   if (!requestEndpoints.length) throw new Error('❌ No request endpoints configured.');
 
@@ -312,6 +337,29 @@ export default function (data) {
 
   sleep(Math.random() * 0.4 + 0.1);
 }
+
+function runSingleEndpoint(data, endpointIndex) {
+  const endpoint = requestEndpoints[endpointIndex];
+  if (!endpoint) {
+    throw new Error(`❌ Missing endpoint for scenario index: ${endpointIndex}`);
+  }
+  const correlationId = uuidv4();
+  const req = buildSingleRequest(endpoint, data, correlationId);
+  const res = http.request(req.method, req.url, req.body, req.params);
+  const ok = check(res, {
+    [`${req.name} status 200`]: (r) => r.status === 200,
+  });
+  logRequestResult(req, res, ok, correlationId);
+  sleep(Math.random() * 0.4 + 0.1);
+}
+
+export function runScenarioEndpoint1(data) { runSingleEndpoint(data, 0); }
+export function runScenarioEndpoint2(data) { runSingleEndpoint(data, 1); }
+export function runScenarioEndpoint3(data) { runSingleEndpoint(data, 2); }
+export function runScenarioEndpoint4(data) { runSingleEndpoint(data, 3); }
+export function runScenarioEndpoint5(data) { runSingleEndpoint(data, 4); }
+
+export default runBatchScenario;
 
 export function handleSummary(data) {
   return {

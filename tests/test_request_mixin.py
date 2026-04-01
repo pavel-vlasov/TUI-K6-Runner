@@ -20,7 +20,7 @@ class DummyTabbedContent:
     async def add_pane(self, pane):
         self._panes.append(pane)
 
-    def remove_pane(self, pane_id):
+    async def remove_pane(self, pane_id):
         self._panes = [pane for pane in self._panes if pane.id != pane_id]
 
 
@@ -103,7 +103,7 @@ def test_add_request_endpoint_tab_enforces_maximum():
 def test_remove_last_request_endpoint_tab_enforces_minimum():
     ui = DummyRequestUI({}, pane_count=1)
 
-    ui.remove_last_request_endpoint_tab()
+    asyncio.run(ui.remove_last_request_endpoint_tab())
 
     assert ui.notifications == [("At least 1 endpoint must remain", "warning")]
 
@@ -111,7 +111,7 @@ def test_remove_last_request_endpoint_tab_enforces_minimum():
 def test_remove_last_request_endpoint_tab_sets_previous_active():
     ui = DummyRequestUI({}, pane_count=3)
 
-    ui.remove_last_request_endpoint_tab()
+    asyncio.run(ui.remove_last_request_endpoint_tab())
 
     assert len(ui.request_subtabs._panes) == 2
     assert ui.request_subtabs.active == "tab_req_endpoint_1"
