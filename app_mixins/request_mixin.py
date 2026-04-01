@@ -69,6 +69,6 @@ class RequestMixin:
             return
 
         last_tab = existing_tabs[-1]
-        request_subtabs.remove_pane(last_tab.id)
+        await request_subtabs.remove_pane(last_tab.id)
         request_subtabs.active = existing_tabs[-2].id
         await self.sync_k6_scenario_tabs()

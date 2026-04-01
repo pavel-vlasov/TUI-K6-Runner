@@ -136,7 +136,7 @@ class UIMixin:
 
         active_pane_id = k6_scenario_subtabs.active
         for pane in list(k6_scenario_subtabs.query(TabPane)):
-            k6_scenario_subtabs.remove_pane(pane.id)
+            await k6_scenario_subtabs.remove_pane(pane.id)
 
         if request_mode == RequestMode.BATCH.value:
             await k6_scenario_subtabs.add_pane(self.build_k6_settings_tab("Base Scenario", 0))

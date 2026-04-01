@@ -20,7 +20,7 @@ class DummyTabbedContent:
     async def add_pane(self, pane):
         self._panes.append(pane)
 
-    def remove_pane(self, pane_id):
+    async def remove_pane(self, pane_id):
         self._panes = [pane for pane in self._panes if pane.id != pane_id]
 
 
