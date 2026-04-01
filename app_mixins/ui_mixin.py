@@ -1,5 +1,6 @@
 from textual.app import ComposeResult
 from textual.containers import Horizontal, ScrollableContainer, Vertical
+from textual.css.query import NoMatches
 from textual.widgets import (
     Button,
     Footer,
@@ -152,7 +153,7 @@ class UIMixin:
             try:
                 k6_subtabs.get_tab(target_tab)
                 tab_exists = True
-            except (KeyError, AttributeError, TypeError):
+            except (KeyError, AttributeError, TypeError, ValueError, NoMatches):
                 tab_exists = False
 
         if not tab_exists:

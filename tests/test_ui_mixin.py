@@ -58,6 +58,14 @@ class DummyK6ModeSubtabsGetTabFallback(DummyK6ModeSubtabs):
         raise KeyError(tab_id)
 
 
+class DummyK6ModeSubtabsGetTabRaises(DummyK6ModeSubtabs):
+    def query(self, _kind):
+        return []
+
+    def get_tab(self, _tab_id):
+        raise ValueError("missing tab")
+
+
 class DummyRequestSubtabs:
     def __init__(self):
         self.added_panes = []
@@ -419,6 +427,23 @@ def test_update_k6_request_mode_ui_uses_get_tab_fallback_when_query_returns_empt
 
     assert ui.k6_request_mode_subtabs.active == "tab_k6_scenarios"
     assert ui.notifications == []
+
+
+def test_update_k6_request_mode_ui_handles_get_tab_errors_without_crashing():
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.k6_request_mode_subtabs = DummyK6ModeSubtabsGetTabRaises(
+        active="tab_k6_batch",
+        pane_ids=["tab_k6_batch"],
+    )
+
+    ui.request_mode_select.value = "scenarios"
+    ui.update_k6_request_mode_ui()
+
+    assert ui.k6_request_mode_subtabs.active == "tab_k6_batch"
+    assert ui.notifications[-1] == (
+        "warning",
+        "Expected k6 request mode tab 'tab_k6_scenarios' was not found.",
+    )
 
 
 async def _run_rebuild(ui):
