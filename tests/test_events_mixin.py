@@ -25,6 +25,7 @@ class DummyEventsUI(EventsMixin):
             }
         }
         self.run_controller = SimpleNamespace(is_running=True)
+        self.rebuild_calls = 0
 
     def query_one(self, selector, _widget_type):
         return self.switches[selector]
@@ -37,6 +38,15 @@ class DummyEventsUI(EventsMixin):
 
     def notify(self, message, severity="information"):
         self.notifications.append((message, severity))
+
+    def update_k6_request_mode_ui(self):
+        self.rebuild_calls += 10
+
+    def call_after_refresh(self, callback):
+        callback()
+
+    def rebuild_k6_scenario_tabs(self):
+        self.rebuild_calls += 1
 
 
 class DummyLogLine:
@@ -136,7 +146,7 @@ class DummyButtonUI(EventsMixin):
     async def add_request_endpoint_tab(self):
         self.add_request_endpoint_tab_calls += 1
 
-    def remove_last_request_endpoint_tab(self):
+    async def remove_last_request_endpoint_tab(self):
         self.remove_last_request_endpoint_tab_calls += 1
 
     def add_spike_stage(self):
@@ -181,6 +191,15 @@ def test_on_switch_changed_toggles_logging_fields_for_logging_switches():
     ui.on_switch_changed(event)
 
     assert ui.logging_toggle_count == 1
+
+
+def test_on_select_changed_request_mode_updates_k6_tabs():
+    ui = DummyEventsUI()
+    event = SimpleNamespace(select=SimpleNamespace(id="select___k6__requestMode"))
+
+    ui.on_select_changed(event)
+
+    assert ui.rebuild_calls == 11
 
 
 def test_on_button_pressed_web_dashboard_rejects_invalid_url(monkeypatch):

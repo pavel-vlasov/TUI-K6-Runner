@@ -30,6 +30,7 @@ class DummyRequestUI(RequestMixin):
         self.notifications = []
         panes = [DummyTabPane(f"tab_req_endpoint_{i}") for i in range(pane_count)]
         self.request_subtabs = DummyTabbedContent(panes)
+        self.rebuild_k6_scenario_tabs_calls = 0
 
     def query_one(self, selector, _widget_type):
         if selector == "#request_subtabs":
@@ -38,6 +39,9 @@ class DummyRequestUI(RequestMixin):
 
     def notify(self, message, severity=None):
         self.notifications.append((message, severity))
+
+    async def rebuild_k6_scenario_tabs(self):
+        self.rebuild_k6_scenario_tabs_calls += 1
 
 
 def test_get_request_endpoints_from_config_with_limit_and_default_names():
@@ -90,6 +94,7 @@ def test_add_request_endpoint_tab_uses_request_endpoints_default_template():
         **DEFAULT_CONFIG["requestEndpoints"][0],
         "name": "Endpoint 2",
     }
+    assert ui.rebuild_k6_scenario_tabs_calls == 1
 
 
 def test_add_request_endpoint_tab_enforces_maximum():
@@ -103,7 +108,7 @@ def test_add_request_endpoint_tab_enforces_maximum():
 def test_remove_last_request_endpoint_tab_enforces_minimum():
     ui = DummyRequestUI({}, pane_count=1)
 
-    ui.remove_last_request_endpoint_tab()
+    asyncio.run(ui.remove_last_request_endpoint_tab())
 
     assert ui.notifications == [("At least 1 endpoint must remain", "warning")]
 
@@ -111,7 +116,8 @@ def test_remove_last_request_endpoint_tab_enforces_minimum():
 def test_remove_last_request_endpoint_tab_sets_previous_active():
     ui = DummyRequestUI({}, pane_count=3)
 
-    ui.remove_last_request_endpoint_tab()
+    asyncio.run(ui.remove_last_request_endpoint_tab())
 
     assert len(ui.request_subtabs._panes) == 2
     assert ui.request_subtabs.active == "tab_req_endpoint_1"
+    assert ui.rebuild_k6_scenario_tabs_calls == 1
