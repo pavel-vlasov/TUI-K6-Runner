@@ -355,10 +355,94 @@ class UIMixin:
                 ScrollableContainer(*self.build_k6_settings_fields(), classes="tab-container"),
                 id=f"tab_k6_scenario_{index}",
             )
+        scenario_config = self.get_additional_scenario_config(index)
+        scenario_other_data = {
+            key: value
+            for key, value in scenario_config.items()
+            if key
+            not in {
+                "executionType",
+                "vus",
+                "maxVUs",
+                "duration",
+                "rate",
+                "timeUnit",
+                "preAllocatedVUs",
+                "startRate",
+            }
+        }
         return TabPane(
             tab_title,
             ScrollableContainer(
-                *build_config_fields(self.get_additional_scenario_config(index), f"k6.scenarios.{index}"),
+                Horizontal(
+                    Label("execution type:", classes="field-label"),
+                    Select(
+                        list(EXECUTION_TYPE_OPTIONS),
+                        value=scenario_config.get(
+                            "executionType",
+                            ExecutionType.EXTERNAL_EXECUTOR.value,
+                        ),
+                        id=f"select___k6__scenarios__{index}__executionType",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("vus:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("vus", "")),
+                        id=f"input___k6__scenarios__{index}__vus",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("maxVUs:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("maxVUs", "")),
+                        id=f"input___k6__scenarios__{index}__maxVUs",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("duration:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("duration", "")),
+                        id=f"input___k6__scenarios__{index}__duration",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("rate:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("rate", "")),
+                        id=f"input___k6__scenarios__{index}__rate",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("timeUnit:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("timeUnit", "")),
+                        id=f"input___k6__scenarios__{index}__timeUnit",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("preAllocatedVUs:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("preAllocatedVUs", "")),
+                        id=f"input___k6__scenarios__{index}__preAllocatedVUs",
+                    ),
+                    classes="field-row",
+                ),
+                Horizontal(
+                    Label("startRate:", classes="field-label"),
+                    Input(
+                        str(scenario_config.get("startRate", "")),
+                        id=f"input___k6__scenarios__{index}__startRate",
+                    ),
+                    classes="field-row",
+                ),
+                *build_config_fields(scenario_other_data, f"k6.scenarios.{index}"),
                 classes="tab-container",
             ),
             id=f"tab_k6_scenario_{index}",
