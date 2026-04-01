@@ -36,6 +36,13 @@ class DummyWidget:
 class DummyRequestSubtabs:
     def __init__(self):
         self.added_panes = []
+        self.active = None
+
+    def query(self, _kind):
+        return self.added_panes
+
+    def remove_pane(self, pane_id):
+        self.added_panes = [pane for pane in self.added_panes if pane.get("id") != pane_id]
 
     async def add_pane(self, pane):
         self.added_panes.append(pane)
@@ -99,6 +106,8 @@ class DummyUI(UIMixin):
             "#logging_external_mode_warning": DummyWidget(),
         }
         self.execution_select = DummyValueWidget(execution_type)
+        self.request_mode_select = DummyValueWidget("batch")
+        self.k6_request_mode_subtabs = type("Tabs", (), {"active": "tab_k6_batch"})()
         self.execution_rows = {
             "#k6_vus_row": DummyRow(),
             "#k6_maxvus_row": DummyRow(),
@@ -112,9 +121,12 @@ class DummyUI(UIMixin):
             "#ramping_arrival_scroll_group": DummyRow(),
         }
         self.request_subtabs = DummyRequestSubtabs()
+        self.k6_scenario_subtabs = DummyRequestSubtabs()
         self.request_tab_panes = []
+        self.k6_scenario_tab_panes = []
         self.request_endpoints = []
         self.built_request_tabs = []
+        self.built_k6_scenario_tabs = []
         self.notifications = []
         self.config_load_error = None
         self.config_load_error_details = None
@@ -124,6 +136,12 @@ class DummyUI(UIMixin):
             return self.execution_select
         if selector == "#request_subtabs":
             return self.request_subtabs
+        if selector == "#k6_scenarios_subtabs":
+            return self.k6_scenario_subtabs
+        if selector == "#select___k6__requestMode":
+            return self.request_mode_select
+        if selector == "#k6_request_mode_subtabs":
+            return self.k6_request_mode_subtabs
         if selector in self.execution_rows:
             return self.execution_rows[selector]
         if selector in self.buttons:
@@ -153,6 +171,11 @@ class DummyUI(UIMixin):
 
     def notify(self, message, severity="information"):
         self.notifications.append((severity, message))
+
+    def build_k6_scenario_subtab(self, index, endpoint_data):
+        tab = {"id": f"k6_scenario_{index}", "endpoint_data": endpoint_data}
+        self.built_k6_scenario_tabs.append(tab)
+        return tab
 
 
 def test_web_dashboard_button_disabled_when_not_running():
@@ -318,6 +341,34 @@ def test_toggle_execution_type_fields_for_spike_tests():
     assert ui.execution_rows["#k6_maxvus_row"].styles.display == "none"
     assert ui.execution_rows["#k6_duration_row"].styles.display == "none"
     assert ui.execution_rows["#k6_rate_row"].styles.display == "none"
+
+
+def test_update_k6_request_mode_ui_switches_between_batch_and_scenarios():
+    ui = DummyUI(web_dashboard_enabled=False)
+
+    ui.request_mode_select.value = "scenarios"
+    ui.update_k6_request_mode_ui()
+    assert ui.k6_request_mode_subtabs.active == "tab_k6_scenarios"
+
+    ui.request_mode_select.value = "batch"
+    ui.update_k6_request_mode_ui()
+    assert ui.k6_request_mode_subtabs.active == "tab_k6_batch"
+
+
+async def _run_rebuild(ui):
+    await ui.rebuild_k6_scenario_tabs()
+
+
+def test_rebuild_k6_scenario_tabs_matches_endpoint_count():
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.request_endpoints = [{"name": "A"}, {"name": "B"}, {"name": "C"}]
+
+    import asyncio
+
+    asyncio.run(_run_rebuild(ui))
+
+    assert len(ui.k6_scenario_subtabs.added_panes) == 3
+    assert ui.k6_scenario_subtabs.active == "k6_scenario_0"
     assert ui.execution_rows["#k6_timeunit_row"].styles.display == "none"
     assert ui.execution_rows["#k6_preallocated_row"].styles.display == "none"
     assert ui.execution_rows["#k6_start_rate_row"].styles.display == "none"

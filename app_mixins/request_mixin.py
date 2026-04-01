@@ -54,8 +54,9 @@ class RequestMixin:
 
         await request_subtabs.add_pane(self.build_request_subtab(endpoint_index, new_endpoint))
         request_subtabs.active = f"tab_req_endpoint_{endpoint_index}"
+        await self.rebuild_k6_scenario_tabs()
 
-    def remove_last_request_endpoint_tab(self):
+    async def remove_last_request_endpoint_tab(self):
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
         existing_tabs = self._get_request_tab_panes()
 
@@ -66,3 +67,4 @@ class RequestMixin:
         last_tab = existing_tabs[-1]
         request_subtabs.remove_pane(last_tab.id)
         request_subtabs.active = existing_tabs[-2].id
+        await self.rebuild_k6_scenario_tabs()
