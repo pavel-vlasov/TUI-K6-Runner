@@ -29,6 +29,7 @@ class DummyEventsUI(EventsMixin):
         self.rebuild_calls = 0
         self.rebuild_started = 0
         self.renamed_endpoints = []
+        self.call_order = []
 
     def query_one(self, selector, _widget_type):
         return self.switches[selector]
@@ -43,9 +44,11 @@ class DummyEventsUI(EventsMixin):
         self.notifications.append((message, severity))
 
     def update_k6_request_mode_ui(self):
+        self.call_order.append("update")
         self.rebuild_calls += 10
 
     async def rebuild_k6_scenario_tabs(self):
+        self.call_order.append("rebuild")
         self.rebuild_started += 1
         await asyncio.sleep(0)
         self.rebuild_calls += 1
@@ -203,7 +206,7 @@ def test_on_switch_changed_toggles_logging_fields_for_logging_switches():
     assert ui.logging_toggle_count == 1
 
 
-def test_on_select_changed_request_mode_runs_scenario_rebuild():
+def test_on_select_changed_request_mode_rebuilds_before_ui_update_without_warning():
     ui = DummyEventsUI()
     event = SimpleNamespace(select=SimpleNamespace(id="select___k6__requestMode"))
 
@@ -211,6 +214,8 @@ def test_on_select_changed_request_mode_runs_scenario_rebuild():
 
     assert ui.rebuild_started == 1
     assert ui.rebuild_calls == 11
+    assert ui.call_order == ["rebuild", "update"]
+    assert not any(severity == "warning" for _, severity in ui.notifications)
 
 
 def test_on_input_changed_renames_request_endpoint_and_scenario_tabs():
