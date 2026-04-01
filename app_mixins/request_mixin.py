@@ -103,6 +103,60 @@ class RequestMixin:
         request_subtabs.active = self.request_endpoint_tab_id(endpoint_index)
         await self.rebuild_k6_scenario_tabs()
 
+    def _snapshot_request_endpoints(self, tab_count: int) -> list[dict]:
+        if tab_count <= 0:
+            return []
+
+        if hasattr(self, "_collect_ui_field_values"):
+            try:
+                field_values = self._collect_ui_field_values()
+                if isinstance(field_values, dict):
+                    ui_endpoints: list[dict] = [
+                        deepcopy(DEFAULT_CONFIG["requestEndpoints"][0]) for _ in range(tab_count)
+                    ]
+                    for index, endpoint in enumerate(ui_endpoints):
+                        endpoint["name"] = f"Endpoint {index + 1}"
+
+                    for field_id, field_value in field_values.items():
+                        if not isinstance(field_id, str) or "___" not in field_id:
+                            continue
+                        _, path = field_id.split("___", 1)
+                        parts = path.split("__")
+                        if len(parts) < 3 or parts[0] != "requestEndpoints" or not parts[1].isdigit():
+                            continue
+
+                        endpoint_index = int(parts[1])
+                        if endpoint_index < 0 or endpoint_index >= tab_count:
+                            continue
+
+                        key = "__".join(parts[2:])
+                        ui_endpoints[endpoint_index][key] = field_value
+
+                    return ui_endpoints
+            except Exception:
+                pass
+
+        configured_endpoints = self.ui_config.get("requestEndpoints") if isinstance(self.ui_config, dict) else None
+        current_endpoints: list[dict] = []
+        for index in range(tab_count):
+            endpoint = (
+                configured_endpoints[index]
+                if isinstance(configured_endpoints, list)
+                and index < len(configured_endpoints)
+                and isinstance(configured_endpoints[index], dict)
+                else {}
+            )
+            endpoint_copy = deepcopy(endpoint)
+            endpoint_copy.setdefault("name", f"Endpoint {index + 1}")
+            current_endpoints.append(endpoint_copy)
+
+        if current_endpoints:
+            return current_endpoints
+
+        fallback = deepcopy(DEFAULT_CONFIG["requestEndpoints"][0])
+        fallback["name"] = "Endpoint 1"
+        return [fallback]
+
     async def remove_last_request_endpoint_tab(self):
         request_subtabs = self.query_one("#request_subtabs", TabbedContent)
         existing_tabs = self._get_request_tab_panes()
@@ -111,20 +165,22 @@ class RequestMixin:
             self.notify("At least 1 endpoint must remain", severity="warning")
             return
 
-        removed_index = len(existing_tabs) - 1
+        current_endpoints = self._snapshot_request_endpoints(len(existing_tabs))
+
         last_tab = existing_tabs[-1]
         removal_result = request_subtabs.remove_pane(last_tab.id)
         if hasattr(removal_result, "__await__"):
             await removal_result
 
-        remaining_endpoints = self.get_request_endpoints()[:removed_index]
+        remaining_endpoints = current_endpoints[:-1]
         self.ui_config["requestEndpoints"] = remaining_endpoints
 
         await self._rebuild_request_subtabs(remaining_endpoints)
-        new_active_index = max(0, len(remaining_endpoints) - 1)
-        new_active_tab_id = self.request_endpoint_tab_id(new_active_index)
-        if any(pane.id == new_active_tab_id for pane in self._get_request_tab_panes()):
-            request_subtabs.active = new_active_tab_id
+        target_active_index = len(remaining_endpoints) - 1
+        available_panes = self._get_request_tab_panes()
+        if available_panes:
+            bounded_active_index = max(0, min(target_active_index, len(available_panes) - 1))
+            request_subtabs.active = self.request_endpoint_tab_id(bounded_active_index)
         await self.rebuild_k6_scenario_tabs()
 
     async def _rebuild_request_subtabs(self, request_endpoints: list[dict]) -> None:
