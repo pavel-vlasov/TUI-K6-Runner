@@ -120,8 +120,14 @@ class UIMixin:
             return
         active_tab_id = scenario_subtabs.active
 
+        removal_ops = []
         for pane in list(scenario_subtabs.query(TabPane)):
-            scenario_subtabs.remove_pane(pane.id)
+            removal_result = scenario_subtabs.remove_pane(pane.id)
+            if hasattr(removal_result, "__await__"):
+                removal_ops.append(removal_result)
+
+        for removal_op in removal_ops:
+            await removal_op
 
         for index, endpoint in enumerate(self.get_request_endpoints()):
             await scenario_subtabs.add_pane(self.build_k6_scenario_subtab(index, endpoint))
