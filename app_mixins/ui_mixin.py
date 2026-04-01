@@ -137,7 +137,31 @@ class UIMixin:
         if panes:
             scenario_subtabs.active = active_tab_id if any(pane.id == active_tab_id for pane in panes) else self.scenario_tab_id(0)
 
-    def update_k6_request_mode_ui(self) -> None:
+    def _k6_request_mode_tab_exists(self, k6_subtabs: TabbedContent, target_tab: str) -> bool:
+        tab_pane_ids = {pane.id for pane in k6_subtabs.query(TabPane) if pane.id}
+        if target_tab in tab_pane_ids:
+            return True
+
+        if hasattr(k6_subtabs, "get_tab"):
+            try:
+                k6_subtabs.get_tab(target_tab)
+                return True
+            except (KeyError, AttributeError, TypeError, ValueError, NoMatches):
+                return False
+        return False
+
+    def _defer_k6_request_mode_switch(self, retried: bool) -> bool:
+        if retried:
+            return False
+        if not hasattr(self, "call_later"):
+            return False
+        try:
+            self.call_later(lambda: self._update_k6_request_mode_ui(retried=True))
+            return True
+        except Exception:
+            return False
+
+    def _update_k6_request_mode_ui(self, retried: bool = False) -> None:
         try:
             select = self.query_one("#select___k6__requestMode", Select)
             k6_subtabs = self.query_one("#k6_request_mode_subtabs", TabbedContent)
@@ -147,16 +171,11 @@ class UIMixin:
 
         request_mode = str(select.value).strip().lower()
         target_tab = "tab_k6_scenarios" if request_mode == "scenarios" else "tab_k6_batch"
-        tab_pane_ids = {pane.id for pane in k6_subtabs.query(TabPane) if pane.id}
-        tab_exists = target_tab in tab_pane_ids
-        if not tab_exists and hasattr(k6_subtabs, "get_tab"):
-            try:
-                k6_subtabs.get_tab(target_tab)
-                tab_exists = True
-            except (KeyError, AttributeError, TypeError, ValueError, NoMatches):
-                tab_exists = False
-
-        if not tab_exists:
+        if not self._k6_request_mode_tab_exists(k6_subtabs, target_tab):
+            if self._defer_k6_request_mode_switch(retried):
+                return
+            if not retried:
+                return
             self.notify(
                 f"Expected k6 request mode tab '{target_tab}' was not found.",
                 severity="warning",
@@ -164,6 +183,9 @@ class UIMixin:
             return
 
         k6_subtabs.active = target_tab
+
+    def update_k6_request_mode_ui(self) -> None:
+        self._update_k6_request_mode_ui(retried=False)
 
     def build_k6_scenario_subtab(self, index: int, endpoint_data: dict) -> TabPane:
         k6_config = self.ui_config.get("k6", {})
