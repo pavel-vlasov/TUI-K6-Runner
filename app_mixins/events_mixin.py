@@ -24,12 +24,12 @@ class EventsMixin:
         if event.switch.id in {"bool___k6__logging__enabled", "bool___k6__logging__webDashboard"}:
             self.toggle_logging_fields()
 
-    def on_select_changed(self, event: Select.Changed):
+    async def on_select_changed(self, event: Select.Changed):
         if event.select.id == "select___k6__executionType":
             self.toggle_execution_type_fields()
         if event.select.id == "select___k6__requestMode":
             self.update_k6_request_mode_ui()
-            self.call_after_refresh(self.rebuild_k6_scenario_tabs)
+            await self.rebuild_k6_scenario_tabs()
         if event.select.id == "select___auth__mode":
             self.toggle_auth_fields()
         if event.select.id == "select___k6__logging__outputToUI":

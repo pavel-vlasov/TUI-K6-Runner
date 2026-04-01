@@ -2,6 +2,7 @@ import asyncio
 from types import SimpleNamespace
 
 from app_mixins.events_mixin import EventsMixin
+from app_mixins.ui_mixin import UIMixin
 
 
 class DummySwitch:
@@ -26,6 +27,7 @@ class DummyEventsUI(EventsMixin):
         }
         self.run_controller = SimpleNamespace(is_running=True)
         self.rebuild_calls = 0
+        self.rebuild_started = 0
         self.renamed_endpoints = []
 
     def query_one(self, selector, _widget_type):
@@ -43,10 +45,9 @@ class DummyEventsUI(EventsMixin):
     def update_k6_request_mode_ui(self):
         self.rebuild_calls += 10
 
-    def call_after_refresh(self, callback):
-        callback()
-
-    def rebuild_k6_scenario_tabs(self):
+    async def rebuild_k6_scenario_tabs(self):
+        self.rebuild_started += 1
+        await asyncio.sleep(0)
         self.rebuild_calls += 1
 
     def parse_request_endpoint_name_input_id(self, field_id):
@@ -177,7 +178,7 @@ def test_on_switch_changed_no_auth_disables_other_auth_modes():
     ui = DummyEventsUI()
     event = SimpleNamespace(select=SimpleNamespace(id="select___auth__mode"))
 
-    ui.on_select_changed(event)
+    asyncio.run(ui.on_select_changed(event))
 
     assert ui.auth_toggle_count == 1
 
@@ -202,12 +203,13 @@ def test_on_switch_changed_toggles_logging_fields_for_logging_switches():
     assert ui.logging_toggle_count == 1
 
 
-def test_on_select_changed_request_mode_updates_k6_tabs():
+def test_on_select_changed_request_mode_runs_scenario_rebuild():
     ui = DummyEventsUI()
     event = SimpleNamespace(select=SimpleNamespace(id="select___k6__requestMode"))
 
-    ui.on_select_changed(event)
+    asyncio.run(ui.on_select_changed(event))
 
+    assert ui.rebuild_started == 1
     assert ui.rebuild_calls == 11
 
 
@@ -384,3 +386,27 @@ def test_on_button_pressed_remove_last_arrival_stage_warns_when_cannot_remove():
 
     assert ui.remove_last_arrival_stage_calls == 1
     assert ui.notifications[-1] == ("At least one arrival stage must remain.", "warning")
+
+
+class DummyRequestModeUI(UIMixin):
+    def __init__(self, request_mode):
+        self.request_mode = request_mode
+        self.k6_request_mode_subtabs = SimpleNamespace(
+            active="tab_k6_batch",
+            query=lambda _pane_type: [SimpleNamespace(id="tab_k6_batch"), SimpleNamespace(id="tab_k6_scenarios")],
+        )
+
+    def query_one(self, selector, _widget_type):
+        if selector == "#select___k6__requestMode":
+            return SimpleNamespace(value=self.request_mode)
+        if selector == "#k6_request_mode_subtabs":
+            return self.k6_request_mode_subtabs
+        raise KeyError(selector)
+
+
+def test_update_k6_request_mode_ui_switches_to_scenarios_tab():
+    ui = DummyRequestModeUI(request_mode="scenarios")
+
+    ui.update_k6_request_mode_ui()
+
+    assert ui.k6_request_mode_subtabs.active == "tab_k6_scenarios"
