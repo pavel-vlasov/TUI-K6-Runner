@@ -180,9 +180,10 @@ Response Headers: ${JSON.stringify(res.headers, null, 2)}
 }
 
 const executionType = k6cfg.executionType || 'external executor';
+const requestMode = k6cfg.requestMode || 'batch';
 const spikeStages = Array.isArray(k6cfg.spikeStages) ? k6cfg.spikeStages : [];
 
-function buildBaseScenario() {
+function buildLoadProfile() {
   if (executionType === 'Spike Tests') {
     const stages = spikeStages
       .map((stage) => ({
@@ -246,9 +247,27 @@ function buildBaseScenario() {
   };
 }
 
+function buildScenario(execName) {
+  return {
+    ...buildLoadProfile(),
+    exec: execName,
+  };
+}
+
+function buildScenariosOptions() {
+  if (requestMode === 'scenarios') {
+    return requestEndpoints.reduce((acc, _endpoint, index) => {
+      acc[`endpoint_${index}`] = buildScenario(`exec_endpoint_${index}`);
+      return acc;
+    }, {});
+  }
+
+  return { default: buildLoadProfile() };
+}
+
 export let options = {
   thresholds: k6cfg.thresholds || { 'http_req_duration': ['p(95)<5000'] },
-  scenarios: { default: buildBaseScenario() },
+  scenarios: buildScenariosOptions(),
 };
 
 // --- setup ---
@@ -311,6 +330,42 @@ export default function (data) {
   });
 
   sleep(Math.random() * 0.4 + 0.1);
+}
+
+function executeSingleEndpoint(data, endpointIndex) {
+  const endpoint = requestEndpoints[endpointIndex];
+  if (!endpoint) {
+    throw new Error(`❌ Endpoint is not configured for index: ${endpointIndex}`);
+  }
+
+  const correlationId = uuidv4();
+  const req = buildSingleRequest(endpoint, data, correlationId);
+  const res = http.request(req.method, req.url, req.body, req.params);
+  const ok = check(res, {
+    [`${req.name} status 200`]: (r) => r.status === 200,
+  });
+  logRequestResult(req, res, ok, correlationId);
+  sleep(Math.random() * 0.4 + 0.1);
+}
+
+export function exec_endpoint_0(data) {
+  executeSingleEndpoint(data, 0);
+}
+
+export function exec_endpoint_1(data) {
+  executeSingleEndpoint(data, 1);
+}
+
+export function exec_endpoint_2(data) {
+  executeSingleEndpoint(data, 2);
+}
+
+export function exec_endpoint_3(data) {
+  executeSingleEndpoint(data, 3);
+}
+
+export function exec_endpoint_4(data) {
+  executeSingleEndpoint(data, 4);
 }
 
 export function handleSummary(data) {
