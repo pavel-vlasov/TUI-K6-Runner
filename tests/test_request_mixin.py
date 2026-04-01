@@ -10,6 +10,18 @@ class DummyTabPane:
         self.title = title
 
 
+class ImmutableIdDummyTabPane(DummyTabPane):
+    @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, value):
+        if hasattr(self, "_id"):
+            raise AttributeError("id is immutable")
+        self._id = value
+
+
 class DummyTabbedContent:
     def __init__(self, panes):
         self._panes = panes
@@ -146,14 +158,28 @@ def test_parse_request_endpoint_name_input_id_returns_index():
     assert ui.parse_request_endpoint_name_input_id("input___k6__scenarios__0__vus") is None
 
 
-def test_remove_last_request_endpoint_tab_reindexes_remaining_tab_ids():
-    ui = DummyRequestUI({}, pane_count=4)
-    ui.request_subtabs._panes[2].id = "tab_req_endpoint_99"
+def test_remove_last_request_endpoint_tab_handles_immutable_ids_and_syncs_config():
+    ui = DummyRequestUI(
+        {
+            "requestEndpoints": [
+                {"name": "Endpoint 1", "path": "/1"},
+                {"name": "Endpoint 2", "path": "/2"},
+                {"name": "Endpoint 3", "path": "/3"},
+            ]
+        },
+        pane_count=3,
+    )
+    ui.request_subtabs._panes = [
+        ImmutableIdDummyTabPane("tab_req_endpoint_0", title="Endpoint 1"),
+        ImmutableIdDummyTabPane("tab_req_endpoint_1", title="Endpoint 2"),
+        ImmutableIdDummyTabPane("tab_req_endpoint_2", title="Endpoint 3"),
+    ]
 
     asyncio.run(ui.remove_last_request_endpoint_tab())
 
+    assert len(ui.request_subtabs._panes) == 2
     assert [pane.id for pane in ui.request_subtabs._panes] == [
         "tab_req_endpoint_0",
         "tab_req_endpoint_1",
-        "tab_req_endpoint_2",
     ]
+    assert len(ui.ui_config["requestEndpoints"]) == 2
