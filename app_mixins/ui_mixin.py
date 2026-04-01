@@ -157,6 +157,11 @@ class UIMixin:
         else:
             k6_scenario_subtabs.active = "tab_k6_scenario_0"
 
+        for index in range(len(endpoint_names)):
+            if index == 0:
+                continue
+            self.toggle_scenario_execution_type_fields(index)
+
     def toggle_execution_type_fields(self) -> None:
         execution_select = self.query_one("#select___k6__executionType", Select)
 
@@ -192,6 +197,48 @@ class UIMixin:
         self.query_one("#spike_stages_group", Vertical).styles.display = "block" if show_spike_fields else "none"
         self.query_one("#arrival_stages_group", Vertical).styles.display = (
             "block" if show_ramping_arrival_fields else "none"
+        )
+
+    def toggle_scenario_execution_type_fields(self, index: int) -> None:
+        try:
+            execution_select = self.query_one(f"#select___k6__scenarios__{index}__executionType", Select)
+        except Exception:
+            return
+
+        show_external_fields = execution_select.value == ExecutionType.EXTERNAL_EXECUTOR.value
+        show_spike_fields = execution_select.value == ExecutionType.SPIKE_TESTS.value
+        show_constant_vus_fields = execution_select.value == ExecutionType.CONSTANT_VUS.value
+        show_constant_arrival_fields = execution_select.value == ExecutionType.CONSTANT_ARRIVAL_RATE.value
+        show_ramping_arrival_fields = execution_select.value == ExecutionType.RAMPING_ARRIVAL_RATE.value
+
+        self.query_one(f"#k6_scenario_{index}_vus_row", Horizontal).styles.display = (
+            "block" if (show_external_fields or show_constant_vus_fields) else "none"
+        )
+        self.query_one(f"#k6_scenario_{index}_maxvus_row", Horizontal).styles.display = (
+            "block"
+            if (show_external_fields or show_constant_arrival_fields or show_ramping_arrival_fields)
+            else "none"
+        )
+        self.query_one(f"#k6_scenario_{index}_duration_row", Horizontal).styles.display = (
+            "block" if (show_external_fields or show_constant_vus_fields or show_constant_arrival_fields) else "none"
+        )
+        self.query_one(f"#k6_scenario_{index}_rate_row", Horizontal).styles.display = (
+            "block" if (show_constant_arrival_fields or show_ramping_arrival_fields) else "none"
+        )
+        self.query_one(f"#k6_scenario_{index}_timeunit_row", Horizontal).styles.display = (
+            "block" if (show_constant_arrival_fields or show_ramping_arrival_fields) else "none"
+        )
+        self.query_one(f"#k6_scenario_{index}_preallocated_row", Horizontal).styles.display = (
+            "block" if (show_constant_arrival_fields or show_ramping_arrival_fields) else "none"
+        )
+        self.query_one(f"#k6_scenario_{index}_start_rate_row", Horizontal).styles.display = (
+            "block" if show_ramping_arrival_fields else "none"
+        )
+        self.query_one(f"#k6_scenario_{index}_arrival_stages_group", Vertical).styles.display = (
+            "block" if show_ramping_arrival_fields else "none"
+        )
+        self.query_one(f"#k6_scenario_{index}_spike_stages_group", Vertical).styles.display = (
+            "block" if show_spike_fields else "none"
         )
 
     def toggle_auth_fields(self) -> None:
@@ -348,14 +395,12 @@ class UIMixin:
             *build_config_fields(k6_other_data, "k6"),
         )
 
-    def build_k6_settings_tab(self, tab_title: str, index: int) -> TabPane:
-        if index == 0:
-            return TabPane(
-                tab_title,
-                ScrollableContainer(*self.build_k6_settings_fields(), classes="tab-container"),
-                id=f"tab_k6_scenario_{index}",
-            )
+    def build_scenario_settings_fields(self, index: int):
         scenario_config = self.get_additional_scenario_config(index)
+        execution_type = scenario_config.get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value)
+        if execution_type not in EXECUTION_TYPES:
+            execution_type = ExecutionType.EXTERNAL_EXECUTOR.value
+
         scenario_other_data = {
             key: value
             for key, value in scenario_config.items()
@@ -369,82 +414,131 @@ class UIMixin:
                 "timeUnit",
                 "preAllocatedVUs",
                 "startRate",
+                "spikeStages",
+                "rampingArrivalStages",
             }
         }
+
+        scenario_spike_stages = scenario_config.get("spikeStages", [])
+        if not isinstance(scenario_spike_stages, list) or not scenario_spike_stages:
+            scenario_spike_stages = [{"duration": "30s", "target": 10}]
+
+        scenario_arrival_stages = scenario_config.get("rampingArrivalStages", [])
+        if not isinstance(scenario_arrival_stages, list) or not scenario_arrival_stages:
+            scenario_arrival_stages = [{"duration": "30s", "target": 10}]
+
+        return (
+            Horizontal(
+                Label("execution type:", classes="field-label"),
+                Select(
+                    list(EXECUTION_TYPE_OPTIONS),
+                    value=execution_type,
+                    id=f"select___k6__scenarios__{index}__executionType",
+                ),
+                classes="field-row",
+            ),
+            Horizontal(
+                Label("vus:", classes="field-label"),
+                Input(str(scenario_config.get("vus", "")), id=f"input___k6__scenarios__{index}__vus"),
+                classes="field-row",
+                id=f"k6_scenario_{index}_vus_row",
+            ),
+            Horizontal(
+                Label("maxVUs:", classes="field-label"),
+                Input(str(scenario_config.get("maxVUs", "")), id=f"input___k6__scenarios__{index}__maxVUs"),
+                classes="field-row",
+                id=f"k6_scenario_{index}_maxvus_row",
+            ),
+            Horizontal(
+                Label("duration:", classes="field-label"),
+                Input(str(scenario_config.get("duration", "")), id=f"input___k6__scenarios__{index}__duration"),
+                classes="field-row",
+                id=f"k6_scenario_{index}_duration_row",
+            ),
+            Horizontal(
+                Label("rate:", classes="field-label"),
+                Input(str(scenario_config.get("rate", "")), id=f"input___k6__scenarios__{index}__rate"),
+                classes="field-row",
+                id=f"k6_scenario_{index}_rate_row",
+            ),
+            Horizontal(
+                Label("timeUnit:", classes="field-label"),
+                Input(str(scenario_config.get("timeUnit", "")), id=f"input___k6__scenarios__{index}__timeUnit"),
+                classes="field-row",
+                id=f"k6_scenario_{index}_timeunit_row",
+            ),
+            Horizontal(
+                Label("preAllocatedVUs:", classes="field-label"),
+                Input(
+                    str(scenario_config.get("preAllocatedVUs", "")),
+                    id=f"input___k6__scenarios__{index}__preAllocatedVUs",
+                ),
+                classes="field-row",
+                id=f"k6_scenario_{index}_preallocated_row",
+            ),
+            Horizontal(
+                Label("startRate:", classes="field-label"),
+                Input(str(scenario_config.get("startRate", "")), id=f"input___k6__scenarios__{index}__startRate"),
+                classes="field-row",
+                id=f"k6_scenario_{index}_start_rate_row",
+            ),
+            Vertical(
+                Label("rampingArrivalStages:", classes="field-label"),
+                *[
+                    Horizontal(
+                        Label(f"stage {stage_index + 1}:", classes="field-label"),
+                        Input(
+                            str(stage.get("duration", "")),
+                            id=f"input___k6__scenarios__{index}__rampingArrivalStages__{stage_index}__duration",
+                            placeholder="duration (e.g. 30s)",
+                        ),
+                        Input(
+                            str(stage.get("target", "")),
+                            id=f"input___k6__scenarios__{index}__rampingArrivalStages__{stage_index}__target",
+                            placeholder="target rate",
+                        ),
+                        classes="field-row spike-stage-row",
+                    )
+                    for stage_index, stage in enumerate(scenario_arrival_stages)
+                ],
+                classes="field-row-multiline",
+                id=f"k6_scenario_{index}_arrival_stages_group",
+            ),
+            Vertical(
+                Label("spikeStages:", classes="field-label"),
+                *[
+                    Horizontal(
+                        Label(f"stage {stage_index + 1}:", classes="field-label"),
+                        Input(
+                            str(stage.get("duration", "")),
+                            id=f"input___k6__scenarios__{index}__spikeStages__{stage_index}__duration",
+                            placeholder="duration (e.g. 30s)",
+                        ),
+                        Input(
+                            str(stage.get("target", "")),
+                            id=f"input___k6__scenarios__{index}__spikeStages__{stage_index}__target",
+                            placeholder="target VUs",
+                        ),
+                        classes="field-row spike-stage-row",
+                    )
+                    for stage_index, stage in enumerate(scenario_spike_stages)
+                ],
+                classes="field-row-multiline",
+                id=f"k6_scenario_{index}_spike_stages_group",
+            ),
+            *build_config_fields(scenario_other_data, f"k6.scenarios.{index}"),
+        )
+
+    def build_k6_settings_tab(self, tab_title: str, index: int) -> TabPane:
+        if index == 0:
+            return TabPane(
+                tab_title,
+                ScrollableContainer(*self.build_k6_settings_fields(), classes="tab-container"),
+                id=f"tab_k6_scenario_{index}",
+            )
         return TabPane(
             tab_title,
-            ScrollableContainer(
-                Horizontal(
-                    Label("execution type:", classes="field-label"),
-                    Select(
-                        list(EXECUTION_TYPE_OPTIONS),
-                        value=scenario_config.get(
-                            "executionType",
-                            ExecutionType.EXTERNAL_EXECUTOR.value,
-                        ),
-                        id=f"select___k6__scenarios__{index}__executionType",
-                    ),
-                    classes="field-row",
-                ),
-                Horizontal(
-                    Label("vus:", classes="field-label"),
-                    Input(
-                        str(scenario_config.get("vus", "")),
-                        id=f"input___k6__scenarios__{index}__vus",
-                    ),
-                    classes="field-row",
-                ),
-                Horizontal(
-                    Label("maxVUs:", classes="field-label"),
-                    Input(
-                        str(scenario_config.get("maxVUs", "")),
-                        id=f"input___k6__scenarios__{index}__maxVUs",
-                    ),
-                    classes="field-row",
-                ),
-                Horizontal(
-                    Label("duration:", classes="field-label"),
-                    Input(
-                        str(scenario_config.get("duration", "")),
-                        id=f"input___k6__scenarios__{index}__duration",
-                    ),
-                    classes="field-row",
-                ),
-                Horizontal(
-                    Label("rate:", classes="field-label"),
-                    Input(
-                        str(scenario_config.get("rate", "")),
-                        id=f"input___k6__scenarios__{index}__rate",
-                    ),
-                    classes="field-row",
-                ),
-                Horizontal(
-                    Label("timeUnit:", classes="field-label"),
-                    Input(
-                        str(scenario_config.get("timeUnit", "")),
-                        id=f"input___k6__scenarios__{index}__timeUnit",
-                    ),
-                    classes="field-row",
-                ),
-                Horizontal(
-                    Label("preAllocatedVUs:", classes="field-label"),
-                    Input(
-                        str(scenario_config.get("preAllocatedVUs", "")),
-                        id=f"input___k6__scenarios__{index}__preAllocatedVUs",
-                    ),
-                    classes="field-row",
-                ),
-                Horizontal(
-                    Label("startRate:", classes="field-label"),
-                    Input(
-                        str(scenario_config.get("startRate", "")),
-                        id=f"input___k6__scenarios__{index}__startRate",
-                    ),
-                    classes="field-row",
-                ),
-                *build_config_fields(scenario_other_data, f"k6.scenarios.{index}"),
-                classes="tab-container",
-            ),
+            ScrollableContainer(*self.build_scenario_settings_fields(index), classes="tab-container"),
             id=f"tab_k6_scenario_{index}",
         )
 

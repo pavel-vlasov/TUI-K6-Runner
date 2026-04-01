@@ -1,5 +1,6 @@
 import time
 import webbrowser
+import re
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import pyperclip
@@ -21,6 +22,10 @@ class EventsMixin:
     async def on_select_changed(self, event: Select.Changed):
         if event.select.id == "select___k6__executionType":
             self.toggle_execution_type_fields()
+        if event.select.id:
+            match = re.fullmatch(r"select___k6__scenarios__(\d+)__executionType", event.select.id)
+            if match:
+                self.toggle_scenario_execution_type_fields(int(match.group(1)))
         if event.select.id == "select___k6__requestMode":
             await self.sync_k6_scenario_tabs()
             self.toggle_execution_type_fields()
