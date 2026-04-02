@@ -91,8 +91,19 @@ class EventsMixin:
                 self.notify("⛔ Test is already running. Please wait until it finishes.", severity="warning")
                 return
 
-            if not self.action_save_config():
+            if getattr(self, "_is_validating_config", False):
                 return
+
+            run_btn = self.query_one("#run_btn", Button)
+            status_bar.update("Validating configuration...")
+            self._is_validating_config = True
+            run_btn.disabled = True
+            try:
+                if not self.action_save_config():
+                    return
+            finally:
+                self._is_validating_config = False
+                run_btn.disabled = False
 
             log_view.clear()
             self.notify("Running K6 execution...")
@@ -166,22 +177,8 @@ class EventsMixin:
         runtime_config = ConfigHandler.build_runtime_config(self.ui_config)
         errors = ConfigHandler.validate_runtime_config(runtime_config)
         if errors:
-            max_visible_errors = 5
-            visible_errors = errors[:max_visible_errors]
-            message_lines = ["Configuration validation failed"]
-            message_lines.extend(f"• {error}" for error in visible_errors)
-            remaining_errors_count = len(errors) - len(visible_errors)
-            if remaining_errors_count > 0:
-                message_lines.append(f"... and {remaining_errors_count} more")
-            self.notify("\n".join(message_lines), severity="error")
-
-            try:
-                log_view = self.query_one("#output_log", RichLog)
-                log_view.write("[red]Configuration validation errors:[/red]")
-                for error in errors:
-                    log_view.write(f"• {error}")
-            except Exception:
-                pass
+            error_details = "\n".join(f"• {error}" for error in errors)
+            self.notify(f"Configuration validation failed:\n{error_details}", severity="error")
             return False
 
         self.runtime_config = runtime_config

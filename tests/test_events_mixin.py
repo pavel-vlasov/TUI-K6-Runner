@@ -141,6 +141,7 @@ class DummyButtonUI(EventsMixin):
             "#output_log": DummyLogView(),
             "#status_bar": DummyStatusBar(),
             "#vu_input": SimpleNamespace(value=""),
+            "#run_btn": SimpleNamespace(disabled=False),
         }
         self.run_controller = SimpleNamespace(
             is_running=is_running,
@@ -339,6 +340,18 @@ def test_on_button_pressed_run_btn_happy_path_clears_log_and_starts_run():
     assert ui_config is ui.runtime_config
     assert callable(callbacks.on_log)
     assert callable(callbacks.on_status)
+    assert ui.widgets["#run_btn"].disabled is False
+    assert ui.widgets["#status_bar"].messages[0] == "Validating configuration..."
+
+
+def test_on_button_pressed_run_btn_ignores_repeated_click_while_validating():
+    ui = DummyButtonUI(action_save_config_result=True)
+    ui._is_validating_config = True
+
+    asyncio.run(ui.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="run_btn"))))
+
+    assert ui.action_save_config_calls == 0
+    assert ui.start_run_calls == []
 
 
 def test_on_button_pressed_stop_btn_calls_stop_run_and_warns():
