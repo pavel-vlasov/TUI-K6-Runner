@@ -136,8 +136,8 @@ class ExternalTerminalBackend(ExecutionBackend):
                 env_parts.append(("K6_WEB_DASHBOARD_PORT", str(parsed_url.port)))
 
         if enable_html_summary:
-            summary_json_path.parent.mkdir(parents=True, exist_ok=True)
-            command_parts.extend(["--summary-export", str(summary_json_path)])
+            summary_export_path = summary_json_path.as_posix() if shell_type == "powershell" else str(summary_json_path)
+            command_parts.extend(["--summary-export", summary_export_path])
 
         if shell_type == "powershell":
             command_text = "& " + " ".join(_powershell_quote(part) for part in command_parts)
