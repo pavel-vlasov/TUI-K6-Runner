@@ -135,7 +135,7 @@ class UIMixin:
         request_mode = str(k6_mode_select.value or self.get_request_mode())
         endpoint_names: list[str] = []
         request_panes = self._get_request_tab_panes()
-        for index, pane in enumerate(request_panes):
+        for index, _pane in enumerate(request_panes):
             fallback_name = f"Endpoint {index + 1}"
             try:
                 endpoint_name_input = self.query_one(f"#input___requestEndpoints__{index}__name", Input)
