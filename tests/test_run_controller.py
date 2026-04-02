@@ -80,6 +80,27 @@ def test_start_run_passes_dashboard_url_to_service():
     assert service.last_kwargs["web_dashboard_url"] == "http://localhost:9999"
 
 
+def test_start_run_passes_connection_management_to_service():
+    service = DummyK6Service()
+    controller = RunController(service)
+    callbacks = RunCallbacks(
+        on_log=lambda _msg: None,
+        on_status=lambda _msg: None,
+        on_run_state_changed=lambda _running: None,
+    )
+
+    asyncio.run(
+        _run_controller_start(
+            controller,
+            callbacks,
+            {"k6": {"connectionManagement": "no connection reuse", "logging": {}}},
+        )
+    )
+
+    assert service.last_kwargs is not None
+    assert service.last_kwargs["connection_management"] == "no connection reuse"
+
+
 def test_start_run_notifies_false_when_task_creation_fails(monkeypatch):
     service = DummyK6Service()
     controller = RunController(service)
