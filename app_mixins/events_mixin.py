@@ -91,8 +91,19 @@ class EventsMixin:
                 self.notify("⛔ Test is already running. Please wait until it finishes.", severity="warning")
                 return
 
-            if not self.action_save_config():
+            if getattr(self, "_is_validating_config", False):
                 return
+
+            run_btn = self.query_one("#run_btn", Button)
+            status_bar.update("Validating configuration...")
+            self._is_validating_config = True
+            run_btn.disabled = True
+            try:
+                if not self.action_save_config():
+                    return
+            finally:
+                self._is_validating_config = False
+                run_btn.disabled = False
 
             log_view.clear()
             self.notify("Running K6 execution...")
@@ -166,9 +177,8 @@ class EventsMixin:
         runtime_config = ConfigHandler.build_runtime_config(self.ui_config)
         errors = ConfigHandler.validate_runtime_config(runtime_config)
         if errors:
-            self.notify("Configuration validation failed:", severity="error")
-            for error in errors:
-                self.notify(f"• {error}", severity="error")
+            error_details = "\n".join(f"• {error}" for error in errors)
+            self.notify(f"Configuration validation failed:\n{error_details}", severity="error")
             return False
 
         self.runtime_config = runtime_config
