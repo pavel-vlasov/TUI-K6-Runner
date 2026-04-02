@@ -2,6 +2,7 @@ import copy
 import json
 import os
 import re
+import sys
 import tempfile
 from collections.abc import Mapping
 from pathlib import Path
@@ -257,9 +258,15 @@ class ConfigHandler:
     @staticmethod
     def _build_logging_config(logging_cfg: object) -> dict:
         source = logging_cfg if isinstance(logging_cfg, dict) else {}
+        config_handler_module = sys.modules.get("config_handler")
+        patched_normalizer = (
+            getattr(config_handler_module, "normalize_logging_level", None) if config_handler_module else None
+        )
+        normalizer = patched_normalizer if callable(patched_normalizer) else normalize_logging_level
+
         return {
             "enabled": bool(source.get("enabled", False)),
-            "level": normalize_logging_level(source.get("level", LOGGING_LEVEL_FAILED)),
+            "level": normalizer(source.get("level", LOGGING_LEVEL_FAILED)),
             "outputToUI": bool(source.get("outputToUI", True)),
             "webDashboard": bool(source.get("webDashboard", False)),
             "webDashboardUrl": str(source.get("webDashboardUrl", "http://localhost:5665")).strip(),
