@@ -119,6 +119,7 @@ class DummyButtonUI(EventsMixin):
         self.save_config_calls = []
         self.add_request_endpoint_tab_calls = 0
         self.remove_last_request_endpoint_tab_calls = 0
+        self.sync_k6_scenario_tabs_calls = 0
         self.add_spike_stage_calls = 0
         self.remove_last_spike_stage_calls = 0
         self.add_arrival_stage_calls = 0
@@ -182,6 +183,9 @@ class DummyButtonUI(EventsMixin):
 
     async def remove_last_request_endpoint_tab(self):
         self.remove_last_request_endpoint_tab_calls += 1
+
+    async def sync_k6_scenario_tabs(self):
+        self.sync_k6_scenario_tabs_calls += 1
 
     def add_spike_stage(self):
         self.add_spike_stage_calls += 1
@@ -443,6 +447,44 @@ def test_on_button_pressed_remove_last_scenario_stage_warns_when_cannot_remove()
     assert ui.remove_last_scenario_arrival_stage_calls == [1]
     assert ui.notifications[-1] == ("At least one arrival stage must remain.", "warning")
 
+
+
+class DummyInputUI(EventsMixin):
+    def __init__(self, debounce_seconds=0.02):
+        self._endpoint_name_sync_debounce_seconds = debounce_seconds
+        self._endpoint_name_sync_task = None
+        self.sync_k6_scenario_tabs_calls = 0
+
+    async def sync_k6_scenario_tabs(self):
+        self.sync_k6_scenario_tabs_calls += 1
+
+
+async def _emit_endpoint_name_input_events(ui, count):
+    event = SimpleNamespace(input=SimpleNamespace(id="input___requestEndpoints__0__name"))
+    for _ in range(count):
+        await ui.on_input_changed(event)
+        await asyncio.sleep(0.005)
+
+
+def test_on_input_changed_endpoint_name_is_debounced_to_single_sync_call():
+    async def scenario():
+        ui = DummyInputUI(debounce_seconds=0.02)
+        await _emit_endpoint_name_input_events(ui, count=5)
+        await asyncio.sleep(0.04)
+        assert ui.sync_k6_scenario_tabs_calls == 1
+
+    asyncio.run(scenario())
+
+
+def test_on_button_pressed_request_endpoint_buttons_sync_immediately():
+    ui = DummyButtonUI()
+
+    asyncio.run(ui.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="add_request_endpoint_btn"))))
+    asyncio.run(ui.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="remove_request_endpoint_btn"))))
+
+    assert ui.add_request_endpoint_tab_calls == 1
+    assert ui.remove_last_request_endpoint_tab_calls == 1
+    assert ui.sync_k6_scenario_tabs_calls == 2
 
 def test_action_save_config_validation_errors_are_aggregated_into_single_notification(monkeypatch):
     ui = DummySaveConfigUI()
