@@ -505,45 +505,37 @@ class UIMixin:
             ),
             Vertical(
                 Label("rampingArrivalStages:", classes="field-label"),
-                *[
-                    Horizontal(
-                        Label(f"stage {stage_index + 1}:", classes="field-label"),
-                        Input(
-                            str(stage.get("duration", "")),
-                            id=f"input___k6__scenarios__{index}__rampingArrivalStages__{stage_index}__duration",
-                            placeholder="duration (e.g. 30s)",
-                        ),
-                        Input(
-                            str(stage.get("target", "")),
-                            id=f"input___k6__scenarios__{index}__rampingArrivalStages__{stage_index}__target",
-                            placeholder="target rate",
-                        ),
-                        classes="field-row spike-stage-row",
-                    )
-                    for stage_index, stage in enumerate(scenario_arrival_stages)
-                ],
+                ScrollableContainer(
+                    *[
+                        self.build_scenario_arrival_stage_row(index, stage_index, stage)
+                        for stage_index, stage in enumerate(scenario_arrival_stages)
+                    ],
+                    id=f"k6_scenario_{index}_arrival_stages_container",
+                ),
+                Horizontal(
+                    Label("", classes="field-label"),
+                    Button("+", id=f"add_scenario_{index}_arrival_stage_btn", variant="primary"),
+                    Button("-", id=f"remove_last_scenario_{index}_arrival_stage_btn", variant="error"),
+                    classes="field-row",
+                ),
                 classes="field-row-multiline",
                 id=f"k6_scenario_{index}_arrival_stages_group",
             ),
             Vertical(
                 Label("spikeStages:", classes="field-label"),
-                *[
-                    Horizontal(
-                        Label(f"stage {stage_index + 1}:", classes="field-label"),
-                        Input(
-                            str(stage.get("duration", "")),
-                            id=f"input___k6__scenarios__{index}__spikeStages__{stage_index}__duration",
-                            placeholder="duration (e.g. 30s)",
-                        ),
-                        Input(
-                            str(stage.get("target", "")),
-                            id=f"input___k6__scenarios__{index}__spikeStages__{stage_index}__target",
-                            placeholder="target VUs",
-                        ),
-                        classes="field-row spike-stage-row",
-                    )
-                    for stage_index, stage in enumerate(scenario_spike_stages)
-                ],
+                ScrollableContainer(
+                    *[
+                        self.build_scenario_spike_stage_row(index, stage_index, stage)
+                        for stage_index, stage in enumerate(scenario_spike_stages)
+                    ],
+                    id=f"k6_scenario_{index}_spike_stages_container",
+                ),
+                Horizontal(
+                    Label("", classes="field-label"),
+                    Button("+", id=f"add_scenario_{index}_spike_stage_btn", variant="primary"),
+                    Button("-", id=f"remove_last_scenario_{index}_spike_stage_btn", variant="error"),
+                    classes="field-row",
+                ),
                 classes="field-row-multiline",
                 id=f"k6_scenario_{index}_spike_stages_group",
             ),

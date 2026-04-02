@@ -82,6 +82,23 @@ class EventsMixin:
             if not self.remove_last_arrival_stage():
                 self.notify("At least one arrival stage must remain.", severity="warning")
             return
+        if event.button.id:
+            if match := re.fullmatch(r"add_scenario_(\d+)_spike_stage_btn", event.button.id):
+                self.add_scenario_spike_stage(int(match.group(1)))
+                return
+            if match := re.fullmatch(r"remove_last_scenario_(\d+)_spike_stage_btn", event.button.id):
+                scenario_index = int(match.group(1))
+                if not self.remove_last_scenario_spike_stage(scenario_index):
+                    self.notify("At least one spike stage must remain.", severity="warning")
+                return
+            if match := re.fullmatch(r"add_scenario_(\d+)_arrival_stage_btn", event.button.id):
+                self.add_scenario_arrival_stage(int(match.group(1)))
+                return
+            if match := re.fullmatch(r"remove_last_scenario_(\d+)_arrival_stage_btn", event.button.id):
+                scenario_index = int(match.group(1))
+                if not self.remove_last_scenario_arrival_stage(scenario_index):
+                    self.notify("At least one arrival stage must remain.", severity="warning")
+                return
 
         log_view = self.query_one("#output_log", RichLog)
         status_bar = self.query_one("#status_bar", Static)
@@ -168,6 +185,25 @@ class EventsMixin:
 
         arrival_rows_count = len(self.query_one("#arrival_stages_container", ScrollableContainer).children)
         self.ui_config.setdefault("k6", {})["rampingArrivalStages"] = [{} for _ in range(arrival_rows_count)]
+
+        scenarios = self.ui_config.setdefault("k6", {}).setdefault("scenarios", [])
+        for scenario_index, scenario in enumerate(scenarios):
+            if not isinstance(scenario, dict):
+                continue
+            try:
+                spike_rows = len(
+                    self.query_one(f"#k6_scenario_{scenario_index}_spike_stages_container", ScrollableContainer).children
+                )
+                scenario["spikeStages"] = [{} for _ in range(spike_rows)]
+            except Exception:
+                pass
+            try:
+                arrival_rows = len(
+                    self.query_one(f"#k6_scenario_{scenario_index}_arrival_stages_container", ScrollableContainer).children
+                )
+                scenario["rampingArrivalStages"] = [{} for _ in range(arrival_rows)]
+            except Exception:
+                pass
 
         request_tabs_count = len(self._get_request_tab_panes())
         self.ui_config["requestEndpoints"] = [{} for _ in range(request_tabs_count)]
