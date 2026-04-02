@@ -1,3 +1,4 @@
+import asyncio
 import time
 import webbrowser
 import re
@@ -39,7 +40,14 @@ class EventsMixin:
         if not event.input.id:
             return
         if event.input.id.startswith("input___requestEndpoints__") and event.input.id.endswith("__name"):
-            await self.sync_k6_scenario_tabs()
+            pending_task = getattr(self, "_endpoint_name_sync_task", None)
+            if pending_task and not pending_task.done():
+                pending_task.cancel()
+
+            debounce_seconds = getattr(self, "_endpoint_name_sync_debounce_seconds", 0.2)
+            self._endpoint_name_sync_task = asyncio.create_task(
+                self._debounced_sync_k6_scenario_tabs(debounce_seconds)
+            )
 
     async def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "web_dashboard_btn":
@@ -64,9 +72,17 @@ class EventsMixin:
             return
         if event.button.id == "add_request_endpoint_btn":
             await self.add_request_endpoint_tab()
+            pending_task = getattr(self, "_endpoint_name_sync_task", None)
+            if pending_task and not pending_task.done():
+                pending_task.cancel()
+            await self.sync_k6_scenario_tabs()
             return
         if event.button.id == "remove_request_endpoint_btn":
             await self.remove_last_request_endpoint_tab()
+            pending_task = getattr(self, "_endpoint_name_sync_task", None)
+            if pending_task and not pending_task.done():
+                pending_task.cancel()
+            await self.sync_k6_scenario_tabs()
             return
         if event.button.id == "add_spike_stage_btn":
             self.add_spike_stage()
@@ -160,6 +176,13 @@ class EventsMixin:
             await self.run_controller.scale(vu_value, log_view.write)
             self.notify(f"Scaled to {vu_value} VU(s).", severity="information")
             vu_input.value = ""
+
+    async def _debounced_sync_k6_scenario_tabs(self, debounce_seconds: float):
+        try:
+            await asyncio.sleep(debounce_seconds)
+            await self.sync_k6_scenario_tabs()
+        except asyncio.CancelledError:
+            return
 
     def _with_cache_busting_query(self, url: str) -> str:
         parsed = urlparse(url)
