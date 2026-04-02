@@ -21,6 +21,7 @@ class ExternalTerminalBackend(ExecutionBackend):
     async def start_run(
         self,
         *,
+        connection_management: str,
         enable_web_dashboard: bool,
         web_dashboard_url: str | None,
         enable_html_summary: bool,
@@ -34,6 +35,7 @@ class ExternalTerminalBackend(ExecutionBackend):
         system_name = platform.system()
         shell_type = "powershell" if system_name == "Windows" else "posix"
         external_command = self._build_external_k6_command(
+            connection_management=connection_management,
             enable_web_dashboard=enable_web_dashboard,
             web_dashboard_url=web_dashboard_url,
             enable_html_summary=enable_html_summary,
@@ -114,6 +116,7 @@ class ExternalTerminalBackend(ExecutionBackend):
     def _build_external_k6_command(
         self,
         *,
+        connection_management: str,
         enable_web_dashboard: bool,
         web_dashboard_url: str | None,
         enable_html_summary: bool,
@@ -125,6 +128,10 @@ class ExternalTerminalBackend(ExecutionBackend):
 
         command_parts = ["k6", "run", "test.js"]
         env_parts: list[tuple[str, str]] = []
+        if connection_management == "no connection reuse":
+            command_parts.append("--no-connection-reuse")
+        elif connection_management == "no vu connection reuse":
+            command_parts.append("--no-vu-connection-reuse")
 
         if enable_web_dashboard:
             command_parts.extend(["--out", "web-dashboard=period=5s&open=false"])
