@@ -203,6 +203,20 @@ def test_build_external_terminal_command_for_macos(monkeypatch):
     assert 'k6 run \\"test.js\\"' in command[2]
 
 
+def test_build_external_terminal_command_for_macos_escapes_backslashes_and_quotes(monkeypatch):
+    backend = ExternalTerminalBackend()
+    monkeypatch.setattr("k6.backends.external_terminal.platform.system", lambda: "Darwin")
+    monkeypatch.setattr(
+        "k6.backends.external_terminal.shutil.which",
+        lambda name: "/usr/bin/osascript" if name == "osascript" else None,
+    )
+
+    command = backend._build_external_terminal_command(r'k6 run "C:\tmp\folder\"quoted\"\test.js"')
+
+    assert command[0] == "osascript"
+    assert r"C:\\tmp\\folder\\\"quoted\\\"\\test.js" in command[2]
+
+
 def test_build_external_terminal_command_for_macos_raises_when_osascript_missing(monkeypatch):
     backend = ExternalTerminalBackend()
     monkeypatch.setattr("k6.backends.external_terminal.platform.system", lambda: "Darwin")
@@ -234,6 +248,23 @@ def test_build_external_k6_command_windows_uses_powershell_env_syntax(monkeypatc
     assert "& 'k6' 'run' 'test.js'" in command
 
 
+def test_build_external_k6_command_windows_escapes_single_quotes_in_path(tmp_path):
+    backend = ExternalTerminalBackend()
+    summary_json_path = tmp_path / "dir's" / "sum'mary.json"
+
+    command = backend._build_external_k6_command(
+        enable_web_dashboard=False,
+        web_dashboard_url=None,
+        enable_html_summary=True,
+        summary_json_path=summary_json_path,
+        shell_type="powershell",
+    )
+
+    assert "& 'k6' 'run' 'test.js' '--summary-export'" in command
+    assert "/dir''s/" in command
+    assert "sum''mary.json'" in command
+
+
 def test_build_external_k6_command_posix_quotes_web_dashboard_out_as_single_token(tmp_path):
     backend = ExternalTerminalBackend()
     summary_json_path = tmp_path / "summary.json"
@@ -253,6 +284,24 @@ def test_build_external_k6_command_posix_quotes_web_dashboard_out_as_single_toke
 
     out_index = tokens.index("--out")
     assert tokens[out_index + 1] == "web-dashboard=period=5s&open=false"
+
+    summary_export_index = tokens.index("--summary-export")
+    assert tokens[summary_export_index + 1] == str(summary_json_path)
+
+
+def test_build_external_k6_command_posix_preserves_quotes_in_summary_path(tmp_path):
+    backend = ExternalTerminalBackend()
+    summary_json_path = tmp_path / 'dir "quoted"' / "summary file.json"
+
+    command = backend._build_external_k6_command(
+        enable_web_dashboard=False,
+        web_dashboard_url=None,
+        enable_html_summary=True,
+        summary_json_path=summary_json_path,
+        shell_type="posix",
+    )
+
+    tokens = shlex.split(command)
 
     summary_export_index = tokens.index("--summary-export")
     assert tokens[summary_export_index + 1] == str(summary_json_path)
