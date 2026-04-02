@@ -74,6 +74,11 @@ if (requestEndpoints.length === 0) {
 const REQUEST_MODE_BATCH = 'batch';
 const REQUEST_MODE_SCENARIOS = 'scenarios';
 const requestMode = String(k6cfg.requestMode || REQUEST_MODE_BATCH).trim().toLowerCase();
+const defaultRampingStartRate = Number(k6cfg.startRate) || 1;
+const defaultRampingTimeUnit = String(k6cfg.timeUnit || '1s');
+const defaultRampingPreAllocatedVUs = Number(k6cfg.preAllocatedVUs) || 10;
+const defaultRampingMaxVUs = Number(k6cfg.maxVUs) || 50;
+const defaultRampingArrivalStages = Array.isArray(k6cfg.rampingArrivalStages) ? k6cfg.rampingArrivalStages : [];
 if (![REQUEST_MODE_BATCH, REQUEST_MODE_SCENARIOS].includes(requestMode)) {
   throw new Error(`❌ Unsupported k6.requestMode: ${requestMode}`);
 }
@@ -231,7 +236,7 @@ function buildBaseScenarioFromConfig(scenarioConfig) {
   }
 
   if (scenarioExecutionType === 'Ramping Arrival Rate') {
-    const stages = (Array.isArray(cfg.rampingArrivalStages) ? cfg.rampingArrivalStages : [])
+    const stages = (Array.isArray(cfg.rampingArrivalStages) ? cfg.rampingArrivalStages : defaultRampingArrivalStages)
       .map((stage) => ({
         duration: String((stage && stage.duration) || '').trim(),
         target: Number(stage && stage.target),
@@ -241,10 +246,10 @@ function buildBaseScenarioFromConfig(scenarioConfig) {
 
     return {
       executor: 'ramping-arrival-rate',
-      startRate: Number(cfg.startRate) || 1,
-      timeUnit: String(cfg.timeUnit || '1s'),
-      preAllocatedVUs: Number(cfg.preAllocatedVUs) || 10,
-      maxVUs: Number(cfg.maxVUs) || 50,
+      startRate: Number(cfg.startRate) || defaultRampingStartRate,
+      timeUnit: String(cfg.timeUnit || defaultRampingTimeUnit),
+      preAllocatedVUs: Number(cfg.preAllocatedVUs) || defaultRampingPreAllocatedVUs,
+      maxVUs: Number(cfg.maxVUs) || defaultRampingMaxVUs,
       stages: stages.length ? stages : [{ duration: '30s', target: 10 }],
     };
   }
