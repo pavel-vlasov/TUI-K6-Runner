@@ -672,6 +672,24 @@ def test_sync_k6_scenario_tabs_defaults_to_first_tab_when_active_missing():
     assert ui.k6_scenario_subtabs.active == "tab_k6_scenario_0"
 
 
+def test_sync_k6_scenario_tabs_fallback_uses_first_existing_pane_id():
+    import asyncio
+
+    class RequestPane:
+        def __init__(self, pane_id):
+            self.id = pane_id
+
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.request_tab_panes = [RequestPane("tab_req_endpoint_0")]
+    ui.request_mode_select.value = "batch"
+    ui.k6_scenario_subtabs = DummyScenarioSubtabs(["custom_first"], active=None)
+    ui._k6_scenario_tabs_mode = "batch"
+
+    asyncio.run(ui.sync_k6_scenario_tabs())
+
+    assert ui.k6_scenario_subtabs.active == "custom_first"
+
+
 def test_collect_k6_scenario_fields_snapshot_uses_only_scenario_subtabs_scope(monkeypatch):
     class ScenarioField:
         def __init__(self, widget_id, value):

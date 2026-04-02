@@ -159,6 +159,11 @@ class UIMixin:
                     continue
             return False
 
+        def _set_fallback_active() -> None:
+            if not existing_panes:
+                return
+            k6_scenario_subtabs.active = existing_panes[0].id
+
         def _is_structure_compatible(panes: list[TabPane], mode: str, names: list[str]) -> bool:
             expected_count = 1 if mode == RequestMode.BATCH.value else len(names)
             if len(panes) != expected_count:
@@ -184,7 +189,7 @@ class UIMixin:
             if active_pane_id and any(pane.id == active_pane_id for pane in existing_panes):
                 k6_scenario_subtabs.active = active_pane_id
             else:
-                k6_scenario_subtabs.active = "tab_k6_scenario_0"
+                _set_fallback_active()
 
             if request_mode == RequestMode.SCENARIOS.value:
                 for index in range(1, len(endpoint_names)):
@@ -201,7 +206,7 @@ class UIMixin:
         if request_mode == RequestMode.BATCH.value:
             if existing_panes:
                 _set_pane_title(existing_panes[0], "Base Scenario")
-            k6_scenario_subtabs.active = "tab_k6_scenario_0"
+                _set_fallback_active()
             self._k6_scenario_tabs_mode = request_mode
             return
 
@@ -225,7 +230,7 @@ class UIMixin:
         if active_pane_id and any(pane.id == active_pane_id for pane in existing_panes):
             k6_scenario_subtabs.active = active_pane_id
         else:
-            k6_scenario_subtabs.active = "tab_k6_scenario_0"
+            _set_fallback_active()
 
         for index in sorted(touched_indexes):
             if index > 0:
