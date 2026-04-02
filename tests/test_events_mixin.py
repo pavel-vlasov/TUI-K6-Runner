@@ -123,6 +123,10 @@ class DummyButtonUI(EventsMixin):
         self.remove_last_spike_stage_calls = 0
         self.add_arrival_stage_calls = 0
         self.remove_last_arrival_stage_calls = 0
+        self.add_scenario_spike_stage_calls = []
+        self.remove_last_scenario_spike_stage_calls = []
+        self.add_scenario_arrival_stage_calls = []
+        self.remove_last_scenario_arrival_stage_calls = []
         self.action_save_config_calls = 0
         self.action_save_config_result = action_save_config_result
         self.remove_last_spike_stage_result = remove_last_spike_stage_result
@@ -191,6 +195,20 @@ class DummyButtonUI(EventsMixin):
 
     def remove_last_arrival_stage(self):
         self.remove_last_arrival_stage_calls += 1
+        return self.remove_last_arrival_stage_result
+
+    def add_scenario_spike_stage(self, scenario_index):
+        self.add_scenario_spike_stage_calls.append(scenario_index)
+
+    def remove_last_scenario_spike_stage(self, scenario_index):
+        self.remove_last_scenario_spike_stage_calls.append(scenario_index)
+        return self.remove_last_spike_stage_result
+
+    def add_scenario_arrival_stage(self, scenario_index):
+        self.add_scenario_arrival_stage_calls.append(scenario_index)
+
+    def remove_last_scenario_arrival_stage(self, scenario_index):
+        self.remove_last_scenario_arrival_stage_calls.append(scenario_index)
         return self.remove_last_arrival_stage_result
 
 
@@ -398,6 +416,31 @@ def test_on_button_pressed_remove_last_arrival_stage_warns_when_cannot_remove():
     asyncio.run(ui.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="remove_last_arrival_stage_btn"))))
 
     assert ui.remove_last_arrival_stage_calls == 1
+    assert ui.notifications[-1] == ("At least one arrival stage must remain.", "warning")
+
+
+def test_on_button_pressed_handles_scenario_stage_buttons():
+    ui = DummyButtonUI()
+
+    asyncio.run(ui.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="add_scenario_3_spike_stage_btn"))))
+    asyncio.run(ui.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="add_scenario_3_arrival_stage_btn"))))
+
+    assert ui.add_scenario_spike_stage_calls == [3]
+    assert ui.add_scenario_arrival_stage_calls == [3]
+
+
+def test_on_button_pressed_remove_last_scenario_stage_warns_when_cannot_remove():
+    ui = DummyButtonUI(remove_last_spike_stage_result=False, remove_last_arrival_stage_result=False)
+
+    asyncio.run(
+        ui.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="remove_last_scenario_1_spike_stage_btn")))
+    )
+    asyncio.run(
+        ui.on_button_pressed(SimpleNamespace(button=SimpleNamespace(id="remove_last_scenario_1_arrival_stage_btn")))
+    )
+
+    assert ui.remove_last_scenario_spike_stage_calls == [1]
+    assert ui.remove_last_scenario_arrival_stage_calls == [1]
     assert ui.notifications[-1] == ("At least one arrival stage must remain.", "warning")
 
 

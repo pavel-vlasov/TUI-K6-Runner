@@ -24,12 +24,18 @@ class DummyStageUI(StageMixin):
         self.ui_config = ui_config or {}
         self.spike_container = DummyContainer(spike_count)
         self.arrival_container = DummyContainer(arrival_count)
+        self.scenario_spike_containers = {}
+        self.scenario_arrival_containers = {}
 
     def query_one(self, selector, _widget_type):
         if selector == "#spike_stages_container":
             return self.spike_container
         if selector == "#arrival_stages_container":
             return self.arrival_container
+        if selector.startswith("#k6_scenario_") and selector.endswith("_spike_stages_container"):
+            return self.scenario_spike_containers.setdefault(selector, DummyContainer(1))
+        if selector.startswith("#k6_scenario_") and selector.endswith("_arrival_stages_container"):
+            return self.scenario_arrival_containers.setdefault(selector, DummyContainer(1))
         raise KeyError(selector)
 
 
@@ -79,3 +85,18 @@ def test_remove_last_arrival_stage_does_not_remove_single_row():
     assert removed is False
     assert len(ui.arrival_container.children) == 1
     assert all(not child.removed for child in ui.arrival_container.children)
+
+
+def test_add_and_remove_scenario_stages():
+    ui = DummyStageUI()
+
+    ui.add_scenario_spike_stage(2)
+    spike_container = ui.scenario_spike_containers["#k6_scenario_2_spike_stages_container"]
+    assert spike_container.mounted
+
+    ui.add_scenario_arrival_stage(2)
+    arrival_container = ui.scenario_arrival_containers["#k6_scenario_2_arrival_stages_container"]
+    assert arrival_container.mounted
+
+    assert ui.remove_last_scenario_spike_stage(2) is True
+    assert ui.remove_last_scenario_arrival_stage(2) is True
