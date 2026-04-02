@@ -236,7 +236,12 @@ class UIMixin:
 
     def _collect_k6_scenario_fields_snapshot(self) -> dict[str, object]:
         snapshot: dict[str, object] = {}
-        for widget in self.query("Input, Select, Switch, TextArea"):
+        try:
+            k6_scenario_subtabs = self.query_one("#k6_scenario_subtabs", TabbedContent)
+        except Exception:
+            return snapshot
+
+        for widget in k6_scenario_subtabs.query("Input, Select, Switch, TextArea"):
             widget_id = getattr(widget, "id", None)
             if not widget_id or "___" not in widget_id:
                 continue
