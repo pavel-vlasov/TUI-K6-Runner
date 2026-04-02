@@ -277,7 +277,8 @@ function buildScenarios() {
       ...(scenarioConfigs[index] && typeof scenarioConfigs[index] === 'object' ? scenarioConfigs[index] : {}),
     };
     scenarios[safeName] = {
-      ...(index === 0 ? baseScenario : buildBaseScenarioFromConfig(mergedScenarioConfig)),
+      // k6.scenarios[i] must apply per-endpoint overrides for every endpoint, including the first one.
+      ...buildBaseScenarioFromConfig(mergedScenarioConfig),
       exec: `runScenarioEndpoint${index + 1}`,
       tags: { endpoint: endpoint.name || `Endpoint ${index + 1}` },
     };
