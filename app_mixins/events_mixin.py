@@ -177,8 +177,20 @@ class EventsMixin:
         runtime_config = ConfigHandler.build_runtime_config(self.ui_config)
         errors = ConfigHandler.validate_runtime_config(runtime_config)
         if errors:
-            error_details = "\n".join(f"• {error}" for error in errors)
-            self.notify(f"Configuration validation failed:\n{error_details}", severity="error")
+            output_log = self.query_one("#output_log", RichLog)
+            output_log.write("[red]Configuration validation errors:[/red]")
+            for error in errors:
+                output_log.write(f"• {error}")
+
+            display_limit = 5
+            displayed_errors = errors[:display_limit]
+            hidden_count = max(0, len(errors) - display_limit)
+            summary_lines = ["Configuration validation failed"]
+            summary_lines.extend(f"• {error}" for error in displayed_errors)
+            if hidden_count:
+                summary_lines.append(f"... and {hidden_count} more")
+
+            self.notify("\n".join(summary_lines), severity="error")
             return False
 
         self.runtime_config = runtime_config

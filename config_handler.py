@@ -119,10 +119,7 @@ class ConfigHandler:
     @staticmethod
     def validate_runtime_config(config: dict) -> list[str]:
         schema_errors = ConfigHandler.validate_against_schema(config)
-        if schema_errors:
-            return schema_errors
-
-        errors: list[str] = []
+        errors: list[str] = list(schema_errors)
         errors.extend(ConfigHandler._validate_base_url(config.get("baseURL", "")))
         errors.extend(ConfigHandler._validate_auth(config.get("auth", {})))
 
@@ -134,8 +131,7 @@ class ConfigHandler:
                 errors.extend(ConfigHandler._validate_request_endpoint(endpoint, idx))
 
         errors.extend(ConfigHandler._validate_k6_config(config.get("k6", {})))
-
-        return errors
+        return list(dict.fromkeys(errors))
 
     @staticmethod
     def validate_against_schema(config: dict) -> list[str]:
