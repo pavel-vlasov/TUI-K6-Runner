@@ -25,6 +25,7 @@ class EmbeddedProcessBackend(ExecutionBackend):
         enable_web_dashboard: bool,
         web_dashboard_url: str | None,
         enable_html_summary: bool,
+        summary_mode: str,
         summary_json_path: Path,
         on_log: Callable[[str], None],
         on_status: Callable[[str], None],
@@ -37,6 +38,7 @@ class EmbeddedProcessBackend(ExecutionBackend):
             web_dashboard_url=web_dashboard_url,
             summary_json_path=str(summary_json_path),
             enable_html_summary=enable_html_summary,
+            summary_mode=summary_mode,
         )
 
         run_result_reported = False

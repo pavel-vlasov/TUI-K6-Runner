@@ -21,6 +21,7 @@ class ExecutionBackend(ABC):
         enable_web_dashboard: bool,
         web_dashboard_url: str | None,
         enable_html_summary: bool,
+        summary_mode: str,
         summary_json_path: Path,
         on_log: Callable[[str], None],
         on_status: Callable[[str], None],

@@ -27,8 +27,10 @@ from constants import (
     LOGGING_LEVEL_FAILED,
     LOGGING_LEVEL_OPTIONS,
     REQUEST_MODE_OPTIONS,
+    SUMMARY_MODE_OPTIONS,
     normalize_logging_level,
     RequestMode,
+    SummaryMode,
 )
 from k6.backends import ExecutionCapabilities
 from ui_components import build_config_fields
@@ -738,6 +740,7 @@ class UIMixin:
                         k6_data = self.ui_config.setdefault("k6", {})
                         log_data = k6_data.setdefault("logging", {})
                         log_data.setdefault("htmlSummaryReport", False)
+                        log_data.setdefault("summaryMode", SummaryMode.COMPACT.value)
                         connection_management = str(
                             k6_data.get("connectionManagement", ConnectionManagement.KEEP_ALIVE.value)
                         ).strip()
@@ -756,6 +759,7 @@ class UIMixin:
                                 "webDashboard",
                                 "webDashboardUrl",
                                 "htmlSummaryReport",
+                                "summaryMode",
                             ]
                         }
 
@@ -805,6 +809,15 @@ class UIMixin:
                                 Input(
                                     str(log_data.get("webDashboardUrl", "http://localhost:5665")),
                                     id="input___k6__logging__webDashboardUrl",
+                                ),
+                                classes="field-row",
+                            ),
+                            Horizontal(
+                                Label("summaryMode:", classes="field-label"),
+                                Select(
+                                    list(SUMMARY_MODE_OPTIONS),
+                                    value=str(log_data.get("summaryMode", SummaryMode.COMPACT.value)).strip().lower(),
+                                    id="select___k6__logging__summaryMode",
                                 ),
                                 classes="field-row",
                             ),

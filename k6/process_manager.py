@@ -22,6 +22,7 @@ class K6ProcessManager:
         web_dashboard_url: str | None = None,
         summary_json_path: str | None = None,
         enable_html_summary: bool = False,
+        summary_mode: str = "compact",
     ) -> asyncio.subprocess.Process:
         extra_args = {}
         if platform.system() == "Windows":
@@ -43,6 +44,8 @@ class K6ProcessManager:
             if str(summary_dir) not in {"", "."}:
                 summary_dir.mkdir(parents=True, exist_ok=True)
             command.extend(["--summary-export", summary_json_path])
+        if str(summary_mode).strip().lower() == "full":
+            command.append("--summary-mode=full")
 
         self.process = await asyncio.create_subprocess_exec(
             *command,
