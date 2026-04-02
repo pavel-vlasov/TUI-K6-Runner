@@ -11,7 +11,6 @@ from config_handler import ConfigHandler
 from constants import (
     DEFAULT_CONFIG,
     AuthMode,
-    ConnectionManagement,
     ExecutionType,
     HTTP_METHODS,
     LOGGING_LEVEL_FAILED_WITHOUT_PAYLOADS,
@@ -95,7 +94,6 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
             },
         ],
         "k6": {
-            "connectionManagement": ConnectionManagement.NO_CONNECTION_REUSE.value,
             "executionType": ExecutionType.CONSTANT_VUS.value,
             "vus": 3,
             "duration": "10s",
@@ -120,16 +118,6 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
     assert "rate" not in runtime["k6"]
     assert runtime["k6"]["vus"] == 3
     assert runtime["k6"]["duration"] == "10s"
-    assert runtime["k6"]["connectionManagement"] == ConnectionManagement.NO_CONNECTION_REUSE.value
-
-
-def test_validate_runtime_config_rejects_invalid_connection_management():
-    runtime = _base_runtime()
-    runtime["k6"]["connectionManagement"] = "legacy mode"
-
-    errors = ConfigHandler.validate_runtime_config(runtime)
-
-    assert any("k6.connectionManagement is invalid" in error for error in errors)
 
 
 def test_validate_runtime_config_rejects_invalid_thresholds():

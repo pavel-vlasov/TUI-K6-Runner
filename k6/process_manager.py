@@ -17,7 +17,6 @@ class K6ProcessManager:
 
     async def start_run(
         self,
-        connection_management: str = "keep-alive",
         enable_web_dashboard: bool = False,
         web_dashboard_url: str | None = None,
         summary_json_path: str | None = None,
@@ -30,10 +29,6 @@ class K6ProcessManager:
         env = os.environ.copy()
 
         command = ["k6", "run", "test.js", "--no-color"]
-        if connection_management == "no connection reuse":
-            command.append("--no-connection-reuse")
-        elif connection_management == "no vu connection reuse":
-            command.append("--no-vu-connection-reuse")
         if enable_web_dashboard:
             command.extend(["--out", "web-dashboard=period=5s&open=false"])
             env["K6_WEB_DASHBOARD_OPEN"] = "false"

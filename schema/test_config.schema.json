@@ -86,10 +86,6 @@
             "Ramping Arrival Rate"
           ]
         },
-        "connectionManagement": {
-          "type": "string",
-          "enum": ["keep-alive", "no connection reuse", "no vu connection reuse"]
-        },
         "vus": {"type": "integer", "minimum": 1},
         "maxVUs": {"type": "integer", "minimum": 1},
         "duration": {"type": "string", "pattern": "^\\d+(ms|s|m|h)$"},

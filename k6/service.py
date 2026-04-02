@@ -52,7 +52,6 @@ class K6Service:
         on_log,
         on_status,
         output_to_ui: bool = True,
-        connection_management: str = "keep-alive",
         enable_web_dashboard: bool = False,
         web_dashboard_url: str | None = None,
         enable_html_summary: bool = False,
@@ -86,7 +85,6 @@ class K6Service:
                 on_log(format_start_log())
 
             await self.backend.start_run(
-                connection_management=connection_management,
                 enable_web_dashboard=enable_web_dashboard,
                 web_dashboard_url=web_dashboard_url,
                 enable_html_summary=enable_html_summary,
