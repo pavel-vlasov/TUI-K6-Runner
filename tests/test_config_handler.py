@@ -450,6 +450,22 @@ def test_validate_runtime_config_and_schema_reject_negative_stage_target():
     assert any("minimum" in error and "k6.spikeStages.0.target" in error for error in schema_errors)
 
 
+def test_validate_runtime_config_does_not_duplicate_missing_field_errors():
+    runtime = _base_runtime()
+    runtime["auth"] = {
+        "mode": AuthMode.OAUTH2_CLIENT_CREDENTIALS.value,
+        "client_id": "",
+        "client_secret": "sec",
+        "token_url": "https://idp.example.com/token",
+        "scope": "read",
+    }
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+    client_id_errors = [error for error in errors if "client_id" in error]
+
+    assert len(client_id_errors) == 1
+
+
 def test_schema_validation_accepts_minimal_and_full_runtime_configs():
     minimal_runtime = {
         "baseURL": "https://example.com",

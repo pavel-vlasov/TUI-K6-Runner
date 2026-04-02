@@ -118,9 +118,11 @@ class ConfigHandler:
 
     @staticmethod
     def validate_runtime_config(config: dict) -> list[str]:
-        errors: list[str] = []
+        schema_errors = ConfigHandler.validate_against_schema(config)
+        if schema_errors:
+            return schema_errors
 
-        errors.extend(ConfigHandler.validate_against_schema(config))
+        errors: list[str] = []
         errors.extend(ConfigHandler._validate_base_url(config.get("baseURL", "")))
         errors.extend(ConfigHandler._validate_auth(config.get("auth", {})))
 
@@ -137,11 +139,22 @@ class ConfigHandler:
 
     @staticmethod
     def validate_against_schema(config: dict) -> list[str]:
-        schema_errors: list[str] = []
+        normalized_errors: dict[tuple[str, str], str] = {}
         for error in sorted(TEST_CONFIG_VALIDATOR.iter_errors(config), key=lambda item: list(item.path)):
-            path = ".".join(str(part) for part in error.path) or "<root>"
-            schema_errors.append(f"schema[{path}]: {error.message}")
-        return schema_errors
+            path = ConfigHandler._schema_error_path(error)
+            dedupe_key = (path, error.validator)
+            if dedupe_key not in normalized_errors:
+                normalized_errors[dedupe_key] = f"schema[{path}]: {error.message}"
+        return list(normalized_errors.values())
+
+    @staticmethod
+    def _schema_error_path(error: object) -> str:
+        path = ".".join(str(part) for part in error.path) or "<root>"
+        if error.validator == "required":
+            match = re.search(r"'([^']+)' is a required property", error.message)
+            if match:
+                return f"{path}.{match.group(1)}" if path != "<root>" else match.group(1)
+        return path
 
     @staticmethod
     def save_to_file(config: dict, filename: str = DEFAULT_CONFIG_PATH) -> None:

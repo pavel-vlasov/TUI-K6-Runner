@@ -64,6 +64,45 @@ class DummyStatusBar:
         return None
 
 
+class DummyContainer:
+    def __init__(self, children_count):
+        self.children = [object() for _ in range(children_count)]
+
+
+class DummyRichLog:
+    def __init__(self):
+        self.messages = []
+
+    def write(self, message):
+        self.messages.append(message)
+        return None
+
+
+class DummySaveConfigUI(EventsMixin):
+    def __init__(self):
+        self.notifications = []
+        self.ui_config = {"k6": {}, "requestEndpoints": []}
+        self.runtime_config = {}
+        self.run_controller = SimpleNamespace(save_config=lambda *_args, **_kwargs: None)
+        self.widgets = {
+            "#spike_stages_container": DummyContainer(2),
+            "#arrival_stages_container": DummyContainer(1),
+            "#output_log": DummyRichLog(),
+        }
+
+    def query_one(self, selector, _widget_type):
+        return self.widgets[selector]
+
+    def notify(self, message, severity="information"):
+        self.notifications.append((message, severity))
+
+    def _get_request_tab_panes(self):
+        return [object(), object(), object()]
+
+    def _collect_ui_field_values(self):
+        return {}
+
+
 class DummyButtonUI(EventsMixin):
     def __init__(
         self,
@@ -360,3 +399,43 @@ def test_on_button_pressed_remove_last_arrival_stage_warns_when_cannot_remove():
 
     assert ui.remove_last_arrival_stage_calls == 1
     assert ui.notifications[-1] == ("At least one arrival stage must remain.", "warning")
+
+
+def test_action_save_config_validation_errors_are_aggregated_into_single_notification(monkeypatch):
+    ui = DummySaveConfigUI()
+    errors = [
+        "error one",
+        "error two",
+        "error three",
+        "error four",
+        "error five",
+        "error six",
+    ]
+    monkeypatch.setattr("app_mixins.events_mixin.ConfigHandler.update_from_fields", lambda config, _fields: config)
+    monkeypatch.setattr("app_mixins.events_mixin.ConfigHandler.build_runtime_config", lambda _config: {"runtime": True})
+    monkeypatch.setattr("app_mixins.events_mixin.ConfigHandler.validate_runtime_config", lambda _runtime: errors)
+
+    result = ui.action_save_config()
+
+    assert result is False
+    assert len(ui.notifications) == 1
+    message, severity = ui.notifications[0]
+    assert severity == "error"
+    assert message == (
+        "Configuration validation failed\n"
+        "• error one\n"
+        "• error two\n"
+        "• error three\n"
+        "• error four\n"
+        "• error five\n"
+        "... and 1 more"
+    )
+    assert ui.widgets["#output_log"].messages == [
+        "[red]Configuration validation errors:[/red]",
+        "• error one",
+        "• error two",
+        "• error three",
+        "• error four",
+        "• error five",
+        "• error six",
+    ]
