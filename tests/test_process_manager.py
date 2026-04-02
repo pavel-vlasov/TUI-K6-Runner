@@ -71,50 +71,6 @@ def test_start_run_does_not_include_web_dashboard_output_when_disabled(monkeypat
     assert "web-dashboard" not in captured["args"]
 
 
-def test_start_run_adds_no_connection_reuse_flag(monkeypatch):
-    captured = {}
-
-    async def fake_create_subprocess_exec(*args, **kwargs):
-        captured["args"] = args
-        captured["kwargs"] = kwargs
-
-        class DummyProcess:
-            returncode = None
-            pid = 1
-
-        return DummyProcess()
-
-    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
-
-    manager = K6ProcessManager()
-    asyncio.run(manager.start_run(connection_management="no connection reuse"))
-
-    assert "--no-connection-reuse" in captured["args"]
-    assert "--no-vu-connection-reuse" not in captured["args"]
-
-
-def test_start_run_adds_no_vu_connection_reuse_flag(monkeypatch):
-    captured = {}
-
-    async def fake_create_subprocess_exec(*args, **kwargs):
-        captured["args"] = args
-        captured["kwargs"] = kwargs
-
-        class DummyProcess:
-            returncode = None
-            pid = 1
-
-        return DummyProcess()
-
-    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
-
-    manager = K6ProcessManager()
-    asyncio.run(manager.start_run(connection_management="no vu connection reuse"))
-
-    assert "--no-vu-connection-reuse" in captured["args"]
-    assert "--no-connection-reuse" not in captured["args"]
-
-
 def test_start_run_sets_dashboard_host_and_port_from_local_url(monkeypatch):
     captured = {}
 

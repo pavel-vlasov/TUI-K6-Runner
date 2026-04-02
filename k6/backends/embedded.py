@@ -21,7 +21,6 @@ class EmbeddedProcessBackend(ExecutionBackend):
     async def start_run(
         self,
         *,
-        connection_management: str,
         enable_web_dashboard: bool,
         web_dashboard_url: str | None,
         enable_html_summary: bool,
@@ -32,7 +31,6 @@ class EmbeddedProcessBackend(ExecutionBackend):
         on_run_complete: Callable[[], None],
     ) -> None:
         process = await self.process_manager.start_run(
-            connection_management=connection_management,
             enable_web_dashboard=enable_web_dashboard,
             web_dashboard_url=web_dashboard_url,
             summary_json_path=str(summary_json_path),

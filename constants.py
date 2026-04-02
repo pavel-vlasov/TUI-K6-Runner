@@ -32,12 +32,6 @@ class RequestMode(StrEnum):
     SCENARIOS = "scenarios"
 
 
-class ConnectionManagement(StrEnum):
-    KEEP_ALIVE = "keep-alive"
-    NO_CONNECTION_REUSE = "no connection reuse"
-    NO_VU_CONNECTION_REUSE = "no vu connection reuse"
-
-
 HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
 
 AUTH_MODES = tuple(mode.value for mode in AuthMode)
@@ -66,11 +60,6 @@ LOGGING_LEVEL_LABELS = {
 }
 LOGGING_LEVEL_OPTIONS = tuple((LOGGING_LEVEL_LABELS[level], level) for level in LOGGING_LEVELS)
 REQUEST_MODE_OPTIONS = tuple((mode.value, mode.value) for mode in RequestMode)
-CONNECTION_MANAGEMENT_OPTIONS = (
-    ("keep-alive", ConnectionManagement.KEEP_ALIVE.value),
-    ("no connection reuse", ConnectionManagement.NO_CONNECTION_REUSE.value),
-    ("no vu connection reuse", ConnectionManagement.NO_VU_CONNECTION_REUSE.value),
-)
 
 LOGGING_LEVEL_ALIASES = {
     "all": LOGGING_LEVEL_ALL,
@@ -111,7 +100,6 @@ DEFAULT_CONFIG = {
     ],
     "k6": {
         "requestMode": RequestMode.BATCH.value,
-        "connectionManagement": ConnectionManagement.KEEP_ALIVE.value,
         "executionType": ExecutionType.EXTERNAL_EXECUTOR.value,
         "vus": 1,
         "maxVUs": 10,

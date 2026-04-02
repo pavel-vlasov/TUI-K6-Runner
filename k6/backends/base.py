@@ -17,7 +17,6 @@ class ExecutionBackend(ABC):
     async def start_run(
         self,
         *,
-        connection_management: str,
         enable_web_dashboard: bool,
         web_dashboard_url: str | None,
         enable_html_summary: bool,

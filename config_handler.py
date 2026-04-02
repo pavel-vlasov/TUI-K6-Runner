@@ -20,7 +20,6 @@ from constants import (
     EXECUTION_TYPES,
     ExecutionType,
     RequestMode,
-    ConnectionManagement,
     normalize_logging_level,
 )
 
@@ -226,9 +225,6 @@ class ConfigHandler:
 
         runtime = {
             "requestMode": str(source.get("requestMode", RequestMode.BATCH.value)).strip(),
-            "connectionManagement": str(
-                source.get("connectionManagement", ConnectionManagement.KEEP_ALIVE.value)
-            ).strip(),
             "executionType": execution_type,
             "thresholds": source.get("thresholds", {}),
             "logging": ConfigHandler._build_logging_config(source.get("logging", {})),
@@ -339,17 +335,8 @@ class ConfigHandler:
         source = k6cfg if isinstance(k6cfg, dict) else {}
         execution_type = str(source.get("executionType", "")).strip()
         request_mode = str(source.get("requestMode", RequestMode.BATCH.value)).strip()
-        connection_management = str(
-            source.get("connectionManagement", ConnectionManagement.KEEP_ALIVE.value)
-        ).strip()
         if request_mode not in {RequestMode.BATCH.value, RequestMode.SCENARIOS.value}:
             errors.append(f"k6.requestMode is invalid: {request_mode}.")
-        if connection_management not in {
-            ConnectionManagement.KEEP_ALIVE.value,
-            ConnectionManagement.NO_CONNECTION_REUSE.value,
-            ConnectionManagement.NO_VU_CONNECTION_REUSE.value,
-        }:
-            errors.append(f"k6.connectionManagement is invalid: {connection_management}.")
         if not execution_type:
             return ["k6.executionType is required."]
 

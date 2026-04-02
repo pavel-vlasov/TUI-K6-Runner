@@ -18,11 +18,9 @@ from copy import deepcopy
 
 from constants import (
     AUTH_MODE_OPTIONS,
-    CONNECTION_MANAGEMENT_OPTIONS,
     EXECUTION_TYPES,
     EXECUTION_TYPE_OPTIONS,
     AuthMode,
-    ConnectionManagement,
     ExecutionType,
     LOGGING_LEVEL_FAILED,
     LOGGING_LEVEL_OPTIONS,
@@ -384,19 +382,12 @@ class UIMixin:
         execution_type = k6_config.get("executionType", ExecutionType.EXTERNAL_EXECUTOR.value)
         if execution_type not in EXECUTION_TYPES:
             execution_type = ExecutionType.EXTERNAL_EXECUTOR.value
-        connection_management = str(
-            k6_config.get("connectionManagement", ConnectionManagement.KEEP_ALIVE.value)
-        ).strip()
-        valid_connection_modes = {option[1] for option in CONNECTION_MANAGEMENT_OPTIONS}
-        if connection_management not in valid_connection_modes:
-            connection_management = ConnectionManagement.KEEP_ALIVE.value
         k6_other_data = {
             k: v
             for k, v in k6_config.items()
             if k
             not in [
                 "requestMode",
-                "connectionManagement",
                 "logging",
                 "executionType",
                 "vus",
@@ -417,15 +408,6 @@ class UIMixin:
                     list(EXECUTION_TYPE_OPTIONS),
                     value=execution_type,
                     id="select___k6__executionType",
-                ),
-                classes="field-row",
-            ),
-            Horizontal(
-                Label("connectionManagement:", classes="field-label"),
-                Select(
-                    list(CONNECTION_MANAGEMENT_OPTIONS),
-                    value=connection_management,
-                    id="select___k6__connectionManagement",
                 ),
                 classes="field-row",
             ),
