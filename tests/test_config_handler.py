@@ -108,6 +108,7 @@ def test_build_runtime_config_keeps_only_fields_needed_for_selected_run():
                 "webDashboard": False,
                 "webDashboardUrl": "http://localhost:5665",
                 "htmlSummaryReport": False,
+                "summaryMode": "compact",
             },
         },
     }
@@ -312,6 +313,7 @@ def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
                     "webDashboard": True,
                     "webDashboardUrl": "http://localhost:5665",
                     "htmlSummaryReport": True,
+                    "summaryMode": "full",
                 },
             },
         }
@@ -335,7 +337,7 @@ def test_runtime_config_k6_keys_are_consumed_by_test_js_smoke():
     assert "logConfig.enabled" in script
     assert "logConfig.level" in script
 
-    python_side_logging_keys = {"outputToUI", "webDashboard", "webDashboardUrl", "htmlSummaryReport"}
+    python_side_logging_keys = {"outputToUI", "webDashboard", "webDashboardUrl", "htmlSummaryReport", "summaryMode"}
     assert python_side_logging_keys.issubset(set(runtime["k6"]["logging"].keys()))
 
 
@@ -348,6 +350,7 @@ def test_validate_runtime_config_rejects_invalid_web_dashboard_url_when_enabled(
         "webDashboard": True,
         "webDashboardUrl": "not-a-url",
         "htmlSummaryReport": False,
+        "summaryMode": "compact",
     }
 
     errors = ConfigHandler.validate_runtime_config(runtime)
@@ -581,3 +584,12 @@ def test_build_logging_config_uses_normalize_logging_level_for_unknown_values(
 
     assert received == ["???"]
     assert logging_cfg["level"] == "normalized-from-fake"
+
+
+def test_validate_runtime_config_rejects_invalid_summary_mode():
+    runtime = _base_runtime()
+    runtime["k6"]["logging"] = {"summaryMode": "verbose"}
+
+    errors = ConfigHandler.validate_runtime_config(runtime)
+
+    assert any("k6.logging.summaryMode is invalid" in error for error in errors)

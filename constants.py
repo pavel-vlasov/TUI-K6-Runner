@@ -38,6 +38,11 @@ class ConnectionManagement(StrEnum):
     NO_VU_CONNECTION_REUSE = "no vu connection reuse"
 
 
+class SummaryMode(StrEnum):
+    COMPACT = "compact"
+    FULL = "full"
+
+
 HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
 
 AUTH_MODES = tuple(mode.value for mode in AuthMode)
@@ -71,6 +76,7 @@ CONNECTION_MANAGEMENT_OPTIONS = (
     ("no connection reuse", ConnectionManagement.NO_CONNECTION_REUSE.value),
     ("no vu connection reuse", ConnectionManagement.NO_VU_CONNECTION_REUSE.value),
 )
+SUMMARY_MODE_OPTIONS = tuple((mode.value.capitalize(), mode.value) for mode in SummaryMode)
 
 LOGGING_LEVEL_ALIASES = {
     "all": LOGGING_LEVEL_ALL,
@@ -138,6 +144,7 @@ DEFAULT_CONFIG = {
             "webDashboard": False,
             "webDashboardUrl": "http://localhost:5665",
             "htmlSummaryReport": False,
+            "summaryMode": SummaryMode.COMPACT.value,
         },
     },
 }
