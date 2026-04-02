@@ -45,6 +45,7 @@ class RunController:
         run_task_coro = None
         try:
             output_ui = config.get("k6", {}).get("logging", {}).get("outputToUI", True)
+            connection_management = config.get("k6", {}).get("connectionManagement", "keep-alive")
             web_dashboard = config.get("k6", {}).get("logging", {}).get("webDashboard", False)
             html_summary_report = config.get("k6", {}).get("logging", {}).get("htmlSummaryReport", False)
             web_dashboard_url = config.get("k6", {}).get("logging", {}).get("webDashboardUrl", "")
@@ -53,6 +54,7 @@ class RunController:
                 on_log=callbacks.on_log,
                 on_status=callbacks.on_status,
                 output_to_ui=output_ui,
+                connection_management=connection_management,
                 enable_web_dashboard=web_dashboard,
                 web_dashboard_url=web_dashboard_url,
                 enable_html_summary=html_summary_report,

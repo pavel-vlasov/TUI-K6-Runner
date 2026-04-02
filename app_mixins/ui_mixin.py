@@ -18,9 +18,11 @@ from copy import deepcopy
 
 from constants import (
     AUTH_MODE_OPTIONS,
+    CONNECTION_MANAGEMENT_OPTIONS,
     EXECUTION_TYPES,
     EXECUTION_TYPE_OPTIONS,
     AuthMode,
+    ConnectionManagement,
     ExecutionType,
     LOGGING_LEVEL_FAILED,
     LOGGING_LEVEL_OPTIONS,
@@ -388,6 +390,7 @@ class UIMixin:
             if k
             not in [
                 "requestMode",
+                "connectionManagement",
                 "logging",
                 "executionType",
                 "vus",
@@ -732,8 +735,15 @@ class UIMixin:
                         )
 
                     with TabPane("Logging", id="tab_logging"):
-                        log_data = self.ui_config.setdefault("k6", {}).setdefault("logging", {})
+                        k6_data = self.ui_config.setdefault("k6", {})
+                        log_data = k6_data.setdefault("logging", {})
                         log_data.setdefault("htmlSummaryReport", False)
+                        connection_management = str(
+                            k6_data.get("connectionManagement", ConnectionManagement.KEEP_ALIVE.value)
+                        ).strip()
+                        valid_connection_modes = {option[1] for option in CONNECTION_MANAGEMENT_OPTIONS}
+                        if connection_management not in valid_connection_modes:
+                            connection_management = ConnectionManagement.KEEP_ALIVE.value
 
                         other_logging_data = {
                             k: v
@@ -770,6 +780,15 @@ class UIMixin:
                                     ],
                                     value=bool(log_data.get("outputToUI", True)),
                                     id="select___k6__logging__outputToUI",
+                                ),
+                                classes="field-row",
+                            ),
+                            Horizontal(
+                                Label("connectionManagement:", classes="field-label"),
+                                Select(
+                                    list(CONNECTION_MANAGEMENT_OPTIONS),
+                                    value=connection_management,
+                                    id="select___k6__connectionManagement",
                                 ),
                                 classes="field-row",
                             ),

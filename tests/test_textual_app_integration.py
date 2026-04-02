@@ -7,6 +7,7 @@ from textual.widgets import Button, Input, Select, Static
 
 from app import K6TestApp
 from application import RunCallbacks
+from constants import ConnectionManagement
 from k6.backends import ExecutionCapabilities
 
 
@@ -145,6 +146,7 @@ def test_external_mode_warning_and_controls_disabled_when_running() -> None:
             stop_btn = app.query_one("#stop_btn", Button)
             apply_vu_btn = app.query_one("#apply_vu_btn", Button)
             output_mode_select = app.query_one("#select___k6__logging__outputToUI", Select)
+            connection_management_select = app.query_one("#select___k6__connectionManagement", Select)
             external_mode_warning = app.query_one("#logging_external_mode_warning", Static)
 
             fake_controller.is_running = True
@@ -152,6 +154,7 @@ def test_external_mode_warning_and_controls_disabled_when_running() -> None:
             app.toggle_logging_fields()
             await pilot.pause()
 
+            assert connection_management_select.value == ConnectionManagement.KEEP_ALIVE.value
             assert external_mode_warning.styles.display == "block"
             assert run_btn.disabled is True
             assert stop_btn.disabled is True
