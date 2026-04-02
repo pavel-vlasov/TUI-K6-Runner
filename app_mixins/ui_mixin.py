@@ -186,7 +186,7 @@ class UIMixin:
             else:
                 k6_scenario_subtabs.active = "tab_k6_scenario_0"
 
-            if request_mode == RequestMode.PARALLEL.value:
+            if request_mode == RequestMode.SCENARIOS.value:
                 for index in range(1, len(endpoint_names)):
                     self.toggle_scenario_execution_type_fields(index)
 
