@@ -225,8 +225,7 @@ class UIMixin:
         if active_pane_id and any(pane.id == active_pane_id for pane in existing_panes):
             k6_scenario_subtabs.active = active_pane_id
         else:
-            fallback_index = max(0, len(existing_panes) - 1)
-            k6_scenario_subtabs.active = f"tab_k6_scenario_{fallback_index}"
+            k6_scenario_subtabs.active = "tab_k6_scenario_0"
 
         for index in sorted(touched_indexes):
             if index > 0:
