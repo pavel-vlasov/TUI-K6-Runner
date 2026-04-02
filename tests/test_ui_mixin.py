@@ -537,3 +537,89 @@ def test_sync_k6_scenario_tabs_preserves_scenario_values_after_endpoint_rename()
     assert scenario_one["duration"] == "90s"
     assert scenario_one["rate"] == 777
     assert ui.k6_scenario_subtabs.active == "tab_k6_scenario_1"
+
+
+def test_sync_k6_scenario_tabs_updates_only_titles_for_rename():
+    import asyncio
+
+    class RequestPane:
+        def __init__(self, pane_id):
+            self.id = pane_id
+
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.request_tab_panes = [RequestPane("tab_req_endpoint_0"), RequestPane("tab_req_endpoint_1")]
+    ui.k6_scenario_subtabs = DummyScenarioSubtabs(["tab_k6_scenario_0", "tab_k6_scenario_1"], "tab_k6_scenario_1")
+    ui.k6_scenario_subtabs.panes[0].title = "Old Users"
+    ui.k6_scenario_subtabs.panes[1].title = "Old Orders"
+    ui._k6_scenario_tabs_mode = "parallel"
+
+    removed = []
+    added = []
+
+    async def remove_with_tracking(pane_id):
+        removed.append(pane_id)
+        await DummyScenarioSubtabs.remove_pane(ui.k6_scenario_subtabs, pane_id)
+
+    async def add_with_tracking(pane):
+        added.append(pane.id)
+        await DummyScenarioSubtabs.add_pane(ui.k6_scenario_subtabs, pane)
+
+    ui.k6_scenario_subtabs.remove_pane = remove_with_tracking
+    ui.k6_scenario_subtabs.add_pane = add_with_tracking
+
+    def query_request_name(selector, _widget_type=None):
+        if selector == "#input___requestEndpoints__0__name":
+            return type("InputValue", (), {"value": "Users Renamed"})()
+        if selector == "#input___requestEndpoints__1__name":
+            return type("InputValue", (), {"value": "Orders"})()
+        return DummyUI.query_one(ui, selector, _widget_type)
+
+    ui.query_one = query_request_name
+
+    asyncio.run(ui.sync_k6_scenario_tabs())
+
+    assert removed == []
+    assert added == []
+    assert ui.k6_scenario_subtabs.panes[0].title == "Users Renamed"
+    assert ui.k6_scenario_subtabs.panes[1].title == "Orders"
+    assert ui.k6_scenario_subtabs.active == "tab_k6_scenario_1"
+
+
+def test_sync_k6_scenario_tabs_adds_tail_and_toggles_only_new_indexes():
+    import asyncio
+
+    class RequestPane:
+        def __init__(self, pane_id):
+            self.id = pane_id
+
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.request_tab_panes = [
+        RequestPane("tab_req_endpoint_0"),
+        RequestPane("tab_req_endpoint_1"),
+        RequestPane("tab_req_endpoint_2"),
+    ]
+    ui.k6_scenario_subtabs = DummyScenarioSubtabs(["tab_k6_scenario_0", "tab_k6_scenario_1"], "tab_k6_scenario_1")
+    ui._k6_scenario_tabs_mode = "parallel"
+    toggled_indexes = []
+    ui.toggle_scenario_execution_type_fields = lambda index: toggled_indexes.append(index)
+
+    def query_request_name(selector, _widget_type=None):
+        if selector == "#input___requestEndpoints__0__name":
+            return type("InputValue", (), {"value": "Users"})()
+        if selector == "#input___requestEndpoints__1__name":
+            return type("InputValue", (), {"value": "Orders"})()
+        if selector == "#input___requestEndpoints__2__name":
+            return type("InputValue", (), {"value": "Payments"})()
+        return DummyUI.query_one(ui, selector, _widget_type)
+
+    ui.query_one = query_request_name
+
+    asyncio.run(ui.sync_k6_scenario_tabs())
+
+    assert [pane.id for pane in ui.k6_scenario_subtabs.panes] == [
+        "tab_k6_scenario_0",
+        "tab_k6_scenario_1",
+        "tab_k6_scenario_2",
+    ]
+    assert toggled_indexes == [2]
+    assert ui.k6_scenario_subtabs.active == "tab_k6_scenario_1"

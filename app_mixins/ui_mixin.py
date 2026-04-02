@@ -147,26 +147,92 @@ class UIMixin:
             endpoint_names = ["Endpoint 1"]
 
         active_pane_id = k6_scenario_subtabs.active
-        for pane in list(k6_scenario_subtabs.query(TabPane)):
-            await k6_scenario_subtabs.remove_pane(pane.id)
+        existing_panes = list(k6_scenario_subtabs.query(TabPane))
+        previous_mode = getattr(self, "_k6_scenario_tabs_mode", None)
 
-        if request_mode == RequestMode.BATCH.value:
-            await k6_scenario_subtabs.add_pane(self.build_k6_settings_tab("Base Scenario", 0))
-            k6_scenario_subtabs.active = "tab_k6_scenario_0"
+        def _set_pane_title(pane: TabPane, title: str) -> bool:
+            for attr in ("title", "label"):
+                try:
+                    setattr(pane, attr, title)
+                    return True
+                except Exception:
+                    continue
+            return False
+
+        def _is_structure_compatible(panes: list[TabPane], mode: str, names: list[str]) -> bool:
+            expected_count = 1 if mode == RequestMode.BATCH.value else len(names)
+            if len(panes) != expected_count:
+                return False
+
+            for index, pane in enumerate(panes):
+                if getattr(pane, "id", None) != f"tab_k6_scenario_{index}":
+                    return False
+            return True
+
+        async def _rebuild_all_tabs() -> None:
+            nonlocal existing_panes
+            for pane in list(existing_panes):
+                await k6_scenario_subtabs.remove_pane(pane.id)
+
+            if request_mode == RequestMode.BATCH.value:
+                await k6_scenario_subtabs.add_pane(self.build_k6_settings_tab("Base Scenario", 0))
+            else:
+                for index, endpoint_name in enumerate(endpoint_names):
+                    await k6_scenario_subtabs.add_pane(self.build_k6_settings_tab(endpoint_name, index))
+
+            existing_panes = list(k6_scenario_subtabs.query(TabPane))
+            if active_pane_id and any(pane.id == active_pane_id for pane in existing_panes):
+                k6_scenario_subtabs.active = active_pane_id
+            else:
+                k6_scenario_subtabs.active = "tab_k6_scenario_0"
+
+            if request_mode == RequestMode.PARALLEL.value:
+                for index in range(1, len(endpoint_names)):
+                    self.toggle_scenario_execution_type_fields(index)
+
+        mode_changed = previous_mode is not None and previous_mode != request_mode
+        if mode_changed or not _is_structure_compatible(existing_panes, request_mode, endpoint_names):
+            await _rebuild_all_tabs()
+            self._k6_scenario_tabs_mode = request_mode
             return
 
-        for index, endpoint_name in enumerate(endpoint_names):
-            await k6_scenario_subtabs.add_pane(self.build_k6_settings_tab(endpoint_name, index))
+        touched_indexes: set[int] = set()
 
-        if active_pane_id and any(pane.id == active_pane_id for pane in k6_scenario_subtabs.query(TabPane)):
+        if request_mode == RequestMode.BATCH.value:
+            if existing_panes:
+                _set_pane_title(existing_panes[0], "Base Scenario")
+            k6_scenario_subtabs.active = "tab_k6_scenario_0"
+            self._k6_scenario_tabs_mode = request_mode
+            return
+
+        current_count = len(existing_panes)
+        target_count = len(endpoint_names)
+
+        if target_count > current_count:
+            for index in range(current_count, target_count):
+                await k6_scenario_subtabs.add_pane(self.build_k6_settings_tab(endpoint_names[index], index))
+                touched_indexes.add(index)
+        elif target_count < current_count:
+            for pane in reversed(existing_panes[target_count:]):
+                await k6_scenario_subtabs.remove_pane(pane.id)
+
+        existing_panes = list(k6_scenario_subtabs.query(TabPane))
+        for index, endpoint_name in enumerate(endpoint_names):
+            if index >= len(existing_panes):
+                break
+            _set_pane_title(existing_panes[index], endpoint_name)
+
+        if active_pane_id and any(pane.id == active_pane_id for pane in existing_panes):
             k6_scenario_subtabs.active = active_pane_id
         else:
-            k6_scenario_subtabs.active = "tab_k6_scenario_0"
+            fallback_index = max(0, len(existing_panes) - 1)
+            k6_scenario_subtabs.active = f"tab_k6_scenario_{fallback_index}"
 
-        for index in range(len(endpoint_names)):
-            if index == 0:
-                continue
-            self.toggle_scenario_execution_type_fields(index)
+        for index in sorted(touched_indexes):
+            if index > 0:
+                self.toggle_scenario_execution_type_fields(index)
+
+        self._k6_scenario_tabs_mode = request_mode
 
     def _collect_k6_scenario_fields_snapshot(self) -> dict[str, object]:
         snapshot: dict[str, object] = {}
