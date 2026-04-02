@@ -632,6 +632,46 @@ def test_sync_k6_scenario_tabs_adds_tail_and_toggles_only_new_indexes():
     assert ui.k6_scenario_subtabs.active == "tab_k6_scenario_1"
 
 
+def test_sync_k6_scenario_tabs_defaults_to_first_tab_when_active_missing():
+    import asyncio
+
+    class RequestPane:
+        def __init__(self, pane_id):
+            self.id = pane_id
+
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.request_tab_panes = [
+        RequestPane("tab_req_endpoint_0"),
+        RequestPane("tab_req_endpoint_1"),
+        RequestPane("tab_req_endpoint_2"),
+        RequestPane("tab_req_endpoint_3"),
+        RequestPane("tab_req_endpoint_4"),
+    ]
+    ui.k6_scenario_subtabs = DummyScenarioSubtabs(
+        [
+            "tab_k6_scenario_0",
+            "tab_k6_scenario_1",
+            "tab_k6_scenario_2",
+            "tab_k6_scenario_3",
+            "tab_k6_scenario_4",
+        ],
+        active=None,
+    )
+    ui._k6_scenario_tabs_mode = "parallel"
+
+    def query_request_name(selector, _widget_type=None):
+        if selector.startswith("#input___requestEndpoints__") and selector.endswith("__name"):
+            index = int(selector.split("__")[-2])
+            return type("InputValue", (), {"value": f"Endpoint {index + 1}"})()
+        return DummyUI.query_one(ui, selector, _widget_type)
+
+    ui.query_one = query_request_name
+
+    asyncio.run(ui.sync_k6_scenario_tabs())
+
+    assert ui.k6_scenario_subtabs.active == "tab_k6_scenario_0"
+
+
 def test_collect_k6_scenario_fields_snapshot_uses_only_scenario_subtabs_scope(monkeypatch):
     class ScenarioField:
         def __init__(self, widget_id, value):
