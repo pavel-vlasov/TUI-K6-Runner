@@ -47,11 +47,14 @@ class DummyPane:
 
 
 class DummyScenarioSubtabs:
-    def __init__(self, pane_ids: list[str] | None = None, active: str | None = None):
+    def __init__(self, pane_ids: list[str] | None = None, active: str | None = None, field_widgets=None):
         self.panes = [DummyPane(pane_id) for pane_id in (pane_ids or [])]
         self.active = active
+        self.field_widgets = field_widgets or []
 
-    def query(self, _widget_type):
+    def query(self, widget_type):
+        if widget_type == "Input, Select, Switch, TextArea":
+            return self.field_widgets
         return self.panes
 
     async def remove_pane(self, pane_id):
@@ -133,10 +136,14 @@ class DummyUI(UIMixin):
             "#ramping_arrival_scroll_group": DummyRow(),
         }
         self.request_subtabs = DummyRequestSubtabs()
-        self.k6_scenario_subtabs = DummyScenarioSubtabs(["tab_k6_scenario_0", "tab_k6_scenario_1"], "tab_k6_scenario_1")
+        self.scenario_widgets = []
+        self.k6_scenario_subtabs = DummyScenarioSubtabs(
+            ["tab_k6_scenario_0", "tab_k6_scenario_1"],
+            "tab_k6_scenario_1",
+            self.scenario_widgets,
+        )
         self.request_tab_panes = []
         self.request_endpoints = []
-        self.scenario_widgets = []
         self.built_request_tabs = []
         self.built_k6_tabs = []
         self.notifications = []
@@ -623,3 +630,73 @@ def test_sync_k6_scenario_tabs_adds_tail_and_toggles_only_new_indexes():
     ]
     assert toggled_indexes == [2]
     assert ui.k6_scenario_subtabs.active == "tab_k6_scenario_1"
+
+
+def test_collect_k6_scenario_fields_snapshot_uses_only_scenario_subtabs_scope(monkeypatch):
+    class ScenarioField:
+        def __init__(self, widget_id, value):
+            self.id = widget_id
+            self.value = value
+
+    class FakeTextAreaField:
+        def __init__(self, widget_id, text):
+            self.id = widget_id
+            self.text = text
+
+    monkeypatch.setattr("app_mixins.ui_mixin.TextArea", FakeTextAreaField)
+
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.scenario_widgets.extend(
+        [
+            ScenarioField("input___k6__scenarios__0__duration", "15s"),
+            FakeTextAreaField("textarea___k6__scenarios__0__notes", "scenario note"),
+            ScenarioField("input___k6__executionType", "external"),  # inside container, but not scenario id
+        ]
+    )
+
+    def fail_if_global_query_is_used(_selector):
+        raise AssertionError("Global query should not be used for scenario snapshot")
+
+    ui.query = fail_if_global_query_is_used
+
+    snapshot = ui._collect_k6_scenario_fields_snapshot()
+
+    assert snapshot == {
+        "input___k6__scenarios__0__duration": "15s",
+        "textarea___k6__scenarios__0__notes": "scenario note",
+    }
+
+
+def test_sync_k6_scenario_tabs_passes_stable_snapshot_keys_to_update_from_fields(monkeypatch):
+    import asyncio
+
+    class ScenarioField:
+        def __init__(self, widget_id, value):
+            self.id = widget_id
+            self.value = value
+
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.scenario_widgets.extend(
+        [
+            ScenarioField("input___k6__scenarios__0__duration", "20s"),
+            ScenarioField("input___k6__scenarios__0__rate", "33"),
+        ]
+    )
+
+    captured_keys = []
+
+    def fake_update_from_fields(config, fields):
+        captured_keys.append(set(fields.keys()))
+        return config
+
+    monkeypatch.setattr("app_mixins.ui_mixin.ConfigHandler.update_from_fields", fake_update_from_fields)
+
+    asyncio.run(ui.sync_k6_scenario_tabs())
+    asyncio.run(ui.sync_k6_scenario_tabs())
+
+    assert len(captured_keys) == 2
+    assert captured_keys[0] == captured_keys[1]
+    assert captured_keys[0] == {
+        "input___k6__scenarios__0__duration",
+        "input___k6__scenarios__0__rate",
+    }
