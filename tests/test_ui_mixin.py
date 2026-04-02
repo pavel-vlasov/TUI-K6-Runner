@@ -41,6 +41,26 @@ class DummyRequestSubtabs:
         self.added_panes.append(pane)
 
 
+class DummyPane:
+    def __init__(self, pane_id: str):
+        self.id = pane_id
+
+
+class DummyScenarioSubtabs:
+    def __init__(self, pane_ids: list[str] | None = None, active: str | None = None):
+        self.panes = [DummyPane(pane_id) for pane_id in (pane_ids or [])]
+        self.active = active
+
+    def query(self, _widget_type):
+        return self.panes
+
+    async def remove_pane(self, pane_id):
+        self.panes = [pane for pane in self.panes if pane.id != pane_id]
+
+    async def add_pane(self, pane):
+        self.panes.append(pane)
+
+
 class DummyUI(UIMixin):
     def __init__(
         self,
@@ -99,6 +119,7 @@ class DummyUI(UIMixin):
             "#logging_external_mode_warning": DummyWidget(),
         }
         self.execution_select = DummyValueWidget(execution_type)
+        self.request_mode_select = DummyValueWidget("parallel")
         self.execution_rows = {
             "#k6_vus_row": DummyRow(),
             "#k6_maxvus_row": DummyRow(),
@@ -112,9 +133,12 @@ class DummyUI(UIMixin):
             "#ramping_arrival_scroll_group": DummyRow(),
         }
         self.request_subtabs = DummyRequestSubtabs()
+        self.k6_scenario_subtabs = DummyScenarioSubtabs(["tab_k6_scenario_0", "tab_k6_scenario_1"], "tab_k6_scenario_1")
         self.request_tab_panes = []
         self.request_endpoints = []
+        self.scenario_widgets = []
         self.built_request_tabs = []
+        self.built_k6_tabs = []
         self.notifications = []
         self.config_load_error = None
         self.config_load_error_details = None
@@ -124,6 +148,10 @@ class DummyUI(UIMixin):
             return self.execution_select
         if selector == "#request_subtabs":
             return self.request_subtabs
+        if selector == "#k6_scenario_subtabs":
+            return self.k6_scenario_subtabs
+        if selector == "#select___k6__requestMode":
+            return self.request_mode_select
         if selector in self.execution_rows:
             return self.execution_rows[selector]
         if selector in self.buttons:
@@ -140,6 +168,11 @@ class DummyUI(UIMixin):
             return self.logging_widgets[selector]
         raise KeyError(selector)
 
+    def query(self, selector):
+        if selector == "Input, Select, Switch, TextArea":
+            return self.scenario_widgets
+        return []
+
     def _get_request_tab_panes(self):
         return self.request_tab_panes
 
@@ -153,6 +186,12 @@ class DummyUI(UIMixin):
 
     def notify(self, message, severity="information"):
         self.notifications.append((severity, message))
+
+    def build_k6_settings_tab(self, tab_title, index):
+        pane = DummyPane(f"tab_k6_scenario_{index}")
+        pane.title = tab_title
+        self.built_k6_tabs.append((tab_title, index))
+        return pane
 
 
 def test_web_dashboard_button_disabled_when_not_running():
@@ -453,3 +492,48 @@ def test_toggle_logging_fields_updates_warning_message_from_capabilities():
     warning_text = str(ui.logging_widgets["#logging_external_mode_warning"].renderable)
     assert "stop" in warning_text
     assert "capture logs" in warning_text
+
+
+def test_sync_k6_scenario_tabs_preserves_scenario_values_after_endpoint_rename():
+    import asyncio
+
+    class ScenarioField:
+        def __init__(self, widget_id, value):
+            self.id = widget_id
+            self.value = value
+
+    class RequestPane:
+        def __init__(self, pane_id):
+            self.id = pane_id
+
+    ui = DummyUI(web_dashboard_enabled=False)
+    ui.ui_config = {
+        "k6": {
+            "requestMode": "parallel",
+            "scenarios": [
+                {"duration": "15s", "rate": 10},
+                {"duration": "30s", "rate": 20},
+            ],
+        }
+    }
+    ui.request_tab_panes = [RequestPane("tab_req_endpoint_0"), RequestPane("tab_req_endpoint_1")]
+    ui.scenario_widgets = [
+        ScenarioField("input___k6__scenarios__1__duration", "90s"),
+        ScenarioField("input___k6__scenarios__1__rate", "777"),
+    ]
+
+    def query_request_name(selector, _widget_type=None):
+        if selector == "#input___requestEndpoints__0__name":
+            return type("InputValue", (), {"value": "Users Renamed"})()
+        if selector == "#input___requestEndpoints__1__name":
+            return type("InputValue", (), {"value": "Orders"})()
+        return DummyUI.query_one(ui, selector, _widget_type)
+
+    ui.query_one = query_request_name
+
+    asyncio.run(ui.sync_k6_scenario_tabs())
+
+    scenario_one = ui.ui_config["k6"]["scenarios"][1]
+    assert scenario_one["duration"] == "90s"
+    assert scenario_one["rate"] == 777
+    assert ui.k6_scenario_subtabs.active == "tab_k6_scenario_1"

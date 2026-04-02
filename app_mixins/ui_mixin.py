@@ -12,6 +12,7 @@ from textual.widgets import (
     Switch,
     TabbedContent,
     TabPane,
+    TextArea,
 )
 from copy import deepcopy
 
@@ -29,6 +30,7 @@ from constants import (
 )
 from k6.backends import ExecutionCapabilities
 from ui_components import build_config_fields
+from config_handler import ConfigHandler
 
 
 class UIMixin:
@@ -126,6 +128,10 @@ class UIMixin:
         except Exception:
             return
 
+        scenario_fields_snapshot = self._collect_k6_scenario_fields_snapshot()
+        if scenario_fields_snapshot:
+            self.ui_config = ConfigHandler.update_from_fields(self.ui_config, scenario_fields_snapshot)
+
         request_mode = str(k6_mode_select.value or self.get_request_mode())
         endpoint_names: list[str] = []
         request_panes = self._get_request_tab_panes()
@@ -161,6 +167,21 @@ class UIMixin:
             if index == 0:
                 continue
             self.toggle_scenario_execution_type_fields(index)
+
+    def _collect_k6_scenario_fields_snapshot(self) -> dict[str, object]:
+        snapshot: dict[str, object] = {}
+        for widget in self.query("Input, Select, Switch, TextArea"):
+            widget_id = getattr(widget, "id", None)
+            if not widget_id or "___" not in widget_id:
+                continue
+            if "___k6__scenarios__" not in widget_id:
+                continue
+
+            if isinstance(widget, TextArea):
+                snapshot[widget_id] = widget.text
+            else:
+                snapshot[widget_id] = widget.value
+        return snapshot
 
     def toggle_execution_type_fields(self) -> None:
         execution_select = self.query_one("#select___k6__executionType", Select)
