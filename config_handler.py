@@ -259,7 +259,7 @@ class ConfigHandler:
         source = logging_cfg if isinstance(logging_cfg, dict) else {}
         return {
             "enabled": bool(source.get("enabled", False)),
-            "level": globals()["normalize_logging_level"](source.get("level", LOGGING_LEVEL_FAILED)),
+            "level": normalize_logging_level(source.get("level", LOGGING_LEVEL_FAILED)),
             "outputToUI": bool(source.get("outputToUI", True)),
             "webDashboard": bool(source.get("webDashboard", False)),
             "webDashboardUrl": str(source.get("webDashboardUrl", "http://localhost:5665")).strip(),
