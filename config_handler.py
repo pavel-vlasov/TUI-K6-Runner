@@ -259,7 +259,7 @@ class ConfigHandler:
         source = logging_cfg if isinstance(logging_cfg, dict) else {}
         return {
             "enabled": bool(source.get("enabled", False)),
-            "level": normalize_logging_level(source.get("level", LOGGING_LEVEL_FAILED)),
+            "level": globals()["normalize_logging_level"](source.get("level", LOGGING_LEVEL_FAILED)),
             "outputToUI": bool(source.get("outputToUI", True)),
             "webDashboard": bool(source.get("webDashboard", False)),
             "webDashboardUrl": str(source.get("webDashboardUrl", "http://localhost:5665")).strip(),
@@ -284,7 +284,9 @@ class ConfigHandler:
             errors.append(f"auth.mode is invalid: {explicit_mode}.")
 
         if mode in {AuthMode.OAUTH2_CLIENT_CREDENTIALS.value, AuthMode.BASIC.value, AuthMode.CLIENT_ID_ENFORCEMENT.value}:
-            if not str(source.get("client_id", "")).strip() or not str(source.get("client_secret", "")).strip():
+            client_id = str(source.get("client_id", "")).strip()
+            client_secret = str(source.get("client_secret", "")).strip()
+            if not client_id and not client_secret:
                 errors.append(f"auth.client_id and auth.client_secret are required for auth.mode={mode}.")
 
         if mode == AuthMode.OAUTH2_CLIENT_CREDENTIALS.value:
