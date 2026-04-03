@@ -10,21 +10,6 @@ from k6.output_parser import clean_cursor_sequences, is_run_complete_line
 from k6.process_manager import K6ProcessManager
 
 
-def _split_stream_buffer(buffer: str) -> tuple[list[tuple[str, bool]], str]:
-    lines: list[tuple[str, bool]] = []
-    start = 0
-
-    for index, char in enumerate(buffer):
-        if char not in {"\n", "\r"}:
-            continue
-
-        segment = buffer[start:index]
-        lines.append((segment, char == "\r"))
-        start = index + 1
-
-    return lines, buffer[start:]
-
-
 class EmbeddedProcessBackend(ExecutionBackend):
     def __init__(self, process_manager: K6ProcessManager | None = None) -> None:
         self.process_manager = process_manager or K6ProcessManager()
@@ -58,35 +43,22 @@ class EmbeddedProcessBackend(ExecutionBackend):
 
         async def read_stream(stream, color: str) -> None:
             nonlocal run_result_reported
-            pending = ""
             while True:
-                chunk = await stream.read(1024)
-                if not chunk:
+                line = await stream.readline()
+                if not line:
                     break
 
-                pending += chunk.decode("utf-8", errors="replace")
-                lines, pending = _split_stream_buffer(pending)
+                text = line.decode("utf-8", errors="replace").rstrip()
+                clean_text = clean_cursor_sequences(text)
+                if not clean_text.strip():
+                    continue
 
-                for line, has_carriage_return in lines:
-                    clean_text = clean_cursor_sequences(line).rstrip()
-                    if not clean_text.strip():
-                        continue
+                hide_line = on_output_line(clean_text, color)
 
-                    hide_line = on_output_line(clean_text, color, has_carriage_return)
-
-                    if is_run_complete_line(clean_text) and not run_result_reported:
-                        run_result_reported = True
-                        on_run_complete()
-
-                    if not hide_line and not has_carriage_return:
-                        on_log(f"[{color}]{clean_text}[/{color}]")
-
-            if pending.strip():
-                clean_text = clean_cursor_sequences(pending).rstrip()
-                hide_line = on_output_line(clean_text, color, False)
                 if is_run_complete_line(clean_text) and not run_result_reported:
                     run_result_reported = True
                     on_run_complete()
+
                 if not hide_line:
                     on_log(f"[{color}]{clean_text}[/{color}]")
 

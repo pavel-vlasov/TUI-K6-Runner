@@ -10,11 +10,11 @@ def format_error_categories_table(categories: dict[str, int]) -> str:
     return "errors: " + "  |  ".join(parts)
 
 
-def format_running_status(last_counter: str, status_running: str, progress_widget: str) -> str:
+def format_running_status(last_counter: str, status_running: str, status_default: str) -> str:
     return (
         f"[bold]📊 {last_counter}[/bold]\n"
         f"[bold]🔄 {status_running}[/bold]\n"
-        f"[bold]📈 {progress_widget}[/bold]"
+        f"[bold]📈 {status_default}[/bold]"
     )
 
 

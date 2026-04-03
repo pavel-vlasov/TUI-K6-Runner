@@ -147,17 +147,6 @@ def test_run_k6_process_embedded_backend_updates_counters(monkeypatch):
     assert service.state.fail_count == 1
     assert service.state.fail_categories == {"timeout": 1}
     assert any("✅ Done." in status for status in statuses)
-    assert service.state.progress_widget == "✅ Test finished"
-
-
-def test_handle_status_lines_uses_progress_candidates() -> None:
-    service = K6Service()
-    statuses: list[str] = []
-
-    handled = service._handle_status_lines("users [  45% ] 12/20 VUs 00m03s/00m10s", statuses.append, True)
-
-    assert handled is True
-    assert service.state.progress_widget == "users [  45% ] 12/20 VUs 00m03s/00m10s"
 
 
 def test_run_k6_process_external_backend_does_not_emit_ui_start(monkeypatch):

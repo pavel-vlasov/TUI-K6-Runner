@@ -24,7 +24,7 @@ class ExecutionBackend(ABC):
         summary_json_path: Path,
         on_log: Callable[[str], None],
         on_status: Callable[[str], None],
-        on_output_line: Callable[[str, str, bool], bool],
+        on_output_line: Callable[[str, str], bool],
         on_run_complete: Callable[[], None],
     ) -> None:
         raise NotImplementedError
