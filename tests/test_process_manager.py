@@ -238,48 +238,6 @@ def test_start_run_creates_summary_directory_when_needed(monkeypatch, tmp_path):
     assert summary_file.parent.exists()
 
 
-def test_start_run_adds_summary_mode_full_flag(monkeypatch):
-    captured = {}
-
-    async def fake_create_subprocess_exec(*args, **kwargs):
-        captured["args"] = args
-        captured["kwargs"] = kwargs
-
-        class DummyProcess:
-            returncode = None
-            pid = 1
-
-        return DummyProcess()
-
-    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
-
-    manager = K6ProcessManager()
-    asyncio.run(manager.start_run(summary_mode="full"))
-
-    assert "--summary-mode=full" in captured["args"]
-
-
-def test_start_run_does_not_add_summary_mode_flag_for_compact(monkeypatch):
-    captured = {}
-
-    async def fake_create_subprocess_exec(*args, **kwargs):
-        captured["args"] = args
-        captured["kwargs"] = kwargs
-
-        class DummyProcess:
-            returncode = None
-            pid = 1
-
-        return DummyProcess()
-
-    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
-
-    manager = K6ProcessManager()
-    asyncio.run(manager.start_run(summary_mode="compact"))
-
-    assert "--summary-mode=full" not in captured["args"]
-
-
 def test_stop_returns_true_after_graceful_stop():
     class DummyProcess:
         def __init__(self):

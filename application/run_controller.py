@@ -49,7 +49,6 @@ class RunController:
             web_dashboard = config.get("k6", {}).get("logging", {}).get("webDashboard", False)
             html_summary_report = config.get("k6", {}).get("logging", {}).get("htmlSummaryReport", False)
             web_dashboard_url = config.get("k6", {}).get("logging", {}).get("webDashboardUrl", "")
-            summary_mode = config.get("k6", {}).get("logging", {}).get("summaryMode", "compact")
 
             run_task_coro = self.k6_service.run_k6_process(
                 on_log=callbacks.on_log,
@@ -59,7 +58,6 @@ class RunController:
                 enable_web_dashboard=web_dashboard,
                 web_dashboard_url=web_dashboard_url,
                 enable_html_summary=html_summary_report,
-                summary_mode=summary_mode,
             )
             task = asyncio.create_task(run_task_coro)
             task.add_done_callback(lambda _: self._notify_run_state_changed(callbacks, False))

@@ -130,8 +130,7 @@
             "outputToUI": {"type": "boolean"},
             "webDashboard": {"type": "boolean"},
             "webDashboardUrl": {"type": "string", "format": "uri", "pattern": "^https?://"},
-            "htmlSummaryReport": {"type": "boolean"},
-            "summaryMode": {"type": "string", "enum": ["compact", "full"]}
+            "htmlSummaryReport": {"type": "boolean"}
           },
           "allOf": [
             {

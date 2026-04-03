@@ -25,7 +25,6 @@ class ExternalTerminalBackend(ExecutionBackend):
         enable_web_dashboard: bool,
         web_dashboard_url: str | None,
         enable_html_summary: bool,
-        summary_mode: str,
         summary_json_path: Path,
         on_log: Callable[[str], None],
         on_status: Callable[[str], None],
@@ -40,7 +39,6 @@ class ExternalTerminalBackend(ExecutionBackend):
             enable_web_dashboard=enable_web_dashboard,
             web_dashboard_url=web_dashboard_url,
             enable_html_summary=enable_html_summary,
-            summary_mode=summary_mode,
             summary_json_path=summary_json_path,
             shell_type=shell_type,
         )
@@ -122,7 +120,6 @@ class ExternalTerminalBackend(ExecutionBackend):
         enable_web_dashboard: bool,
         web_dashboard_url: str | None,
         enable_html_summary: bool,
-        summary_mode: str,
         summary_json_path: Path,
         shell_type: str = "posix",
     ) -> str:
@@ -148,8 +145,6 @@ class ExternalTerminalBackend(ExecutionBackend):
         if enable_html_summary:
             summary_export_path = summary_json_path.as_posix() if shell_type == "powershell" else str(summary_json_path)
             command_parts.extend(["--summary-export", summary_export_path])
-        if str(summary_mode).strip().lower() == "full":
-            command_parts.append("--summary-mode=full")
 
         if shell_type == "powershell":
             command_text = "& " + " ".join(_powershell_quote(part) for part in command_parts)

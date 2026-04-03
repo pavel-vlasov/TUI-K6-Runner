@@ -239,7 +239,6 @@ def test_build_external_k6_command_windows_uses_powershell_env_syntax(monkeypatc
         enable_web_dashboard=True,
         web_dashboard_url="http://127.0.0.1:7777",
         enable_html_summary=True,
-        summary_mode="compact",
         summary_json_path=tmp_path / "summary.json",
         shell_type="powershell",
     )
@@ -259,7 +258,6 @@ def test_build_external_k6_command_windows_escapes_single_quotes_in_path(tmp_pat
         enable_web_dashboard=False,
         web_dashboard_url=None,
         enable_html_summary=True,
-        summary_mode="compact",
         summary_json_path=summary_json_path,
         shell_type="powershell",
     )
@@ -278,7 +276,6 @@ def test_build_external_k6_command_posix_quotes_web_dashboard_out_as_single_toke
         enable_web_dashboard=True,
         web_dashboard_url="http://127.0.0.1:7777",
         enable_html_summary=True,
-        summary_mode="compact",
         summary_json_path=summary_json_path,
         shell_type="posix",
     )
@@ -304,7 +301,6 @@ def test_build_external_k6_command_posix_preserves_quotes_in_summary_path(tmp_pa
         enable_web_dashboard=False,
         web_dashboard_url=None,
         enable_html_summary=True,
-        summary_mode="compact",
         summary_json_path=summary_json_path,
         shell_type="posix",
     )
@@ -324,7 +320,6 @@ def test_build_external_k6_command_adds_connection_reuse_flags(tmp_path):
         enable_web_dashboard=False,
         web_dashboard_url=None,
         enable_html_summary=True,
-        summary_mode="compact",
         summary_json_path=summary_json_path,
         shell_type="posix",
     )
@@ -333,7 +328,6 @@ def test_build_external_k6_command_adds_connection_reuse_flags(tmp_path):
         enable_web_dashboard=False,
         web_dashboard_url=None,
         enable_html_summary=True,
-        summary_mode="compact",
         summary_json_path=summary_json_path,
         shell_type="posix",
     )
@@ -342,22 +336,6 @@ def test_build_external_k6_command_adds_connection_reuse_flags(tmp_path):
     assert "--no-vu-connection-reuse" not in shlex.split(no_conn_command)
     assert "--no-vu-connection-reuse" in shlex.split(no_vu_conn_command)
     assert "--no-connection-reuse" not in shlex.split(no_vu_conn_command)
-
-
-def test_build_external_k6_command_adds_summary_mode_full_flag(tmp_path):
-    backend = ExternalTerminalBackend()
-
-    command = backend._build_external_k6_command(
-        connection_management="keep-alive",
-        enable_web_dashboard=False,
-        web_dashboard_url=None,
-        enable_html_summary=False,
-        summary_mode="full",
-        summary_json_path=tmp_path / "summary.json",
-        shell_type="posix",
-    )
-
-    assert "--summary-mode=full" in shlex.split(command)
 
 
 def test_set_vus_returns_false_when_backend_has_no_scale(monkeypatch):
