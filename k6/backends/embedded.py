@@ -10,19 +10,23 @@ from k6.output_parser import clean_cursor_sequences, is_run_complete_line
 from k6.process_manager import K6ProcessManager
 
 
-def _split_stream_buffer(buffer: str) -> tuple[list[tuple[str, bool]], str]:
+def _split_stream_buffer(
+    buffer: str, pending_progress_flag: bool = False
+) -> tuple[list[tuple[str, bool]], str, bool]:
     lines: list[tuple[str, bool]] = []
     start = 0
+    segment_is_progress = pending_progress_flag
 
     for index, char in enumerate(buffer):
         if char not in {"\n", "\r"}:
             continue
 
         segment = buffer[start:index]
-        lines.append((segment, char == "\r"))
+        lines.append((segment, segment_is_progress or char == "\r"))
+        segment_is_progress = char == "\r"
         start = index + 1
 
-    return lines, buffer[start:]
+    return lines, buffer[start:], segment_is_progress
 
 
 class EmbeddedProcessBackend(ExecutionBackend):
@@ -43,7 +47,7 @@ class EmbeddedProcessBackend(ExecutionBackend):
         summary_json_path: Path,
         on_log: Callable[[str], None],
         on_status: Callable[[str], None],
-        on_output_line: Callable[[str, str], bool],
+        on_output_line: Callable[[str, str, bool], bool],
         on_run_complete: Callable[[], None],
     ) -> None:
         process = await self.process_manager.start_run(
@@ -59,13 +63,14 @@ class EmbeddedProcessBackend(ExecutionBackend):
         async def read_stream(stream, color: str) -> None:
             nonlocal run_result_reported
             pending = ""
+            pending_progress_flag = False
             while True:
                 chunk = await stream.read(1024)
                 if not chunk:
                     break
 
                 pending += chunk.decode("utf-8", errors="replace")
-                lines, pending = _split_stream_buffer(pending)
+                lines, pending, pending_progress_flag = _split_stream_buffer(pending, pending_progress_flag)
 
                 for line, has_carriage_return in lines:
                     clean_text = clean_cursor_sequences(line).rstrip()
@@ -83,11 +88,11 @@ class EmbeddedProcessBackend(ExecutionBackend):
 
             if pending.strip():
                 clean_text = clean_cursor_sequences(pending).rstrip()
-                hide_line = on_output_line(clean_text, color, False)
+                hide_line = on_output_line(clean_text, color, pending_progress_flag)
                 if is_run_complete_line(clean_text) and not run_result_reported:
                     run_result_reported = True
                     on_run_complete()
-                if not hide_line:
+                if not hide_line and not pending_progress_flag:
                     on_log(f"[{color}]{clean_text}[/{color}]")
 
         await asyncio.gather(
