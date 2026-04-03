@@ -117,7 +117,7 @@ class EventsMixin:
                 return
 
         log_view = self.query_one("#output_log", RichLog)
-        status_bar = self.query_one("#status_bar", Static)
+        progress_widget = self.query_one("#status_bar", Static)
 
         if event.button.id == "run_btn":
             if self.run_controller.is_running:
@@ -128,7 +128,7 @@ class EventsMixin:
                 return
 
             run_btn = self.query_one("#run_btn", Button)
-            status_bar.update("Validating configuration...")
+            progress_widget.update("Validating configuration...")
             self._is_validating_config = True
             run_btn.disabled = True
             try:
@@ -141,9 +141,15 @@ class EventsMixin:
             log_view.clear()
             self.notify("Running K6 execution...")
 
+            def append_log(message: str) -> None:
+                log_view.write(message)
+
+            def update_progress(message: str) -> None:
+                progress_widget.update(message)
+
             callbacks = RunCallbacks(
-                on_log=log_view.write,
-                on_status=status_bar.update,
+                on_log=append_log,
+                on_status=update_progress,
                 on_run_state_changed=self.set_run_ui_state,
                 on_capabilities_changed=lambda capabilities: setattr(self, "execution_capabilities", capabilities),
             )
