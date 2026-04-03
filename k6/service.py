@@ -56,7 +56,6 @@ class K6Service:
         enable_web_dashboard: bool = False,
         web_dashboard_url: str | None = None,
         enable_html_summary: bool = False,
-        summary_mode: str = "compact",
     ):
         if self.state.is_running:
             try:
@@ -91,7 +90,6 @@ class K6Service:
                 enable_web_dashboard=enable_web_dashboard,
                 web_dashboard_url=web_dashboard_url,
                 enable_html_summary=enable_html_summary,
-                summary_mode=summary_mode,
                 summary_json_path=summary_json_path,
                 on_log=on_log,
                 on_status=on_status,

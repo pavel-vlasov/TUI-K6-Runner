@@ -21,7 +21,6 @@ from constants import (
     ExecutionType,
     RequestMode,
     ConnectionManagement,
-    SummaryMode,
     normalize_logging_level,
 )
 
@@ -272,7 +271,6 @@ class ConfigHandler:
             "webDashboard": bool(source.get("webDashboard", False)),
             "webDashboardUrl": str(source.get("webDashboardUrl", "http://localhost:5665")).strip(),
             "htmlSummaryReport": bool(source.get("htmlSummaryReport", False)),
-            "summaryMode": str(source.get("summaryMode", SummaryMode.COMPACT.value)).strip().lower(),
         }
 
     @staticmethod
@@ -418,9 +416,6 @@ class ConfigHandler:
                 dashboard_url = logging_cfg.get("webDashboardUrl", "")
                 if not ConfigHandler.is_valid_http_url(dashboard_url):
                     errors.append("k6.logging.webDashboardUrl must be a valid http/https URL when webDashboard is enabled.")
-            summary_mode = str(logging_cfg.get("summaryMode", "")).strip().lower()
-            if summary_mode and summary_mode not in {SummaryMode.COMPACT.value, SummaryMode.FULL.value}:
-                errors.append(f"k6.logging.summaryMode is invalid: {summary_mode}.")
 
         return errors
 
