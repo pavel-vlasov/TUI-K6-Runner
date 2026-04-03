@@ -69,15 +69,14 @@ class K6Service:
         self.backend = select_backend({"k6": {"logging": {"outputToUI": output_to_ui}}})
         summary_json_path, summary_html_path = self._build_summary_paths()
 
-        def _on_output_line(clean_text: str, _color: str, is_progress_update: bool = False) -> bool:
-            if self._handle_status_lines(clean_text, on_status, is_progress_update):
+        def _on_output_line(clean_text: str, _color: str) -> bool:
+            if self._handle_status_lines(clean_text, on_status):
                 return True
             return self._handle_counter_lines(clean_text, on_status)
 
         def _on_run_complete() -> None:
             if enable_html_summary:
                 self._generate_html_summary_report(summary_json_path, summary_html_path, on_log)
-            self.update_progress("✅ Test finished")
             on_log("\n[bold green]✅ Test finished.[/bold green]")
             on_status(format_done_status(self.state.last_counter))
 
@@ -112,7 +111,6 @@ class K6Service:
         self.state.fail_count = 0
         self.state.fail_categories = {}
         self.state.last_counter = "requests: ✅ 0  [bold white]│[/bold white]  ❌ 0"
-        self.state.progress_widget = "Preparing..."
         self.last_update_time = 0.0
         self.last_counter_update_time = 0.0
 
@@ -142,18 +140,17 @@ class K6Service:
         except Exception as error:
             on_log(f"[bold red]❌ Failed to build HTML summary: {error}[/bold red]")
 
-    def _handle_status_lines(self, clean_text: str, on_status, is_progress_update: bool = False) -> bool:
+    def _handle_status_lines(self, clean_text: str, on_status) -> bool:
         running = is_running_line(clean_text)
         default = is_default_line(clean_text)
         scenario = is_scenario_progress_line(clean_text)
-        progress_candidate = is_progress_update and not running
 
         if running:
             self.state.status_running = clean_text
-        if default or scenario or progress_candidate:
-            self.update_progress(clean_text)
+        if default or scenario:
+            self.state.status_default = clean_text
 
-        handled = running or default or scenario or progress_candidate
+        handled = running or default or scenario
         if handled and (time.time() - self.last_update_time > 0.1):
             self._update_ui(on_status)
             self.last_update_time = time.time()
@@ -194,13 +191,9 @@ class K6Service:
             format_running_status(
                 self.state.last_counter,
                 self.state.status_running,
-                self.state.progress_widget,
+                self.state.status_default,
             )
         )
-
-    def update_progress(self, progress_line: str) -> None:
-        self.state.progress_widget = progress_line
-        self.state.status_default = progress_line
 
     async def set_vus(self, target_vus: int, on_log):
         if not self.state.is_running:
