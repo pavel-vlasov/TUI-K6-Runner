@@ -612,9 +612,9 @@ sortedcontainers==2.4.0 \
     --hash=sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88 \
     --hash=sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0
     # via cyclonedx-python-lib
-textual==8.2.1 \
-    --hash=sha256:4176890e9cd5c95dcdd206541b2956b0808e74c8c36381c88db53dcb45237451 \
-    --hash=sha256:746cbf947a8ca875afc09779ef38cadbc7b9f15ac886a5090f7099fef5ade990
+textual==8.2.3 \
+    --hash=sha256:5008ac581bebf1f6fa0520404261844a231e5715fdbddd10ca73916a3af48ca2 \
+    --hash=sha256:beea7b86b03b03558a2224f0cc35252e60ef8b0c4353b117b2f40972902d976a
     # via -r requirements.in
 tomli==2.4.1 \
     --hash=sha256:01f520d4f53ef97964a240a035ec2a869fe1a37dde002b57ebc4417a27ccd853 \
