@@ -181,9 +181,9 @@ rpds-py==0.30.0 \
     # via
     #   jsonschema
     #   referencing
-textual==8.2.1 \
-    --hash=sha256:4176890e9cd5c95dcdd206541b2956b0808e74c8c36381c88db53dcb45237451 \
-    --hash=sha256:746cbf947a8ca875afc09779ef38cadbc7b9f15ac886a5090f7099fef5ade990
+textual==8.2.5 \
+    --hash=sha256:247d2aa2faf222749c321f88a736247f37ee2c023604079c7490bfacddfcd4b2 \
+    --hash=sha256:6c894e65a879dadb4f6cf46ddcfedb0173ff7e0cb1fe605ff7b357a597bdbc90
     # via -r requirements.in
 typing-extensions==4.15.0 \
     --hash=sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466 \
