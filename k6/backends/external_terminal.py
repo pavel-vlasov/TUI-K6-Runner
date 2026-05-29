@@ -9,6 +9,7 @@ from pathlib import Path
 from collections.abc import Callable
 from urllib.parse import urlparse
 
+from app_bootstrap import ensure_k6_script
 from k6.backends.base import ExecutionBackend
 from k6.backends.capabilities import ExecutionCapabilities
 
@@ -123,7 +124,7 @@ class ExternalTerminalBackend(ExecutionBackend):
         def _powershell_quote(value: str) -> str:
             return "'" + value.replace("'", "''") + "'"
 
-        command_parts = ["k6", "run", "test.js"]
+        command_parts = ["k6", "run", ensure_k6_script()]
         env_parts: list[tuple[str, str]] = []
 
         if enable_web_dashboard:

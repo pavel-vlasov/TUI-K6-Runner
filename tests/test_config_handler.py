@@ -19,6 +19,7 @@ from constants import (
 
 def test_config_handler_import_fails_without_jsonschema(monkeypatch):
     original_import = builtins.__import__
+    original_config_handler = sys.modules.get("config_handler")
 
     def fake_import(name, *args, **kwargs):
         if name == "jsonschema":
@@ -28,8 +29,12 @@ def test_config_handler_import_fails_without_jsonschema(monkeypatch):
     monkeypatch.setattr(builtins, "__import__", fake_import)
     sys.modules.pop("config_handler", None)
 
-    with pytest.raises(ModuleNotFoundError):
-        importlib.import_module("config_handler")
+    try:
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module("config_handler")
+    finally:
+        if original_config_handler is not None:
+            sys.modules["config_handler"] = original_config_handler
 
 
 def _base_runtime() -> dict:
