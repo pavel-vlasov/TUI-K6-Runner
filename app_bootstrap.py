@@ -18,7 +18,7 @@ def ensure_runtime_dependencies() -> None:
     if missing:
         deps = ", ".join(missing)
         raise RuntimeError(
-            f"Missing runtime dependencies: {deps}. Install project dependencies via requirements.txt/pyproject before start."
+            f"Missing runtime dependencies: {deps}. Install project dependencies from pyproject.toml before start."
         )
 
     if shutil.which("k6") is None:

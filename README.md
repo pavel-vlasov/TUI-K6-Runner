@@ -39,8 +39,25 @@ The first run in a directory that does not already contain `test.js` creates the
 ### Development setup
 
 ```bash
-pip install --require-hashes -r requirements-dev.txt
+python -m pip install --upgrade pip
+pip install -e ".[dev]"
 ```
+
+### Quality checks
+
+```bash
+ruff check .
+pytest -q
+pip-audit
+bandit -r .
+```
+
+### Dependency policy
+
+- `pyproject.toml` is the only source of truth.
+- No requirements lock files are used.
+- CI intentionally installs latest compatible dependencies according to `pyproject.toml`.
+- If CI fails after dependency updates, either fix code or add version constraints in `pyproject.toml`.
 
 ## Usage
 
