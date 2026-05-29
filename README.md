@@ -1,6 +1,6 @@
 # TUI-K6-Runner
 
-[![Quality Pipeline](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
+[![Quality Pipeline](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pavel-vlasov/TUI-K6-Runner/actions/workflows/ci.yml)
 [![Python version](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/downloads/release/python-3110/)
 
 A terminal UI application for configuring and running k6 load tests with real-time feedback.
