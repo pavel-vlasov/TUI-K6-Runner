@@ -28,6 +28,16 @@ dependencies = [
   "pygments",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "colorama==0.4.6",
+  "pytest",
+  "pytest-cov",
+  "ruff",
+  "pip-audit",
+  "bandit",
+]
+
 [project.urls]
 Homepage = "https://github.com/pavel-vlasov/TUI-K6-Runner"
 Repository = "https://github.com/pavel-vlasov/TUI-K6-Runner"
