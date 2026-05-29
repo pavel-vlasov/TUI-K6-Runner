@@ -1,3 +1,64 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tui-k6-runner"
+version = "0.1.0"
+description = "Terminal UI application for configuring and running k6 load tests."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+  { name = "TUI-K6-Runner contributors" },
+]
+keywords = ["k6", "load-testing", "textual", "tui"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Software Development :: Testing",
+]
+dependencies = [
+  "textual",
+  "pyperclip",
+  "jsonschema",
+  "pygments",
+]
+
+[project.urls]
+Homepage = "https://github.com/pavel-vlasov/TUI-K6-Runner"
+Repository = "https://github.com/pavel-vlasov/TUI-K6-Runner"
+Issues = "https://github.com/pavel-vlasov/TUI-K6-Runner/issues"
+
+[project.scripts]
+tui-k6-runner = "main:main"
+
+[tool.setuptools]
+packages = [
+  "application",
+  "app_mixins",
+  "k6",
+  "k6.backends",
+  "tui_k6_runner",
+  "tui_k6_runner.resources",
+  "tui_k6_runner.resources.schema",
+]
+py-modules = [
+  "app",
+  "app_bootstrap",
+  "config_handler",
+  "constants",
+  "main",
+  "ui_components",
+]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"tui_k6_runner.resources" = ["style.tcss", "test.js", "schema/*.json"]
+
 [tool.ruff]
 target-version = "py311"
 line-length = 88
