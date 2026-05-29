@@ -14,7 +14,29 @@ A terminal UI application for configuring and running k6 load tests with real-ti
 - Python **3.11.x**
 - [k6](https://grafana.com/docs/k6/latest/set-up/install-k6/) installed and available in `PATH`
 
-### Setup
+### Install from Git
+
+Install the runnable CLI directly from GitHub:
+
+```bash
+pip install "git+https://github.com/pavel-vlasov/TUI-K6-Runner.git"
+```
+
+Install a specific tag or branch when you need a reproducible version:
+
+```bash
+pip install "git+https://github.com/pavel-vlasov/TUI-K6-Runner.git@v0.1.0"
+```
+
+After installation, start the application with:
+
+```bash
+tui-k6-runner
+```
+
+The first run in a directory that does not already contain `test.js` creates the packaged k6 script there, next to the generated `test_config.json`.
+
+### Development setup
 
 ```bash
 pip install --require-hashes -r requirements-dev.txt
@@ -22,10 +44,16 @@ pip install --require-hashes -r requirements-dev.txt
 
 ## Usage
 
-Run the application:
+Run the application from a source checkout:
 
 ```bash
 python main.py
+```
+
+Run the installed CLI:
+
+```bash
+tui-k6-runner
 ```
 
 If `k6` is not found in `PATH`, the app stops at startup with a clear error.

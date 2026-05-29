@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
+from app_bootstrap import ensure_k6_script
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +30,7 @@ class K6ProcessManager:
 
         env = os.environ.copy()
 
-        command = ["k6", "run", "test.js", "--no-color"]
+        command = ["k6", "run", ensure_k6_script(), "--no-color"]
         if enable_web_dashboard:
             command.extend(["--out", "web-dashboard=period=5s&open=false"])
             env["K6_WEB_DASHBOARD_OPEN"] = "false"
