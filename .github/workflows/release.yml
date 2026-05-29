@@ -20,10 +20,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout tag push
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/checkout@v4
+
+      - name: Checkout manual tag
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: refs/tags/${{ github.event.inputs.tag }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
